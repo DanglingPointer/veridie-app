@@ -8,7 +8,7 @@ namespace dice {
 class IEngine
 {
 public:
-   virtual ~IEngine() {}
+   virtual ~IEngine() = default;
 
    virtual void GenerateResult(dice::Cast & cast) = 0;
 };
