@@ -1,7 +1,7 @@
 #ifndef LOGGING_HPP
 #define LOGGING_HPP
 
-#include <string_view>
+#include <string>
 
 enum class LogPriority
 {
@@ -19,7 +19,7 @@ class ILogger
 public:
    virtual ~ILogger() = default;
 
-   virtual void Write(LogPriority prio, std::string_view msg) = 0;
+   virtual void Write(LogPriority prio, std::string msg) = 0;
 };
 
 #endif // LOGGING_HPP

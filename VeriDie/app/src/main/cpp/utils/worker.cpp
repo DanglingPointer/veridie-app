@@ -3,9 +3,15 @@
 
 Worker::Worker(void * data, ILogger & log)
    : m_queue(std::make_shared<moodycamel::BlockingConcurrentQueue<Worker::Task>>())
+   , m_stop(std::make_shared<std::atomic_bool>(false))
    , m_log(log)
 {
    Launch(data);
+}
+
+Worker::~Worker()
+{
+   m_stop->store(true);
 }
 
 void Worker::ScheduleTask(Worker::Task item)
@@ -18,8 +24,8 @@ void Worker::ScheduleTask(Worker::Task item)
 
 void Worker::Launch(void * arg)
 {
-   std::thread([queue = m_queue, arg] {
-      for (;;) {
+   std::thread([queue = m_queue, stop = m_stop, arg] {
+      while (false == stop->load()) {
          Worker::Task t;
          queue->wait_dequeue(t);
          t(arg);

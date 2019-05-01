@@ -11,9 +11,9 @@ public:
    explicit Logger(std::string tag)
       : m_tag(std::move(tag))
    {}
-   void Write(LogPriority prio, std::string_view msg) override
+   void Write(LogPriority prio, std::string msg) override
    {
-      __android_log_write(static_cast<int>(prio), m_tag.c_str(), msg.data());
+      __android_log_write(static_cast<int>(prio), m_tag.c_str(), msg.c_str());
    }
 
 private:

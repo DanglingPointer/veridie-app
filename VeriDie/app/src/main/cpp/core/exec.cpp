@@ -7,15 +7,15 @@ namespace {
 
 Worker & MainWorker()
 {
-   static main::ServiceLocator svc;
-   static Worker w(&svc, svc.GetLogger());
-   return w;
+   static main::ServiceLocator s_svc;
+   static Worker s_w(&s_svc, s_svc.GetLogger());
+   return s_w;
 }
 
 } // namespace
 
 main::ServiceLocator::ServiceLocator()
-   : m_logger(jni::CreateLogger("MAIN"))
+   : m_logger(jni::CreateLogger("MAIN_WORKER"))
    , m_engine(dice::CreateUniformEngine())
 {}
 

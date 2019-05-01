@@ -9,7 +9,7 @@ public class MainActivity extends AppCompatActivity
 
    // Used to load the 'native-lib' library on application startup.
    static {
-      System.loadLibrary("native-lib");
+      System.loadLibrary("veridie");
    }
    @Override
    protected void onCreate(Bundle savedInstanceState) {
@@ -25,4 +25,6 @@ public class MainActivity extends AppCompatActivity
     * this application.
     */
    public native String stringFromJNI();
+
+   public native void receiveData(String device, byte[] data, int length);
 }

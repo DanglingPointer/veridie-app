@@ -3,7 +3,7 @@
 
 #include <string>
 #include <memory>
-#include "utils/logging.hpp"
+#include "core/logging.hpp"
 
 namespace jni {
 
