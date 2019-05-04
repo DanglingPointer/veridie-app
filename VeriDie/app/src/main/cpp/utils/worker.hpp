@@ -12,7 +12,6 @@ class Worker
 public:
    using Task = std::function<void(void *)>;
 
-   // starts executing and never stops, even after Worker is destructed
    Worker(void * data, ILogger & log);
    ~Worker();
    void ScheduleTask(Task item);
