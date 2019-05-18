@@ -24,6 +24,10 @@ add_library( # Sets the name of the library.
         dice/serializer.cpp
         jni/interop.cpp
         jni/logger.cpp
+        jni/btinvoker.cpp
+        jni/uiinvoker.cpp
+        jni/btproxy.cpp
+        bt/device.cpp
         utils/worker.cpp
         core/exec.cpp)
 
@@ -61,7 +65,8 @@ target_include_directories(gtest PRIVATE ${GOOGLETEST_ROOT})
 target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 # google test executable:
 add_executable(tests
-        tests/dice_test.cpp)
+        tests/dice_test.cpp
+        tests/bt_test.cpp)
 target_link_libraries(tests
         gtest
         veridie)
