@@ -27,9 +27,30 @@ private:
    std::mt19937 m_generator;
 };
 
+struct SuccessCounter
+{
+   uint32_t threshold;
+
+   template <typename D>
+   size_t operator()(const std::vector<D> & cast)
+   {
+      size_t count = 0;
+      for (const auto & value : cast) {
+         if (value >= threshold)
+            ++count;
+      }
+      return count;
+   }
+};
+
 } // namespace
 
 namespace dice {
+
+size_t GetSuccessCount(const Cast & cast, uint32_t threshold)
+{
+   return std::visit(SuccessCounter{threshold}, cast);
+}
 
 std::unique_ptr<IEngine> CreateUniformEngine()
 {

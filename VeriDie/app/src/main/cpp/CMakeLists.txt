@@ -24,12 +24,14 @@ add_library( # Sets the name of the library.
         dice/serializer.cpp
         jni/interop.cpp
         jni/logger.cpp
-        jni/btinvoker.cpp
-        jni/uiinvoker.cpp
         jni/btproxy.cpp
+        jni/btinvoker.cpp
+        jni/uiproxy.cpp
+        jni/uiinvoker.cpp
         bt/device.cpp
-        utils/worker.cpp
-        core/exec.cpp)
+        core/exec.cpp
+        core/controller.cpp
+        utils/worker.cpp)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by

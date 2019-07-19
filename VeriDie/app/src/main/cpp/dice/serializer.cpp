@@ -123,7 +123,8 @@ dice::Cast XmlSerializer::GetCast(const std::string & type, size_t size) const
 dice::Request XmlSerializer::ParseRequest(const std::string & request)
 {
    auto doc = xml::ParseString(request);
-   if (auto name = doc->GetRoot().GetName() != "Request") {
+   const auto & name = doc->GetRoot().GetName();
+   if (name != "Request") {
       throw xml::Exception("Expected Request, received: " + name);
    }
    std::string type = doc->GetRoot().GetAttributeValue("type");
@@ -140,7 +141,8 @@ dice::Request XmlSerializer::ParseRequest(const std::string & request)
 dice::Response XmlSerializer::ParseResponse(const std::string & response)
 {
    auto doc = xml::ParseString(response);
-   if (auto name = doc->GetRoot().GetName() != "Response") {
+   const auto & name = doc->GetRoot().GetName();
+   if (name != "Response") {
       throw xml::Exception("Expected Response, received: " + name);
    }
    std::string type = doc->GetRoot().GetAttributeValue("type");
@@ -153,7 +155,7 @@ dice::Response XmlSerializer::ParseResponse(const std::string & response)
    }
    std::visit(FillValues(values), cast);
 
-   std::optional<uint32_t> successCount;
+   std::optional<size_t> successCount;
    try {
       successCount = std::stoul(doc->GetRoot().GetAttributeValue("successCount"));
    }

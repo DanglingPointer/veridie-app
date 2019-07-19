@@ -16,6 +16,17 @@ TEST(DiceTest, generate_result)
    }
 }
 
+TEST(DiceTest, count_success)
+{
+   dice::D8 sequence(10);
+   size_t i = 0;
+   for (auto & val : sequence) {
+      val(i++);
+   }
+   const uint32_t threshold = 6;
+   ASSERT_EQ(dice::GetSuccessCount(sequence, threshold), 4U);
+}
+
 TEST(DiceTest, deserialize_request)
 {
    auto slzr = dice::CreateXmlSerializer();

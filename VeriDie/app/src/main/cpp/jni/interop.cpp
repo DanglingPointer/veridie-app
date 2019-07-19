@@ -7,6 +7,7 @@
 #include "jni/btinvoker.hpp"
 #include "jni/uiinvoker.hpp"
 #include "core/exec.hpp"
+#include "core/controller.hpp"
 #include "utils/worker.hpp"
 
 namespace {
@@ -31,6 +32,20 @@ public:
    std::unique_ptr<jni::BtInvoker> m_btInvoker;
    std::unique_ptr<jni::UiInvoker> m_uiInvoker;
 };
+
+std::string GetString(JNIEnv * env, jstring jstr)
+{
+   auto * strChars = env->GetStringUTFChars(jstr, nullptr);
+   auto strLength = env->GetStringUTFLength(jstr);
+   std::string ret(strChars, static_cast<size_t>(strLength));
+   env->ReleaseStringUTFChars(jstr, strChars);
+   return ret;
+}
+
+bool GetBool(jboolean var)
+{
+   return var == JNI_TRUE;
+}
 
 } // namespace
 
@@ -98,54 +113,75 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bridgeC
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOn(JNIEnv * env,
                                                                                      jclass clazz)
-{}
+{
+   main::Exec([](main::ServiceLocator * svc) { svc->GetBtListener().OnBluetoothOn(); });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOff(JNIEnv * env,
                                                                                       jclass clazz)
-{}
+{
+   main::Exec([](main::ServiceLocator * svc) { svc->GetBtListener().OnBluetoothOff(); });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceFound(
    JNIEnv * env, jclass clazz, jstring name, jstring mac, jboolean paired)
-{}
+{
+   main::Exec([
+      deviceName = GetString(env, name), deviceMac = GetString(env, mac), paired = GetBool(paired)
+   ](main::ServiceLocator * svc) mutable {
+      svc->GetBtListener().OnDeviceFound(std::move(deviceName), std::move(deviceMac), paired);
+   });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityConfirmed(
    JNIEnv * env, jclass clazz)
-{}
+{
+   main::Exec(
+      [](main::ServiceLocator * svc) { svc->GetBtListener().OnDiscoverabilityConfirmed(); });
+}
 
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityRejected(
    JNIEnv * env, jclass clazz)
-{}
+{
+   main::Exec([](main::ServiceLocator * svc) { svc->GetBtListener().OnDiscoverabilityRejected(); });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_scanModeChanged(
    JNIEnv * env, jclass clazz, jboolean discoverable, jboolean connectable)
-{}
+{
+   main::Exec([discoverable = GetBool(discoverable),
+               connectable = GetBool(connectable)](main::ServiceLocator * svc) {
+      svc->GetBtListener().OnScanModeChanged(discoverable, connectable);
+   });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceConnected(
    JNIEnv * env, jclass clazz, jstring name, jstring mac)
-{}
-
+{
+   main::Exec([deviceName = GetString(env, name),
+               deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
+      svc->GetBtListener().OnDeviceConnected(std::move(deviceName), std::move(deviceMac));
+   });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceDisonnected(
    JNIEnv * env, jclass clazz, jstring mac)
-{}
+{
+   main::Exec([deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
+      svc->GetBtListener().OnDeviceDisconnected(std::move(deviceMac));
+   });
+}
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_messageReceived(
    JNIEnv * env, jclass clazz, jstring srcDevice, jbyteArray dataArr, jint length)
 {
    jbyte * elems = env->GetByteArrayElements(dataArr, nullptr);
-   auto * first = reinterpret_cast<uint8_t *>(elems);
-   auto * last = first + length;
-   std::vector<uint8_t> buf(first, last);
-
-   auto * strChars = env->GetStringUTFChars(srcDevice, nullptr);
-   auto strLength = env->GetStringUTFLength(srcDevice);
-   std::string srcMac(strChars, (size_t)strLength);
-
-   main::Exec([buf = std::move(buf), deviceMac = std::move(srcMac)](main::ServiceLocator * svc) {
-      // TODO
-      (void)svc;
+   auto * first = reinterpret_cast<const char *>(elems);
+   std::string buf(first, static_cast<size_t>(length));
+   main::Exec([message = std::move(buf),
+               deviceMac = GetString(env, srcDevice)](main::ServiceLocator * svc) mutable {
+      svc->GetBtListener().OnMessageReceived(std::move(deviceMac), std::move(message));
    });
    env->ReleaseByteArrayElements(dataArr, elems, JNI_ABORT);
-   env->ReleaseStringUTFChars(srcDevice, strChars);
 }

@@ -5,6 +5,8 @@
 
 namespace dice {
 
+size_t GetSuccessCount(const Cast & cast, uint32_t threshold);
+
 class IEngine
 {
 public:

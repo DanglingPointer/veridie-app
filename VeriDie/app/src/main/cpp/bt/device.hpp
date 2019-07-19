@@ -19,6 +19,8 @@ struct Device
       : name(std::move(name))
       , mac(std::move(mac))
    {}
+   Device(const Device&) = default;
+   Device(Device&&) noexcept = default;
    std::string name;
    std::string mac;
 

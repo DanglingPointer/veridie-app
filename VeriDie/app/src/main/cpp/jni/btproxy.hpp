@@ -7,7 +7,6 @@
 namespace jni {
 
 std::unique_ptr<bt::IProxy> CreateBtProxy();
-
 }
 
 #endif // BTPROXY_HPP

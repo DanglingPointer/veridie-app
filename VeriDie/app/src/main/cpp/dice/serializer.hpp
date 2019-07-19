@@ -17,7 +17,7 @@ struct Request
 struct Response
 {
    dice::Cast cast;
-   std::optional<uint32_t> successCount;
+   std::optional<size_t> successCount;
 };
 
 class ISerializer
