@@ -9,6 +9,7 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "utils/worker.hpp"
+#include "bt/device.hpp"
 
 namespace {
 std::unique_ptr<Worker> g_thread;
@@ -96,9 +97,13 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
 
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * reserved)
 {
-   g_thread->ScheduleTask([vm](void *) {
+   g_thread->ScheduleTask([vm](void * arg) {
+      auto * sl = static_cast<ServiceLocatorImpl *>(arg);
+      sl->m_btInvoker.reset();
+      sl->m_uiInvoker.reset();
+      sl->m_jniEnv = nullptr;
+      sl->m_javaVM = nullptr;
       vm->DetachCurrentThread();
-      g_thread.reset();
    });
 }
 
@@ -129,7 +134,8 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceF
    main::Exec([
       deviceName = GetString(env, name), deviceMac = GetString(env, mac), paired = GetBool(paired)
    ](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnDeviceFound(std::move(deviceName), std::move(deviceMac), paired);
+      svc->GetBtListener().OnDeviceFound(bt::Device(std::move(deviceName), std::move(deviceMac)),
+                                         paired);
    });
 }
 
@@ -161,7 +167,8 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceC
 {
    main::Exec([deviceName = GetString(env, name),
                deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnDeviceConnected(std::move(deviceName), std::move(deviceMac));
+      svc->GetBtListener().OnDeviceConnected(
+         bt::Device(std::move(deviceName), std::move(deviceMac)));
    });
 }
 
@@ -169,7 +176,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceD
    JNIEnv * env, jclass clazz, jstring mac)
 {
    main::Exec([deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnDeviceDisconnected(std::move(deviceMac));
+      svc->GetBtListener().OnDeviceDisconnected(bt::Device(std::string(), std::move(deviceMac)));
    });
 }
 
@@ -181,7 +188,8 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_message
    std::string buf(first, static_cast<size_t>(length));
    main::Exec([message = std::move(buf),
                deviceMac = GetString(env, srcDevice)](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnMessageReceived(std::move(deviceMac), std::move(message));
+      svc->GetBtListener().OnMessageReceived(bt::Device(std::string(), std::move(deviceMac)),
+                                             std::move(message));
    });
    env->ReleaseByteArrayElements(dataArr, elems, JNI_ABORT);
 }

@@ -19,13 +19,13 @@ public:
 private: /*bt::IListener*/
    void OnBluetoothOn() override{};
    void OnBluetoothOff() override{};
-   void OnDeviceFound(std::string name, std::string mac, bool paired) override{};
+   void OnDeviceFound(const bt::Device & remote, bool paired) override{};
    void OnDiscoverabilityConfirmed() override{};
    void OnDiscoverabilityRejected() override{};
    void OnScanModeChanged(bool discoverable, bool connectable) override{};
-   void OnDeviceConnected(std::string name, std::string mac) override{};
-   void OnDeviceDisconnected(std::string mac) override{};
-   void OnMessageReceived(std::string mac, std::string message) override{};
+   void OnDeviceConnected(const bt::Device & remote) override{};
+   void OnDeviceDisconnected(const bt::Device & remote) override{};
+   void OnMessageReceived(const bt::Device & remote, std::string message) override{};
 
 private: /*ui::IListener*/
    // TODO
