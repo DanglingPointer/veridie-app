@@ -2,7 +2,6 @@
 #include <memory>
 #include <vector>
 #include "jni/exec.hpp"
-#include "jni/interop.hpp"
 #include "jni/logger.hpp"
 #include "jni/btinvoker.hpp"
 #include "jni/uiinvoker.hpp"
@@ -76,6 +75,8 @@ std::string ErrorToString(jint error)
    }
 }
 } // namespace jni
+
+extern "C" {
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
 {
@@ -192,4 +193,5 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_message
                                              std::move(message));
    });
    env->ReleaseByteArrayElements(dataArr, elems, JNI_ABORT);
+}
 }

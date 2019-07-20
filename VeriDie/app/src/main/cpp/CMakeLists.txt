@@ -22,7 +22,7 @@ add_library( # Sets the name of the library.
         # Provides a relative path to your source file(s).
         dice/engine.cpp
         dice/serializer.cpp
-        jni/interop.cpp
+        jni/exec.cpp
         jni/logger.cpp
         jni/btproxy.cpp
         jni/btinvoker.cpp

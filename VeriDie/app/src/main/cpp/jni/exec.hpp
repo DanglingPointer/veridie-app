@@ -2,6 +2,7 @@
 #define JNI_EXEC_HPP
 
 #include <string>
+#include <functional>
 #include <jni.h>
 
 class ILogger;
