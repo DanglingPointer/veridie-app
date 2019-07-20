@@ -1,5 +1,5 @@
-#ifndef CONTROLLER_HPP
-#define CONTROLLER_HPP
+#ifndef CORE_CONTROLLER_HPP
+#define CORE_CONTROLLER_HPP
 
 #include <string>
 #include <memory>
@@ -33,4 +33,4 @@ std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btP
 
 } // namespace main
 
-#endif // CONTROLLER_HPP
+#endif // CORE_CONTROLLER_HPP

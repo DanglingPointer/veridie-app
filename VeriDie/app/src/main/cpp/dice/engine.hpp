@@ -1,5 +1,5 @@
-#ifndef ENGINE_HPP
-#define ENGINE_HPP
+#ifndef DICE_ENGINE_HPP
+#define DICE_ENGINE_HPP
 
 #include "dice/cast.hpp"
 
@@ -19,4 +19,4 @@ std::unique_ptr<IEngine> CreateUniformEngine();
 
 } // namespace dice
 
-#endif // ENGINE_HPP
+#endif // DICE_ENGINE_HPP

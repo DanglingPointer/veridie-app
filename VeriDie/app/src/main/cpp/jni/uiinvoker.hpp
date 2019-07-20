@@ -1,5 +1,5 @@
-#ifndef UIINVOKER_HPP
-#define UIINVOKER_HPP
+#ifndef JNI_UIINVOKER_HPP
+#define JNI_UIINVOKER_HPP
 
 #include <jni.h>
 
@@ -23,4 +23,4 @@ private:
 } // namespace jni
 
 
-#endif // UIINVOKER_HPP
+#endif // JNI_UIINVOKER_HPP

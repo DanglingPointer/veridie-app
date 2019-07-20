@@ -1,5 +1,5 @@
-#ifndef UIPROXY_HPP
-#define UIPROXY_HPP
+#ifndef JNI_UIPROXY_HPP
+#define JNI_UIPROXY_HPP
 
 #include <memory>
 #include "ui/proxy.hpp"
@@ -9,4 +9,4 @@ namespace jni {
 std::unique_ptr<ui::IProxy> CreateUiProxy();
 }
 
-#endif // UIPROXY_HPP
+#endif // JNI_UIPROXY_HPP

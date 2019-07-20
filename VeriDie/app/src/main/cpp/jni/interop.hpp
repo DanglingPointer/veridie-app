@@ -1,5 +1,5 @@
-#ifndef INTEROP_HPP
-#define INTEROP_HPP
+#ifndef JNI_INTEROP_HPP
+#define JNI_INTEROP_HPP
 
 #include <jni.h>
 
@@ -100,4 +100,4 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved);
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * reserved);
 }
 
-#endif // INTEROP_HPP
+#endif // JNI_INTEROP_HPP

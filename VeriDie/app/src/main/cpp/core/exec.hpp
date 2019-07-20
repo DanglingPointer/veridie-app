@@ -1,5 +1,5 @@
-#ifndef MAIN_EXEC_HPP
-#define MAIN_EXEC_HPP
+#ifndef CORE_EXEC_HPP
+#define CORE_EXEC_HPP
 
 #include <memory>
 #include <functional>
@@ -41,4 +41,4 @@ void Exec(std::function<void(ServiceLocator *)> task);
 } // namespace main
 
 
-#endif // MAIN_EXEC_HPP
+#endif // CORE_EXEC_HPP

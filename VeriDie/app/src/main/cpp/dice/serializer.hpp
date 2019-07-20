@@ -1,5 +1,5 @@
-#ifndef SERIALIZER_HPP
-#define SERIALIZER_HPP
+#ifndef DICE_SERIALIZER_HPP
+#define DICE_SERIALIZER_HPP
 
 #include <memory>
 #include <string>
@@ -34,4 +34,4 @@ std::unique_ptr<dice::ISerializer> CreateXmlSerializer();
 
 }
 
-#endif // SERIALIZER_HPP
+#endif // DICE_SERIALIZER_HPP

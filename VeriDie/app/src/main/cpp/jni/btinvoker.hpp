@@ -1,5 +1,5 @@
-#ifndef BTINVOKER_HPP
-#define BTINVOKER_HPP
+#ifndef JNI_BTINVOKER_HPP
+#define JNI_BTINVOKER_HPP
 
 #include <jni.h>
 
@@ -39,4 +39,4 @@ private:
 
 } // namespace jni
 
-#endif // BTINVOKER_HPP
+#endif // JNI_BTINVOKER_HPP

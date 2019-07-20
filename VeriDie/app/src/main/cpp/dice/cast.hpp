@@ -1,5 +1,5 @@
-#ifndef CAST_HPP
-#define CAST_HPP
+#ifndef DICE_CAST_HPP
+#define DICE_CAST_HPP
 
 #include <vector>
 #include <variant>
@@ -49,4 +49,4 @@ using Cast = std::variant<D4, D6, D8, D10, D12, D16, D20, D100>;
 
 } // namespace dice
 
-#endif // CAST_HPP
+#endif // DICE_CAST_HPP

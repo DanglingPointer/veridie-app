@@ -1,5 +1,5 @@
-#ifndef LOGGING_HPP
-#define LOGGING_HPP
+#ifndef CORE_LOGGING_HPP
+#define CORE_LOGGING_HPP
 
 #include <string>
 
@@ -22,4 +22,4 @@ public:
    virtual void Write(LogPriority prio, std::string msg) = 0;
 };
 
-#endif // LOGGING_HPP
+#endif // CORE_LOGGING_HPP

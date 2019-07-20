@@ -1,5 +1,5 @@
-#ifndef DEVICE_HPP
-#define DEVICE_HPP
+#ifndef BT_DEVICE_HPP
+#define BT_DEVICE_HPP
 
 #include <bitset>
 #include <functional>
@@ -43,4 +43,4 @@ struct hash<bt::Device>
 };
 } // namespace std
 
-#endif // DEVICE_HPP
+#endif // BT_DEVICE_HPP
