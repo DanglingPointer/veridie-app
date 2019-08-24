@@ -89,22 +89,22 @@ void BtProxy::Connect(const bt::Device & remote, const bt::Uuid & conn,
                       std::optional<bt::IProxy::ErrorCallback> onError)
 {
    auto[lsl, msl] = bt::UuidToLong(conn);
-   jni::Exec(
-      [cb = std::move(onError), mac = remote.mac, lsl = lsl, msl = msl](jni::ServiceLocator * sl) mutable {
-         auto * invoker = sl->GetBtInvoker();
-         if (!invoker) {
-            sl->GetLogger().Write(LogPriority::ERROR, "Connect failed: no invoker");
-            return;
-         }
-         jstring jmac = sl->GetJNIEnv()->NewStringUTF(mac.c_str());
-         jint error = invoker->Connect(jmac, lsl, msl);
-         if (error && cb) {
-            main::Exec([cb = std::move(cb).value(), error](auto) {
-               cb(static_cast<bt::IProxy::Error>(error));
-            });
-         }
-         sl->GetJNIEnv()->DeleteLocalRef(jmac);
-      });
+   jni::Exec([cb = std::move(onError), mac = remote.mac, lsl = lsl,
+              msl = msl](jni::ServiceLocator * sl) mutable {
+      auto * invoker = sl->GetBtInvoker();
+      if (!invoker) {
+         sl->GetLogger().Write(LogPriority::ERROR, "Connect failed: no invoker");
+         return;
+      }
+      jstring jmac = sl->GetJNIEnv()->NewStringUTF(mac.c_str());
+      jint error = invoker->Connect(jmac, lsl, msl);
+      if (error && cb) {
+         main::Exec([cb = std::move(cb).value(), error](auto) {
+            cb(static_cast<bt::IProxy::Error>(error));
+         });
+      }
+      sl->GetJNIEnv()->DeleteLocalRef(jmac);
+   });
 }
 
 void BtProxy::CloseConnection(const bt::Device & remote,

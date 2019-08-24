@@ -31,6 +31,7 @@ add_library( # Sets the name of the library.
         bt/device.cpp
         core/exec.cpp
         core/controller.cpp
+        core/timerengine.cpp
         utils/worker.cpp)
 
 # Searches for a specified prebuilt library and stores the path as a
@@ -68,7 +69,8 @@ target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 # google test executable:
 add_executable(tests
         tests/dice_test.cpp
-        tests/bt_test.cpp)
+        tests/bt_test.cpp
+        tests/async_test.cpp)
 target_link_libraries(tests
         gtest
         veridie)

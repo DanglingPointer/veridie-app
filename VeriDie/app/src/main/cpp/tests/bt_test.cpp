@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "bt/device.hpp"
 
+namespace {
+
 TEST(BtTest, uuid_conversions_are_correct)
 {
    const uint64_t msl = 0xfedcba4353928745ULL;
@@ -12,3 +14,5 @@ TEST(BtTest, uuid_conversions_are_correct)
    ASSERT_EQ(msl, retMsl);
    ASSERT_EQ(lsl, retLsl);
 }
+
+} // namespace

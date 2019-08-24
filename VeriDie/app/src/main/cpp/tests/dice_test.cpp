@@ -2,6 +2,8 @@
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
 
+namespace {
+
 TEST(DiceTest, generate_result)
 {
    dice::Cast sequence = dice::D6(100);
@@ -34,11 +36,11 @@ TEST(DiceTest, deserialize_request)
    {
       std::string msg = R"(<Request type="D4" size="10" successFrom="3" />)";
       dice::Request r = slzr->ParseRequest(msg);
-      auto *cast = std::get_if<dice::D4>(&r.cast);
+      auto * cast = std::get_if<dice::D4>(&r.cast);
       ASSERT_TRUE(cast);
       ASSERT_EQ(10U, cast->size());
-      for (const auto& val : *cast) {
-         ASSERT_EQ((uint32_t) val, 0U);
+      for (const auto & val : *cast) {
+         ASSERT_EQ((uint32_t)val, 0U);
       }
       ASSERT_TRUE(r.threshold);
       ASSERT_EQ(3U, *r.threshold);
@@ -46,11 +48,11 @@ TEST(DiceTest, deserialize_request)
    {
       std::string msg = R"(<Request type="D4" size="10" />)";
       dice::Request r = slzr->ParseRequest(msg);
-      auto *cast = std::get_if<dice::D4>(&r.cast);
+      auto * cast = std::get_if<dice::D4>(&r.cast);
       ASSERT_TRUE(cast);
       ASSERT_EQ(10U, cast->size());
-      for (const auto& val : *cast) {
-         ASSERT_EQ((uint32_t) val, 0U);
+      for (const auto & val : *cast) {
+         ASSERT_EQ((uint32_t)val, 0U);
       }
       ASSERT_FALSE(r.threshold);
    }
@@ -69,7 +71,7 @@ TEST(DiceTest, deserialize_response)
                            <Val>5</Val>
                         </Response>)";
       dice::Response r = slzr->ParseResponse(msg);
-      auto *cast = std::get_if<dice::D12>(&r.cast);
+      auto * cast = std::get_if<dice::D12>(&r.cast);
       ASSERT_TRUE(cast);
       ASSERT_EQ(5U, cast->size());
       for (int i = 0; i < 5; ++i) {
@@ -87,7 +89,7 @@ TEST(DiceTest, deserialize_response)
                            <Val>5</Val>
                         </Response>)";
       dice::Response r = slzr->ParseResponse(msg);
-      auto *cast = std::get_if<dice::D12>(&r.cast);
+      auto * cast = std::get_if<dice::D12>(&r.cast);
       ASSERT_TRUE(cast);
       ASSERT_EQ(5U, cast->size());
       for (int i = 0; i < 5; ++i) {
@@ -135,3 +137,5 @@ TEST(DiceTest, serialize_and_deserialize_response)
    ASSERT_TRUE(r1.successCount);
    ASSERT_EQ(successCount, *r1.successCount);
 }
+
+} // namespace
