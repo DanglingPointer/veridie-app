@@ -270,7 +270,7 @@ public:
    Promise<R> & operator=(const Promise<R> &) = delete;
 
    ~Promise() { Terminate(); }
-   void Finished(std::optional<Result> r)
+   void Finished(Result r)
    {
       if (!m_state)
          throw AsyncException("No state");

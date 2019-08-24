@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <optional>
+#include "utils/async.hpp"
 #include "bt/device.hpp"
 
 namespace bt {
@@ -12,22 +13,23 @@ class IProxy
 public:
    enum class Error
    { // same values as in BluetoothBridge.java
+      NO_ERROR = 0,
       NO_LISTENER = 1,
       UNHANDLED_EXCEPTION = 2,
       ILLEGAL_STATE = 3
    };
-   using ErrorCallback = std::function<void(Error)>;
+   using Handle = async::Future<Error>;
    virtual ~IProxy() = default;
-   virtual void IsBluetoothEnabled(std::function<void(bool)> resultCb) = 0;
-   virtual void RequestPairedDevices(std::optional<ErrorCallback> onError) = 0;
-   virtual void StartDiscovery(std::optional<ErrorCallback> onError) = 0;
-   virtual void CancelDiscovery(std::optional<ErrorCallback> onError) = 0;
-   virtual void RequestDiscoverability(std::optional<ErrorCallback> onError) = 0;
-   virtual void StartListening(std::string selfName, const bt::Uuid & uuid, std::optional<ErrorCallback> onError) = 0;
-   virtual void StopListening(std::optional<ErrorCallback> onError) = 0;
-   virtual void Connect(const bt::Device & remote, const bt::Uuid & conn, std::optional<ErrorCallback> onError) = 0;
-   virtual void CloseConnection(const bt::Device & remote, std::optional<ErrorCallback> onError) = 0;
-   virtual void SendMessage(const bt::Device & remote, std::string msg, std::optional<ErrorCallback> onError) = 0;
+   virtual async::Future<bool> IsBluetoothEnabled() = 0;
+   virtual Handle RequestPairedDevices() = 0;
+   virtual Handle StartDiscovery() = 0;
+   virtual Handle CancelDiscovery() = 0;
+   virtual Handle RequestDiscoverability() = 0;
+   virtual Handle StartListening(std::string selfName, const bt::Uuid & uuid) = 0;
+   virtual Handle StopListening() = 0;
+   virtual Handle Connect(const bt::Device & remote, const bt::Uuid & conn) = 0;
+   virtual Handle CloseConnection(const bt::Device & remote) = 0;
+   virtual Handle SendMessage(const bt::Device & remote, std::string msg) = 0;
 };
 
 } // namespace bt
