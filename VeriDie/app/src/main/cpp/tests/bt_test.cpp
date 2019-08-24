@@ -11,8 +11,8 @@ TEST(BtTest, uuid_conversions_are_correct)
    bt::Uuid uuid = bt::UuidFromLong(lsl, msl);
    auto[retLsl, retMsl] = bt::UuidToLong(uuid);
 
-   ASSERT_EQ(msl, retMsl);
-   ASSERT_EQ(lsl, retLsl);
+   EXPECT_EQ(msl, retMsl);
+   EXPECT_EQ(lsl, retLsl);
 }
 
 } // namespace

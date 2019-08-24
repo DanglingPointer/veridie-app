@@ -19,11 +19,11 @@ TEST(TimerTest, timer_fires_within_1s_of_scheduled_time)
    });
 
    std::this_thread::sleep_for(2s);
-   ASSERT_FALSE(fired.load());
-   ASSERT_FALSE(timeout);
+   EXPECT_FALSE(fired.load());
+   EXPECT_FALSE(timeout);
 
    std::this_thread::sleep_for(2s);
-   ASSERT_TRUE(fired.load());
+   EXPECT_TRUE(fired.load());
    EXPECT_TRUE(timeout);
 }
 
@@ -41,7 +41,7 @@ TEST_F(WorkerFixture, worker_executes_scheduled_task_within_1s_without_errors)
    w.ScheduleTask([&](auto) { done = true; });
 
    std::this_thread::sleep_for(1s);
-   ASSERT_TRUE(logger.entries.empty());
+   EXPECT_TRUE(logger.entries.empty());
    EXPECT_TRUE(done.load());
 }
 
@@ -56,8 +56,8 @@ TEST_F(WorkerFixture, worker_processes_tasks_in_correct_sequence_without_errors)
 
    while (false == done2.load())
       ;
-   ASSERT_TRUE(done1);
-   ASSERT_TRUE(logger.entries.empty());
+   EXPECT_TRUE(done1);
+   EXPECT_TRUE(logger.entries.empty());
 }
 
 TEST_F(WorkerFixture, worker_passes_its_argument_to_task)
@@ -72,7 +72,7 @@ TEST_F(WorkerFixture, worker_passes_its_argument_to_task)
    });
    while (false == done.load())
       ;
-   ASSERT_EQ(actual.load(), (void *)(&i));
+   EXPECT_EQ(actual.load(), (void *)(&i));
 }
 
 } // namespace

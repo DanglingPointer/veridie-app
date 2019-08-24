@@ -44,7 +44,7 @@ TEST_F(AsyncFixture, promised_task_is_completed_when_there_is_future)
    }));
 
    ProcessTasks(1U);
-   ASSERT_TRUE(done);
+   EXPECT_TRUE(done);
 }
 
 TEST_F(AsyncFixture, promised_task_is_not_executed_when_there_is_no_future)
@@ -58,7 +58,7 @@ TEST_F(AsyncFixture, promised_task_is_not_executed_when_there_is_no_future)
    }));
 
    ProcessTasks();
-   ASSERT_FALSE(done);
+   EXPECT_FALSE(done);
 }
 
 TEST_F(AsyncFixture, future_is_active_before_execution_and_inactive_after)
@@ -67,10 +67,10 @@ TEST_F(AsyncFixture, future_is_active_before_execution_and_inactive_after)
    Future<bool> future = promise.GetFuture();
 
    EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
-   ASSERT_TRUE(future.IsActive());
+   EXPECT_TRUE(future.IsActive());
    ProcessTasks();
 
-   ASSERT_FALSE(future.IsActive());
+   EXPECT_FALSE(future.IsActive());
 }
 
 TEST_F(AsyncFixture, task_is_not_executed_if_canceled)
@@ -86,7 +86,7 @@ TEST_F(AsyncFixture, task_is_not_executed_if_canceled)
    future.Cancel();
    ProcessTasks();
 
-   ASSERT_FALSE(done);
+   EXPECT_FALSE(done);
 }
 
 TEST_F(AsyncFixture, future_is_inactive_if_promise_died_before_execution)
@@ -95,10 +95,10 @@ TEST_F(AsyncFixture, future_is_inactive_if_promise_died_before_execution)
    Future<bool> future = promise.GetFuture();
 
    EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
-   ASSERT_TRUE(future.IsActive());
+   EXPECT_TRUE(future.IsActive());
 
    queue.clear();
-   ASSERT_FALSE(future.IsActive());
+   EXPECT_FALSE(future.IsActive());
 }
 
 TEST_F(AsyncFixture, callback_is_called_after_completion_using_executor)
@@ -109,11 +109,11 @@ TEST_F(AsyncFixture, callback_is_called_after_completion_using_executor)
 
    EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    ProcessTasks(1U);
-   ASSERT_FALSE(result.has_value());
+   EXPECT_FALSE(result.has_value());
 
    ProcessTasks();
-   ASSERT_TRUE(result.has_value());
-   ASSERT_EQ(*result, true);
+   EXPECT_TRUE(result.has_value());
+   EXPECT_EQ(*result, true);
 }
 
 TEST_F(AsyncFixture, callback_is_not_called_if_canceled_before_execution)
@@ -127,7 +127,7 @@ TEST_F(AsyncFixture, callback_is_not_called_if_canceled_before_execution)
    future.Cancel();
    ProcessTasks();
 
-   ASSERT_FALSE(callbackCalled);
+   EXPECT_FALSE(callbackCalled);
 }
 
 TEST_F(AsyncFixture, callback_is_not_called_if_canceled_after_execution)
@@ -139,11 +139,11 @@ TEST_F(AsyncFixture, callback_is_not_called_if_canceled_after_execution)
 
    EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    ProcessTasks(1U);
-   ASSERT_FALSE(callbackCalled);
+   EXPECT_FALSE(callbackCalled);
 
    future.Cancel();
    ProcessTasks();
-   ASSERT_FALSE(callbackCalled);
+   EXPECT_FALSE(callbackCalled);
 }
 
 TEST_F(AsyncFixture, callback_is_called_without_result_if_promise_died_prematurely)
@@ -160,8 +160,8 @@ TEST_F(AsyncFixture, callback_is_called_without_result_if_promise_died_premature
 
    queue.clear();
    ProcessTasks();
-   ASSERT_TRUE(callbackCalled);
-   ASSERT_FALSE(result);
+   EXPECT_TRUE(callbackCalled);
+   EXPECT_FALSE(result);
 }
 
 TEST_F(AsyncFixture, operator_AND_future_becomes_inactive_iff_both_tasks_have_finished)
@@ -176,13 +176,13 @@ TEST_F(AsyncFixture, operator_AND_future_becomes_inactive_iff_both_tasks_have_fi
    EnqueueTask(EmbedPromiseIntoTask(std::move(p2), [] { return true; }));
 
    Future<Empty> future = std::move(f1) && std::move(f2);
-   ASSERT_TRUE(future.IsActive());
+   EXPECT_TRUE(future.IsActive());
 
    ProcessTasks(1U);
-   ASSERT_TRUE(future.IsActive());
+   EXPECT_TRUE(future.IsActive());
 
    ProcessTasks();
-   ASSERT_FALSE(future.IsActive());
+   EXPECT_FALSE(future.IsActive());
 }
 
 TEST_F(AsyncFixture, operator_OR_future_become_inactive_once_one_of_the_tasks_has_finished)
@@ -196,10 +196,10 @@ TEST_F(AsyncFixture, operator_OR_future_become_inactive_once_one_of_the_tasks_ha
    EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [] { return true; }));
 
    Future<Empty> future = std::move(f1) || std::move(f2);
-   ASSERT_TRUE(future.IsActive());
+   EXPECT_TRUE(future.IsActive());
 
    ProcessTasks();
-   ASSERT_FALSE(future.IsActive());
+   EXPECT_FALSE(future.IsActive());
 }
 
 TEST_F(AsyncFixture, operator_AND_callback_is_executed_iff_both_tasks_have_finished)
@@ -222,12 +222,12 @@ TEST_F(AsyncFixture, operator_AND_callback_is_executed_iff_both_tasks_have_finis
    });
 
    ProcessTasks(1U);
-   ASSERT_FALSE(done);
-   ASSERT_FALSE(result);
+   EXPECT_FALSE(done);
+   EXPECT_FALSE(result);
 
    ProcessTasks();
-   ASSERT_TRUE(done);
-   ASSERT_TRUE(result);
+   EXPECT_TRUE(done);
+   EXPECT_TRUE(result);
 }
 
 TEST_F(AsyncFixture, operator_OR_callback_is_executed_once_one_of_the_tasks_has_finished)
@@ -249,8 +249,8 @@ TEST_F(AsyncFixture, operator_OR_callback_is_executed_once_one_of_the_tasks_has_
    });
 
    ProcessTasks();
-   ASSERT_TRUE(done);
-   ASSERT_TRUE(result);
+   EXPECT_TRUE(done);
+   EXPECT_TRUE(result);
 }
 
 TEST_F(AsyncFixture, operator_OR_cancels_the_last_task)
@@ -274,7 +274,7 @@ TEST_F(AsyncFixture, operator_OR_cancels_the_last_task)
       return done2;
    }));
    ProcessTasks();
-   ASSERT_FALSE(done2);
+   EXPECT_FALSE(done2);
 }
 
 } // namespace

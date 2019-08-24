@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
+#include "utils/xmlparser.hpp"
 
 namespace {
 
@@ -8,13 +9,13 @@ TEST(DiceTest, generate_result)
 {
    dice::Cast sequence = dice::D6(100);
    for (const auto & val : std::get<dice::D6>(sequence)) {
-      ASSERT_EQ((uint32_t)val, 0U);
+      EXPECT_EQ((uint32_t)val, 0U);
    }
    auto engine = dice::CreateUniformEngine();
    engine->GenerateResult(sequence);
    for (const auto & val : std::get<dice::D6>(sequence)) {
-      ASSERT_GE((uint32_t)val, 1U);
-      ASSERT_LE((uint32_t)val, 6U);
+      EXPECT_GE((uint32_t)val, 1U);
+      EXPECT_LE((uint32_t)val, 6U);
    }
 }
 
@@ -26,7 +27,7 @@ TEST(DiceTest, count_success)
       val(i++);
    }
    const uint32_t threshold = 6;
-   ASSERT_EQ(dice::GetSuccessCount(sequence, threshold), 4U);
+   EXPECT_EQ(dice::GetSuccessCount(sequence, threshold), 4U);
 }
 
 TEST(DiceTest, deserialize_request_with_success_from)
@@ -36,16 +37,16 @@ TEST(DiceTest, deserialize_request_with_success_from)
       std::string msg = R"(<Request type="D4" size="10" successFrom="3" />)";
       dice::Request r = slzr->ParseRequest(msg);
       auto * cast = std::get_if<dice::D4>(&r.cast);
-      ASSERT_TRUE(cast);
-      ASSERT_EQ(10U, cast->size());
+      EXPECT_TRUE(cast);
+      EXPECT_EQ(10U, cast->size());
       for (const auto & val : *cast) {
-         ASSERT_EQ((uint32_t)val, 0U);
+         EXPECT_EQ((uint32_t)val, 0U);
       }
-      ASSERT_TRUE(r.threshold);
-      ASSERT_EQ(3U, *r.threshold);
+      EXPECT_TRUE(r.threshold);
+      EXPECT_EQ(3U, *r.threshold);
    }
    catch (const xml::Exception & e) {
-      FAIL() << e.what();
+      ADD_FAILURE() << e.what();
    }
 }
 
@@ -56,15 +57,15 @@ TEST(DiceTest, deserialize_request_without_success_from)
       std::string msg = R"(<Request type="D4" size="10" />)";
       dice::Request r = slzr->ParseRequest(msg);
       auto * cast = std::get_if<dice::D4>(&r.cast);
-      ASSERT_TRUE(cast);
-      ASSERT_EQ(10U, cast->size());
+      EXPECT_TRUE(cast);
+      EXPECT_EQ(10U, cast->size());
       for (const auto & val : *cast) {
-         ASSERT_EQ((uint32_t)val, 0U);
+         EXPECT_EQ((uint32_t)val, 0U);
       }
-      ASSERT_FALSE(r.threshold);
+      EXPECT_FALSE(r.threshold);
    }
    catch (const xml::Exception & e) {
-      FAIL() << e.what();
+      ADD_FAILURE() << e.what();
    }
 }
 
@@ -81,16 +82,16 @@ TEST(DiceTest, deserialize_response_with_success_count)
                         </Response>)";
       dice::Response r = slzr->ParseResponse(msg);
       auto * cast = std::get_if<dice::D12>(&r.cast);
-      ASSERT_TRUE(cast);
-      ASSERT_EQ(5U, cast->size());
+      EXPECT_TRUE(cast);
+      EXPECT_EQ(5U, cast->size());
       for (int i = 0; i < 5; ++i) {
-         ASSERT_EQ(i + 1, cast->at(i));
+         EXPECT_EQ(i + 1, cast->at(i));
       }
-      ASSERT_TRUE(r.successCount);
-      ASSERT_EQ(3U, *r.successCount);
+      EXPECT_TRUE(r.successCount);
+      EXPECT_EQ(3U, *r.successCount);
    }
    catch (const xml::Exception & e) {
-      FAIL() << e.what();
+      ADD_FAILURE() << e.what();
    }
 }
 
@@ -107,15 +108,15 @@ TEST(DiceTest, deserialize_response_without_success_count)
                         </Response>)";
       dice::Response r = slzr->ParseResponse(msg);
       auto * cast = std::get_if<dice::D12>(&r.cast);
-      ASSERT_TRUE(cast);
-      ASSERT_EQ(5U, cast->size());
+      EXPECT_TRUE(cast);
+      EXPECT_EQ(5U, cast->size());
       for (int i = 0; i < 5; ++i) {
-         ASSERT_EQ(i + 1, cast->at(i));
+         EXPECT_EQ(i + 1, cast->at(i));
       }
-      ASSERT_FALSE(r.successCount);
+      EXPECT_FALSE(r.successCount);
    }
    catch (const xml::Exception & e) {
-      FAIL() << e.what();
+      ADD_FAILURE() << e.what();
    }
 }
 
@@ -131,13 +132,13 @@ TEST(DiceTest, serialize_and_deserialize_request)
 
       dice::Request r1 = slzr->ParseRequest(serialized);
       auto * cast = std::get_if<dice::D20>(&r1.cast);
-      ASSERT_TRUE(cast);
-      ASSERT_EQ(d, *cast);
-      ASSERT_TRUE(r1.threshold);
-      ASSERT_EQ(successFrom, *r1.threshold);
+      EXPECT_TRUE(cast);
+      EXPECT_EQ(d, *cast);
+      EXPECT_TRUE(r1.threshold);
+      EXPECT_EQ(successFrom, *r1.threshold);
    }
    catch (const xml::Exception & e) {
-      FAIL() << e.what();
+      ADD_FAILURE() << e.what();
    }
 }
 
@@ -156,13 +157,13 @@ TEST(DiceTest, serialize_and_deserialize_response)
 
       dice::Response r1 = slzr->ParseResponse(serialized);
       auto * cast = std::get_if<dice::D100>(&r1.cast);
-      ASSERT_TRUE(cast);
-      ASSERT_EQ(d, *cast);
-      ASSERT_TRUE(r1.successCount);
-      ASSERT_EQ(successCount, *r1.successCount);
+      EXPECT_TRUE(cast);
+      EXPECT_EQ(d, *cast);
+      EXPECT_TRUE(r1.successCount);
+      EXPECT_EQ(successCount, *r1.successCount);
    }
    catch (const xml::Exception & e) {
-      FAIL() << e.what();
+      ADD_FAILURE() << e.what();
    }
 }
 
