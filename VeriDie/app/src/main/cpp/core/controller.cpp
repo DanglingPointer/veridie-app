@@ -1,5 +1,6 @@
 #include "core/controller.hpp"
 #include "core/logging.hpp"
+#include "core/timerengine.hpp"
 #include "bt/proxy.hpp"
 #include "ui/proxy.hpp"
 #include "dice/engine.hpp"
@@ -9,9 +10,11 @@ namespace {
 class Controller : public main::IController
 {
 public:
-   Controller(ILogger & logger, bt::IProxy & btProxy, ui::IProxy & uiProxy, dice::IEngine & engine)
+   Controller(ILogger & logger, bt::IProxy & btProxy, ui::IProxy & uiProxy, dice::IEngine & engine,
+              main::TimerEngine & timer)
       : m_logger(logger)
       , m_generator(engine)
+      , m_timer(timer)
       , m_bluetooth(btProxy)
       , m_gui(uiProxy)
    {}
@@ -40,6 +43,7 @@ private: /*ui::IListener*/
 private:
    ILogger & m_logger;
    dice::IEngine & m_generator;
+   main::TimerEngine & m_timer;
    bt::IProxy & m_bluetooth;
    ui::IProxy & m_gui;
 };
@@ -49,9 +53,10 @@ private:
 namespace main {
 
 std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btProxy,
-                                              ui::IProxy & uiProxy, dice::IEngine & engine)
+                                              ui::IProxy & uiProxy, dice::IEngine & engine,
+                                              main::TimerEngine & timer)
 {
-   return std::make_unique<Controller>(logger, btProxy, uiProxy, engine);
+   return std::make_unique<Controller>(logger, btProxy, uiProxy, engine, timer);
 }
 
 } // namespace main

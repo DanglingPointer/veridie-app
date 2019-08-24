@@ -19,6 +19,7 @@ class IEngine;
 }
 
 namespace main {
+class TimerEngine;
 
 class IController
    : public bt::IListener
@@ -29,7 +30,8 @@ public:
 };
 
 std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btProxy,
-                                              ui::IProxy & uiProxy, dice::IEngine & engine);
+                                              ui::IProxy & uiProxy, dice::IEngine & engine,
+                                              main::TimerEngine & timer);
 
 } // namespace main
 

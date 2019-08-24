@@ -19,6 +19,7 @@ class ILogger;
 
 namespace main {
 class IController;
+class TimerEngine;
 
 class ServiceLocator
 {
@@ -31,6 +32,7 @@ public:
 private:
    std::unique_ptr<ILogger> m_logger;
    std::unique_ptr<dice::IEngine> m_engine;
+   std::unique_ptr<main::TimerEngine> m_timer;
    std::unique_ptr<bt::IProxy> m_btProxy;
    std::unique_ptr<ui::IProxy> m_uiProxy;
    std::unique_ptr<main::IController> m_ctrl;

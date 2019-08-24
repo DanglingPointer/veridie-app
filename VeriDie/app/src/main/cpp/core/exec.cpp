@@ -1,5 +1,6 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
+#include "core/timerengine.hpp"
 #include "jni/logger.hpp"
 #include "jni/btproxy.hpp"
 #include "jni/uiproxy.hpp"
@@ -15,6 +16,11 @@ Worker & MainWorker()
    return s_w;
 }
 
+void MainExecutor(std::function<void()> task)
+{
+   MainWorker().ScheduleTask([t = std::move(task)](void *) { t(); });
+}
+
 } // namespace
 
 namespace main {
@@ -22,9 +28,10 @@ namespace main {
 ServiceLocator::ServiceLocator()
    : m_logger(jni::CreateLogger("MAIN_WORKER"))
    , m_engine(dice::CreateUniformEngine())
+   , m_timer(std::make_unique<TimerEngine>(MainExecutor))
    , m_btProxy(jni::CreateBtProxy())
    , m_uiProxy(jni::CreateUiProxy())
-   , m_ctrl(main::CreateController(*m_logger, *m_btProxy, *m_uiProxy, *m_engine))
+   , m_ctrl(main::CreateController(*m_logger, *m_btProxy, *m_uiProxy, *m_engine, *m_timer))
 {}
 
 bt::IListener & ServiceLocator::GetBtListener()
