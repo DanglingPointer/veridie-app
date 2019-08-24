@@ -4,12 +4,12 @@
 #include "core/logging.hpp"
 #include <vector>
 
-class FakeLogger : ILogger
+class FakeLogger : public ILogger
 {
 public:
-   virtual void Write(LogPriority prio, std::string msg) override
+   void Write(LogPriority prio, std::string msg) override
    {
-      entries.emplace_back(prio, std::move(msg));
+      entries.push_back({prio, std::move(msg)});
    }
 
    struct Entry {
