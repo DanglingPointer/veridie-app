@@ -133,7 +133,7 @@ dice::Request XmlSerializer::ParseRequest(const std::string & request)
    try {
       successFrom = std::stoul(doc->GetRoot().GetAttributeValue("successFrom"));
    }
-   catch (const std::exception &) {
+   catch (const xml::Exception &) {
    }
    return dice::Request{GetCast(type, size), successFrom};
 }
@@ -159,7 +159,7 @@ dice::Response XmlSerializer::ParseResponse(const std::string & response)
    try {
       successCount = std::stoul(doc->GetRoot().GetAttributeValue("successCount"));
    }
-   catch (const std::exception &) {
+   catch (const xml::Exception &) {
    }
    return dice::Response{std::move(cast), successCount};
 }

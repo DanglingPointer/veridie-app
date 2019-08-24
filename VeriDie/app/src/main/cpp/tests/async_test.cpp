@@ -2,7 +2,6 @@
 #include <deque>
 #include <functional>
 #include <limits>
-#include <cassert>
 #include "utils/async.hpp"
 
 namespace {
@@ -33,7 +32,7 @@ protected:
    std::deque<std::function<void()>> queue;
 };
 
-TEST_F(AsyncFixture, future_is_active_before_execution_and_inactive_after)
+TEST_F(AsyncFixture, promised_task_is_completed_when_there_is_future)
 {
    bool done = false;
    Promise<bool> promise(GetExecutor());
@@ -43,10 +42,34 @@ TEST_F(AsyncFixture, future_is_active_before_execution_and_inactive_after)
       done = true;
       return done;
    }));
+
+   ProcessTasks(1U);
+   ASSERT_TRUE(done);
+}
+
+TEST_F(AsyncFixture, promised_task_is_not_executed_when_there_is_no_future)
+{
+   bool done = false;
+   Promise<bool> promise(GetExecutor());
+
+   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [&] {
+      done = true;
+      return done;
+   }));
+
+   ProcessTasks();
+   ASSERT_FALSE(done);
+}
+
+TEST_F(AsyncFixture, future_is_active_before_execution_and_inactive_after)
+{
+   Promise<bool> promise(GetExecutor());
+   Future<bool> future = promise.GetFuture();
+
+   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    ASSERT_TRUE(future.IsActive());
    ProcessTasks();
 
-   assert(done);
    ASSERT_FALSE(future.IsActive());
 }
 
@@ -71,7 +94,7 @@ TEST_F(AsyncFixture, future_is_inactive_if_promise_died_before_execution)
    Promise<bool> promise(GetExecutor());
    Future<bool> future = promise.GetFuture();
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [&] { return true; }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    ASSERT_TRUE(future.IsActive());
 
    queue.clear();
@@ -80,17 +103,12 @@ TEST_F(AsyncFixture, future_is_inactive_if_promise_died_before_execution)
 
 TEST_F(AsyncFixture, callback_is_called_after_completion_using_executor)
 {
-   bool done = false;
    std::optional<bool> result;
    Promise<bool> promise(GetExecutor());
    Future<bool> future = promise.GetFuture().Then([&](std::optional<bool> r) { result = r; });
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [&] {
-      done = true;
-      return done;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    ProcessTasks(1U);
-   assert(done);
    ASSERT_FALSE(result.has_value());
 
    ProcessTasks();
@@ -105,7 +123,7 @@ TEST_F(AsyncFixture, callback_is_not_called_if_canceled_before_execution)
    Future<bool> future =
       promise.GetFuture().Then([&](std::optional<bool>) { callbackCalled = true; });
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [&] { return true; }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    future.Cancel();
    ProcessTasks();
 
@@ -114,18 +132,13 @@ TEST_F(AsyncFixture, callback_is_not_called_if_canceled_before_execution)
 
 TEST_F(AsyncFixture, callback_is_not_called_if_canceled_after_execution)
 {
-   bool done = false;
    bool callbackCalled = false;
    Promise<bool> promise(GetExecutor());
    Future<bool> future =
       promise.GetFuture().Then([&](std::optional<bool>) { callbackCalled = true; });
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [&] {
-      done = true;
-      return done;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(promise), [] { return true; }));
    ProcessTasks(1U);
-   assert(done);
    ASSERT_FALSE(callbackCalled);
 
    future.Cancel();
@@ -133,11 +146,11 @@ TEST_F(AsyncFixture, callback_is_not_called_if_canceled_after_execution)
    ASSERT_FALSE(callbackCalled);
 }
 
-TEST_F(AsyncFixture, callback_is_called_without_result_if_promise_died_before_execution)
+TEST_F(AsyncFixture, callback_is_called_without_result_if_promise_died_prematurely)
 {
    std::optional<bool> result;
    bool callbackCalled = false;
-   Promise<bool> promise(GetExecutor());
+   Promise<bool> promise([](auto task) { task(); });
    Future<bool> future = promise.GetFuture().Then([&](std::optional<bool> r) {
       result = r;
       callbackCalled = true;
@@ -153,64 +166,44 @@ TEST_F(AsyncFixture, callback_is_called_without_result_if_promise_died_before_ex
 
 TEST_F(AsyncFixture, operator_AND_future_becomes_inactive_iff_both_tasks_have_finished)
 {
-   bool done1 = false;
-   bool done2 = false;
-
    Promise<bool> p1(GetExecutor());
    Promise<bool> p2(GetExecutor());
 
    Future<bool> f1 = p1.GetFuture();
    Future<bool> f2 = p2.GetFuture();
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [&] {
-      done1 = true;
-      return done1;
-   }));
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p2), [&] {
-      done2 = true;
-      return done2;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [] { return true; }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p2), [] { return true; }));
 
    Future<Empty> future = std::move(f1) && std::move(f2);
    ASSERT_TRUE(future.IsActive());
 
    ProcessTasks(1U);
-   assert(done1);
    ASSERT_TRUE(future.IsActive());
 
-   ProcessTasks(1U);
-   assert(done2);
+   ProcessTasks();
    ASSERT_FALSE(future.IsActive());
 }
 
-TEST_F(AsyncFixture, operator_OR_futures_become_inactive_once_one_of_the_tasks_has_finished)
+TEST_F(AsyncFixture, operator_OR_future_become_inactive_once_one_of_the_tasks_has_finished)
 {
-   bool done1 = false;
-
    Promise<bool> p1(GetExecutor());
    Promise<bool> p2(GetExecutor());
 
    Future<bool> f1 = p1.GetFuture();
    Future<bool> f2 = p2.GetFuture();
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [&] {
-      done1 = true;
-      return done1;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [] { return true; }));
 
    Future<Empty> future = std::move(f1) || std::move(f2);
    ASSERT_TRUE(future.IsActive());
 
    ProcessTasks();
-   assert(done1);
    ASSERT_FALSE(future.IsActive());
 }
 
 TEST_F(AsyncFixture, operator_AND_callback_is_executed_iff_both_tasks_have_finished)
 {
-   bool done1 = false;
-   bool done2 = false;
-
    std::optional<Empty> result;
    bool done = false;
 
@@ -220,14 +213,8 @@ TEST_F(AsyncFixture, operator_AND_callback_is_executed_iff_both_tasks_have_finis
    Future<bool> f1 = p1.GetFuture();
    Future<bool> f2 = p2.GetFuture();
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [&] {
-      done1 = true;
-      return done1;
-   }));
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p2), [&] {
-      done2 = true;
-      return done2;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [] { return true; }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p2), [] { return true; }));
 
    Future<Empty> future = (std::move(f1) && std::move(f2)).Then([&](std::optional<Empty> r) {
       result = r;
@@ -235,20 +222,16 @@ TEST_F(AsyncFixture, operator_AND_callback_is_executed_iff_both_tasks_have_finis
    });
 
    ProcessTasks(1U);
-   assert(done1);
    ASSERT_FALSE(done);
    ASSERT_FALSE(result);
 
    ProcessTasks();
-   assert(done2);
    ASSERT_TRUE(done);
    ASSERT_TRUE(result);
 }
 
 TEST_F(AsyncFixture, operator_OR_callback_is_executed_once_one_of_the_tasks_has_finished)
 {
-   bool done1 = false;
-
    std::optional<Empty> result;
    bool done = false;
 
@@ -258,10 +241,7 @@ TEST_F(AsyncFixture, operator_OR_callback_is_executed_once_one_of_the_tasks_has_
    Future<bool> f1 = p1.GetFuture();
    Future<bool> f2 = p2.GetFuture();
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [&] {
-      done1 = true;
-      return done1;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [] { return true; }));
 
    Future<Empty> future = (std::move(f1) || std::move(f2)).Then([&](std::optional<Empty> r) {
       result = r;
@@ -269,17 +249,13 @@ TEST_F(AsyncFixture, operator_OR_callback_is_executed_once_one_of_the_tasks_has_
    });
 
    ProcessTasks();
-   assert(done1);
    ASSERT_TRUE(done);
    ASSERT_TRUE(result);
 }
 
 TEST_F(AsyncFixture, operator_OR_cancels_the_last_task)
 {
-   bool done1 = false;
    bool done2 = false;
-
-   bool done = false;
 
    Promise<bool> p1(GetExecutor());
    Promise<bool> p2(GetExecutor());
@@ -287,17 +263,11 @@ TEST_F(AsyncFixture, operator_OR_cancels_the_last_task)
    Future<bool> f1 = p1.GetFuture();
    Future<bool> f2 = p2.GetFuture();
 
-   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [&] {
-      done1 = true;
-      return done1;
-   }));
+   EnqueueTask(EmbedPromiseIntoTask(std::move(p1), [] { return true; }));
 
-   Future<Empty> future =
-      (std::move(f1) || std::move(f2)).Then([&](std::optional<Empty> r) { done = true; });
+   Future<Empty> future = std::move(f1) || std::move(f2);
 
    ProcessTasks();
-   assert(done1);
-   assert(done);
 
    EnqueueTask(EmbedPromiseIntoTask(std::move(p2), [&] {
       done2 = true;

@@ -75,10 +75,13 @@ target_link_libraries(tests
         gtest
         veridie)
 
-## run tests
-#find_program(ADB adb)
-#add_custom_command(TARGET tests POST_BUILD
-#        COMMAND ${ADB} shell mkdir -p /data/local/tmp/${ANDROID_ABI}
-#        COMMAND ${ADB} push $<TARGET_FILE:veridie> /data/local/tmp/${ANDROID_ABI}/
-#        COMMAND ${ADB} push $<TARGET_FILE:tests> /data/local/tmp/${ANDROID_ABI}/
-#        COMMAND ${ADB} shell \"export LD_LIBRARY_PATH=/data/local/tmp/${ANDROID_ABI}\; /data/local/tmp/${ANDROID_ABI}/tests\")
+# run tests
+find_program(ADB ${ANDROID_NDK}/../platform-tools/adb)
+if(NOT ADB)
+    message(FATAL_ERROR "Could not find adb")
+endif()
+add_custom_command(TARGET tests POST_BUILD
+        COMMAND ${ADB} shell mkdir -p /data/local/tmp/${ANDROID_ABI}
+        COMMAND ${ADB} push $<TARGET_FILE:veridie> /data/local/tmp/${ANDROID_ABI}/
+        COMMAND ${ADB} push $<TARGET_FILE:tests> /data/local/tmp/${ANDROID_ABI}/
+        COMMAND ${ADB} shell \"export LD_LIBRARY_PATH=/data/local/tmp/${ANDROID_ABI}\; /data/local/tmp/${ANDROID_ABI}/tests\")

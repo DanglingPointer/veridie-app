@@ -216,18 +216,16 @@ void RemoveInsideComments(std::list<const TChar *> *tokens)
    auto it_erase_to   = tokens->end();
 
    while (it_right != tokens->end()) {
-
-      bool first_comment_start =
-          it_erase_from == tokens->end() &&
-          std::any_of(*it_left, *it_right - 3, [](const TChar &c) { return IsCommentStart<TChar>(&c); });
-      if (first_comment_start) {
-         it_erase_from = it_right; // erase next token
-      }
-      bool last_comment_end =
-          it_erase_from != tokens->end() &&
-          std::any_of(*it_left, *it_right - 2, [](const TChar &c) { return IsCommentEnd<TChar>(&c); });
-      if (last_comment_end) {
-         it_erase_to = it_right; // erase untill (but not inclusive) next token
+      const TChar *pend = *it_right;
+      for (const TChar *pit = *it_left; pit < pend; ++pit) {
+         if (it_erase_from == tokens->end() && IsCommentStart(pit)) {
+            it_erase_from = it_right; // erase next token
+            pit += 3;                 // IsCommentStart() checks next 3 symbols
+         }
+         else if (it_erase_from != tokens->end() && IsCommentEnd(pit)) {
+            it_erase_to = it_right; // erase untill (but not inclusive) next token
+            break;
+         }
       }
 
       if (it_erase_from != tokens->end() && it_erase_to != tokens->end()) {
