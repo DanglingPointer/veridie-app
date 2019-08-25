@@ -72,7 +72,7 @@ TEST_F(WorkerFixture, worker_passes_its_argument_to_task)
    });
    while (false == done.load())
       ;
-   EXPECT_EQ(actual.load(), (void *)(&i));
+   EXPECT_EQ((void *)(&i), actual.load());
 }
 
 } // namespace

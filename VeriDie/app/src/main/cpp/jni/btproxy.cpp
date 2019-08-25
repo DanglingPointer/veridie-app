@@ -5,6 +5,7 @@
 #include "core/exec.hpp"
 
 namespace {
+using namespace std::string_literals;
 
 void MainExecutor(std::function<void()> cb)
 {
@@ -30,23 +31,35 @@ public:
    bt::IProxy::Handle SendMessage(const bt::Device & remote, std::string msg) override;
 
 private:
+   template <typename F>
+   bt::IProxy::Handle MarshalToJNI(F && f)
+   {
+      async::Promise<bt::IProxy::Error> p(m_cbExecutor);
+      auto handle = p.GetFuture();
+      jni::Exec(async::EmbedPromiseIntoTask(
+         std::move(p), [func = std::forward<F>(f)](jni::ServiceLocator * sl) {
+            auto * invoker = sl->GetBtInvoker();
+            auto * env = sl->GetJNIEnv();
+            if (!invoker || !env) {
+               sl->GetLogger().Write(LogPriority::ERROR,
+                                     "BtProxy error: no "s + (env ? "jni::BtInvoker" : "JNIEnv"));
+               return bt::IProxy::Error::ILLEGAL_STATE;
+            }
+            return func(invoker, env);
+         }));
+      return handle;
+   }
+
    const async::Executor m_cbExecutor;
 };
 
-#define DEFINE_BTPROXY_SIMPLE_FUNC(name)                                                 \
-   bt::IProxy::Handle BtProxy::name()                                                    \
-   {                                                                                     \
-      async::Promise<bt::IProxy::Error> p(m_cbExecutor);                                 \
-      auto handle = p.GetFuture();                                                       \
-      jni::Exec(async::EmbedPromiseIntoTask(std::move(p), [](jni::ServiceLocator * sl) { \
-         if (auto * invoker = sl->GetBtInvoker()) {                                      \
-            jint error = invoker->name();                                                \
-            return static_cast<bt::IProxy::Error>(error);                                \
-         }                                                                               \
-         sl->GetLogger().Write(LogPriority::ERROR, #name " failed: no invoker");         \
-         return bt::IProxy::Error::ILLEGAL_STATE;                                        \
-      }));                                                                               \
-      return handle;                                                                     \
+#define DEFINE_BTPROXY_SIMPLE_FUNC(name)                               \
+   bt::IProxy::Handle BtProxy::name()                                  \
+   {                                                                   \
+      return MarshalToJNI([](jni::BtInvoker * invoker, JNIEnv * env) { \
+         jint error = invoker->name();                                 \
+         return static_cast<bt::IProxy::Error>(error);                 \
+      });                                                              \
    }
 
 DEFINE_BTPROXY_SIMPLE_FUNC(RequestPairedDevices)
@@ -75,83 +88,48 @@ async::Future<bool> BtProxy::IsBluetoothEnabled()
 
 bt::IProxy::Handle BtProxy::StartListening(std::string selfName, const bt::Uuid & uuid)
 {
-   async::Promise<bt::IProxy::Error> p(m_cbExecutor);
-   auto handle = p.GetFuture();
-
    auto[lsl, msl] = bt::UuidToLong(uuid);
-   jni::Exec(async::EmbedPromiseIntoTask(
-      std::move(p), [name = std::move(selfName), lsl = lsl, msl = msl](jni::ServiceLocator * sl) {
-         if (auto * invoker = sl->GetBtInvoker()) {
-            jstring jname = sl->GetJNIEnv()->NewStringUTF(name.c_str());
-            jint error = invoker->StartListening(jname, lsl, msl);
-            sl->GetJNIEnv()->DeleteLocalRef(jname);
-            return static_cast<bt::IProxy::Error>(error);
-         }
-         sl->GetLogger().Write(LogPriority::ERROR, "StartListening failed: no invoker");
-         return bt::IProxy::Error::ILLEGAL_STATE;
-      }));
-   return handle;
+   return MarshalToJNI(
+      [name = std::move(selfName), lsl = lsl, msl = msl](jni::BtInvoker * invoker, JNIEnv * env) {
+         jstring jname = env->NewStringUTF(name.c_str());
+         jint error = invoker->StartListening(jname, lsl, msl);
+         env->DeleteLocalRef(jname);
+         return static_cast<bt::IProxy::Error>(error);
+      });
 }
 
 bt::IProxy::Handle BtProxy::Connect(const bt::Device & remote, const bt::Uuid & conn)
 {
-   async::Promise<bt::IProxy::Error> p(m_cbExecutor);
-   auto handle = p.GetFuture();
-
    auto[lsl, msl] = bt::UuidToLong(conn);
-   jni::Exec(async::EmbedPromiseIntoTask(
-      std::move(p), [mac = remote.mac, lsl = lsl, msl = msl](jni::ServiceLocator * sl) {
-         if (auto * invoker = sl->GetBtInvoker()) {
-            jstring jmac = sl->GetJNIEnv()->NewStringUTF(mac.c_str());
-            jint error = invoker->Connect(jmac, lsl, msl);
-            sl->GetJNIEnv()->DeleteLocalRef(jmac);
-            return static_cast<bt::IProxy::Error>(error);
-         }
-         sl->GetLogger().Write(LogPriority::ERROR, "Connect failed: no invoker");
-         return bt::IProxy::Error::ILLEGAL_STATE;
-      }));
-   return handle;
+   return MarshalToJNI([mac = remote.mac, lsl = lsl, msl = msl](jni::BtInvoker * invoker, JNIEnv * env) {
+      jstring jmac = env->NewStringUTF(mac.c_str());
+      jint error = invoker->Connect(jmac, lsl, msl);
+      env->DeleteLocalRef(jmac);
+      return static_cast<bt::IProxy::Error>(error);
+   });
 }
 
 bt::IProxy::Handle BtProxy::CloseConnection(const bt::Device & remote)
 {
-   async::Promise<bt::IProxy::Error> p(m_cbExecutor);
-   auto handle = p.GetFuture();
-
-   jni::Exec(
-      async::EmbedPromiseIntoTask(std::move(p), [remoteMac = remote.mac](jni::ServiceLocator * sl) {
-         if (auto * invoker = sl->GetBtInvoker()) {
-            jstring jmac = sl->GetJNIEnv()->NewStringUTF(remoteMac.c_str());
-            jint error = invoker->CloseConnection(jmac);
-            sl->GetJNIEnv()->DeleteLocalRef(jmac);
-            return static_cast<bt::IProxy::Error>(error);
-         }
-         sl->GetLogger().Write(LogPriority::ERROR, "CloseConnection failed: no invoker");
-         return bt::IProxy::Error::ILLEGAL_STATE;
-      }));
-   return handle;
+   return MarshalToJNI([remoteMac = remote.mac](jni::BtInvoker * invoker, JNIEnv * env) {
+      jstring jmac = env->NewStringUTF(remoteMac.c_str());
+      jint error = invoker->CloseConnection(jmac);
+      env->DeleteLocalRef(jmac);
+      return static_cast<bt::IProxy::Error>(error);
+   });
 }
 
 bt::IProxy::Handle BtProxy::SendMessage(const bt::Device & remote, std::string msg)
 {
-   async::Promise<bt::IProxy::Error> p(m_cbExecutor);
-   auto handle = p.GetFuture();
-
-   jni::Exec([remoteMac = remote.mac, msg = std::move(msg)](jni::ServiceLocator * sl) {
-      if (auto * invoker = sl->GetBtInvoker()) {
-         JNIEnv * env = sl->GetJNIEnv();
-         jstring jmac = env->NewStringUTF(remoteMac.c_str());
-         jbyteArray jmsg = env->NewByteArray(msg.length());
-         env->SetByteArrayRegion(jmsg, 0, msg.size(), reinterpret_cast<const jbyte *>(msg.data()));
-         jint error = invoker->SendMessage(jmac, jmsg);
-         env->DeleteLocalRef(jmac);
-         env->DeleteLocalRef(jmsg);
-         return static_cast<bt::IProxy::Error>(error);
-      }
-      sl->GetLogger().Write(LogPriority::ERROR, "SendMessage failed: no invoker");
-      return bt::IProxy::Error::ILLEGAL_STATE;
+   return MarshalToJNI([remoteMac = remote.mac, msg = std::move(msg)](jni::BtInvoker * invoker, JNIEnv * env) {
+      jstring jmac = env->NewStringUTF(remoteMac.c_str());
+      jbyteArray jmsg = env->NewByteArray(msg.length());
+      env->SetByteArrayRegion(jmsg, 0, msg.size(), reinterpret_cast<const jbyte *>(msg.data()));
+      jint error = invoker->SendMessage(jmac, jmsg);
+      env->DeleteLocalRef(jmac);
+      env->DeleteLocalRef(jmsg);
+      return static_cast<bt::IProxy::Error>(error);
    });
-   return handle;
 }
 
 } // namespace
