@@ -128,7 +128,7 @@ TEST(DiceTest, serialize_and_deserialize_request)
       uint32_t successFrom = 5U;
       dice::Request r{d, successFrom};
 
-      std::string serialized = slzr->CreateRequest(r);
+      std::string serialized = slzr->FromRequest(r);
 
       dice::Request r1 = slzr->ParseRequest(serialized);
       auto * cast = std::get_if<dice::D20>(&r1.cast);
@@ -153,7 +153,7 @@ TEST(DiceTest, serialize_and_deserialize_response)
       uint32_t successCount = 1U;
       dice::Response r{d, successCount};
 
-      std::string serialized = slzr->CreateResponse(r);
+      std::string serialized = slzr->FromResponse(r);
 
       dice::Response r1 = slzr->ParseResponse(serialized);
       auto * cast = std::get_if<dice::D100>(&r1.cast);
