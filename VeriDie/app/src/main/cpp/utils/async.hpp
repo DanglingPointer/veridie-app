@@ -354,6 +354,31 @@ inline auto EmbedPromiseIntoTask(Promise<R> && p, F && f)
    return CopyableWrapper<R, Func>(std::move(p), std::forward<F>(f));
 }
 
+
+class Canceller
+{
+   struct Token
+   {};
+
+public:
+   Canceller()
+      : m_token(std::make_shared<Token>())
+   {}
+   void Reset() { m_token = std::make_shared<Token>(); }
+   template <typename F>
+   auto MakeCb(F && callback) const
+   {
+      return [token = std::weak_ptr<Token>(m_token), cb = std::forward<F>(callback)](auto &&... args)
+      {
+         if (!token.expired())
+            cb(std::forward<decltype(args)>(args)...);
+      };
+   }
+
+private:
+   std::shared_ptr<Token> m_token;
+};
+
 } // namespace async
 
 #endif // ASYNC_HPP

@@ -277,4 +277,28 @@ TEST_F(AsyncFixture, operator_OR_cancels_the_last_task)
    EXPECT_FALSE(done2);
 }
 
+TEST(CancellerTest, canceller_does_not_cancel_wrapped_function_while_alive)
+{
+   int i = 0;
+   async::Canceller token;
+   std::function<void(int)> f = token.MakeCb([&] (int j) {
+      i += j;
+   });
+   f(42);
+   EXPECT_EQ(42, i);
+}
+
+TEST(CancellerTest, canceller_cancels_wrapped_function_when_reset)
+{
+   int i = 0;
+   async::Canceller token;
+   std::function<void(int)> f = token.MakeCb([&] (int j) {
+      i += j;
+   });
+
+   token.Reset();
+   f(42);
+   EXPECT_EQ(0, i);
+}
+
 } // namespace
