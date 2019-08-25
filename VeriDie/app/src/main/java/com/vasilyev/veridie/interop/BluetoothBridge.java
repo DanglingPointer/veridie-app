@@ -18,24 +18,7 @@ public class BluetoothBridge
     public static final int ERROR_UNHANDLED_EXCEPTION = 2;
     public static final int ERROR_WRONG_STATE = 3;
 
-
     private final static String TAG = BluetoothBridge.class.getName();
-
-    private static BluetoothBridge s_instance = null;
-    private Listener m_listener;
-    private BluetoothBridge(Listener listener) {
-        m_listener = listener;
-        bridgeCreated();
-    }
-
-    public static BluetoothBridge getInstance() {
-        if (s_instance == null)
-            s_instance = new BluetoothBridge(null);
-        return s_instance;
-    }
-    public void setListener(Listener l) {
-        m_listener = l;
-    }
 
     public interface Listener
     {
@@ -49,6 +32,20 @@ public class BluetoothBridge
         int connect(String serverMac, UUID conn);
         int closeConnection(String remoteMac);
         int sendMessage(String remoteMac, byte[] msg);
+    }
+
+    private static BluetoothBridge s_instance = null;
+    public static BluetoothBridge getInstance() {
+        if (s_instance == null)
+            s_instance = new BluetoothBridge();
+        return s_instance;
+    }
+
+    private Listener m_listener;
+    private BluetoothBridge() {}
+    public void setListener(Listener l) {
+        bridgeCreated();
+        m_listener = l;
     }
 
     /** C++ --> JAVA */

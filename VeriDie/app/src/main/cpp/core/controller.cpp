@@ -31,11 +31,11 @@ private: /*bt::IListener*/
    void OnMessageReceived(const bt::Device & remote, std::string message) override{};
 
 private: /*ui::IListener*/
-   void OnDevicesQuery(bool connected) override{};
+   void OnDevicesQuery(bool connected, bool discovered) override{};
    void OnNameSet(std::string name) override{};
    void OnLocalNameQuery() override{};
    void OnCastRequest(dice::Request localRequest) override{};
-   void OnCandidateApproved(const bt::Device & candidatePlayer) override{};
+   void OnCandidateApproved(bt::Device candidatePlayer) override{};
    void OnNewGame() override{};
    void OnRestoringState() override{};
    void OnSavingState() override{};

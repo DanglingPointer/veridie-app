@@ -57,8 +57,8 @@ void Exec(std::function<void(jni::ServiceLocator *)> task)
       // Trying to schedule task after Unload
       return;
    }
-   g_thread->ScheduleTask([t = std::move(task)](void * data) {
-      t(static_cast<jni::ServiceLocator *>(data));
+   g_thread->ScheduleTask(
+      [t = std::move(task)](void * data) { t(static_cast<jni::ServiceLocator *>(data));
    });
 }
 
@@ -77,6 +77,7 @@ std::string ErrorToString(jint error)
 } // namespace jni
 
 extern "C" {
+// clang-format off
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
 {
@@ -120,57 +121,68 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bridgeC
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOn(JNIEnv * env,
                                                                                      jclass clazz)
 {
-   main::Exec([](main::ServiceLocator * svc) { svc->GetBtListener().OnBluetoothOn(); });
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetBtListener().OnBluetoothOn();
+   });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOff(JNIEnv * env,
                                                                                       jclass clazz)
 {
-   main::Exec([](main::ServiceLocator * svc) { svc->GetBtListener().OnBluetoothOff(); });
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetBtListener().OnBluetoothOff();
+   });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceFound(
    JNIEnv * env, jclass clazz, jstring name, jstring mac, jboolean paired)
 {
-   main::Exec([
-      deviceName = GetString(env, name), deviceMac = GetString(env, mac), paired = GetBool(paired)
-   ](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnDeviceFound(bt::Device(std::move(deviceName), std::move(deviceMac)),
-                                         paired);
+   main::Exec(
+       [deviceName = GetString(env, name), deviceMac = GetString(env, mac), paired = GetBool(paired)]
+       (main::ServiceLocator * svc) mutable {
+          svc->GetBtListener().OnDeviceFound(
+              bt::Device(std::move(deviceName),
+              std::move(deviceMac)),
+              paired);
    });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityConfirmed(
    JNIEnv * env, jclass clazz)
 {
-   main::Exec(
-      [](main::ServiceLocator * svc) { svc->GetBtListener().OnDiscoverabilityConfirmed(); });
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetBtListener().OnDiscoverabilityConfirmed();
+   });
 }
 
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityRejected(
    JNIEnv * env, jclass clazz)
 {
-   main::Exec([](main::ServiceLocator * svc) { svc->GetBtListener().OnDiscoverabilityRejected(); });
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetBtListener().OnDiscoverabilityRejected();
+   });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_scanModeChanged(
    JNIEnv * env, jclass clazz, jboolean discoverable, jboolean connectable)
 {
-   main::Exec([discoverable = GetBool(discoverable),
-               connectable = GetBool(connectable)](main::ServiceLocator * svc) {
-      svc->GetBtListener().OnScanModeChanged(discoverable, connectable);
-   });
+   main::Exec(
+      [discoverable = GetBool(discoverable),connectable = GetBool(connectable)]
+      (main::ServiceLocator * svc) {
+         svc->GetBtListener().OnScanModeChanged(discoverable, connectable);
+      });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceConnected(
    JNIEnv * env, jclass clazz, jstring name, jstring mac)
 {
-   main::Exec([deviceName = GetString(env, name),
-               deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnDeviceConnected(
-         bt::Device(std::move(deviceName), std::move(deviceMac)));
-   });
+   main::Exec(
+      [deviceName = GetString(env, name),deviceMac = GetString(env, mac)]
+      (main::ServiceLocator * svc) mutable {
+        svc->GetBtListener().OnDeviceConnected(
+            bt::Device(std::move(deviceName), std::move(deviceMac)));
+      });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceDisonnected(
@@ -187,11 +199,88 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_message
    jbyte * elems = env->GetByteArrayElements(dataArr, nullptr);
    auto * first = reinterpret_cast<const char *>(elems);
    std::string buf(first, static_cast<size_t>(length));
-   main::Exec([message = std::move(buf),
-               deviceMac = GetString(env, srcDevice)](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnMessageReceived(bt::Device(std::string(), std::move(deviceMac)),
-                                             std::move(message));
-   });
+   main::Exec(
+      [message = std::move(buf),deviceMac = GetString(env, srcDevice)]
+      (main::ServiceLocator * svc) mutable {
+         svc->GetBtListener().OnMessageReceived(
+             bt::Device(std::string(), std::move(deviceMac)),std::move(message));
+         });
    env->ReleaseByteArrayElements(dataArr, elems, JNI_ABORT);
 }
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_bridgeCreated(JNIEnv *, jclass)
+{
+   // TODO: What should happen here? Something to think about...
 }
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_queryDevices(JNIEnv *, jclass,
+                                                                               jboolean connected,
+                                                                               jboolean discovered)
+{
+   main::Exec(
+       [connected = GetBool(connected), discovered = GetBool(discovered)]
+       (main::ServiceLocator * svc) {
+          svc->GetUiListener().OnDevicesQuery(connected, discovered);
+       });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_setName(JNIEnv * env, jclass,
+                                                                          jstring name)
+{
+   main::Exec([playerName = GetString(env, name)](main::ServiceLocator * svc) mutable {
+      svc->GetUiListener().OnNameSet(std::move(playerName));
+   });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_queryLocalName(JNIEnv *, jclass)
+{
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetUiListener().OnLocalNameQuery();
+   });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_castRequest(JNIEnv *, jclass,
+                                                                              jint d, jint count,
+                                                                              jint threshold)
+{
+   dice::Request request{
+      dice::MakeCast("D" + std::to_string(d), static_cast<size_t>(count)),
+      threshold == -1 ? std::nullopt : std::make_optional(static_cast<uint32_t>(threshold))
+   };
+   main::Exec([request = std::move(request)](main::ServiceLocator * svc) mutable {
+      svc->GetUiListener().OnCastRequest(std::move(request));
+   });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_candidateApproved(JNIEnv * env,
+                                                                                    jclass,
+                                                                                    jstring mac)
+{
+   main::Exec([approvedMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
+      svc->GetUiListener().OnCandidateApproved(bt::Device(std::string(), std::move(approvedMac)));
+   });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_newGame(JNIEnv *, jclass)
+{
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetUiListener().OnNewGame();
+   });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_restoringState(JNIEnv *, jclass)
+{
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetUiListener().OnRestoringState();
+   });
+}
+
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_savingState(JNIEnv *, jclass)
+{
+   main::Exec([](main::ServiceLocator * svc) {
+      svc->GetUiListener().OnSavingState();
+   });
+}
+
+// clang-format on
+} // extern C

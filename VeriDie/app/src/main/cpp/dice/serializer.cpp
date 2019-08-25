@@ -72,9 +72,6 @@ public:
    std::string FromResponse(const dice::Response & response) override;
    dice::Request ParseRequest(const std::string & request) override;
    dice::Response ParseResponse(const std::string & response) override;
-
-private:
-   dice::Cast GetCast(const std::string & type, size_t size) const;
 };
 
 std::string XmlSerializer::FromRequest(const dice::Request & request)
@@ -97,7 +94,54 @@ std::string XmlSerializer::FromResponse(const dice::Response & response)
    return doc->ToString();
 }
 
-dice::Cast XmlSerializer::GetCast(const std::string & type, size_t size) const
+dice::Request XmlSerializer::ParseRequest(const std::string & request)
+{
+   auto doc = xml::ParseString(request);
+   const auto & name = doc->GetRoot().GetName();
+   if (name != "Request") {
+      throw xml::Exception("Expected Request, received: " + name);
+   }
+   std::string type = doc->GetRoot().GetAttributeValue("type");
+   size_t size = std::stoul(doc->GetRoot().GetAttributeValue("size"));
+   std::optional<uint32_t> successFrom;
+   try {
+      successFrom = std::stoul(doc->GetRoot().GetAttributeValue("successFrom"));
+   }
+   catch (const xml::Exception &) {
+   }
+   return dice::Request{dice::MakeCast(type, size), successFrom};
+}
+
+dice::Response XmlSerializer::ParseResponse(const std::string & response)
+{
+   auto doc = xml::ParseString(response);
+   const auto & name = doc->GetRoot().GetName();
+   if (name != "Response") {
+      throw xml::Exception("Expected Response, received: " + name);
+   }
+   std::string type = doc->GetRoot().GetAttributeValue("type");
+   size_t size = std::stoul(doc->GetRoot().GetAttributeValue("size"));
+   dice::Cast cast = dice::MakeCast(type, size);
+
+   std::vector<uint32_t> values(size);
+   for (size_t i = 0; i < size; ++i) {
+      values[i] = std::stoul(doc->GetRoot().GetChild(i).GetContent());
+   }
+   std::visit(FillValues(values), cast);
+
+   std::optional<size_t> successCount;
+   try {
+      successCount = std::stoul(doc->GetRoot().GetAttributeValue("successCount"));
+   }
+   catch (const xml::Exception &) {
+   }
+   return dice::Response{std::move(cast), successCount};
+}
+} // namespace
+
+namespace dice {
+
+dice::Cast MakeCast(const std::string & type, size_t size)
 {
    dice::Cast result;
    if (type == "D4") {
@@ -119,53 +163,6 @@ dice::Cast XmlSerializer::GetCast(const std::string & type, size_t size) const
    }
    return result;
 }
-
-dice::Request XmlSerializer::ParseRequest(const std::string & request)
-{
-   auto doc = xml::ParseString(request);
-   const auto & name = doc->GetRoot().GetName();
-   if (name != "Request") {
-      throw xml::Exception("Expected Request, received: " + name);
-   }
-   std::string type = doc->GetRoot().GetAttributeValue("type");
-   size_t size = std::stoul(doc->GetRoot().GetAttributeValue("size"));
-   std::optional<uint32_t> successFrom;
-   try {
-      successFrom = std::stoul(doc->GetRoot().GetAttributeValue("successFrom"));
-   }
-   catch (const xml::Exception &) {
-   }
-   return dice::Request{GetCast(type, size), successFrom};
-}
-
-dice::Response XmlSerializer::ParseResponse(const std::string & response)
-{
-   auto doc = xml::ParseString(response);
-   const auto & name = doc->GetRoot().GetName();
-   if (name != "Response") {
-      throw xml::Exception("Expected Response, received: " + name);
-   }
-   std::string type = doc->GetRoot().GetAttributeValue("type");
-   size_t size = std::stoul(doc->GetRoot().GetAttributeValue("size"));
-   dice::Cast cast = GetCast(type, size);
-
-   std::vector<uint32_t> values(size);
-   for (size_t i = 0; i < size; ++i) {
-      values[i] = std::stoul(doc->GetRoot().GetChild(i).GetContent());
-   }
-   std::visit(FillValues(values), cast);
-
-   std::optional<size_t> successCount;
-   try {
-      successCount = std::stoul(doc->GetRoot().GetAttributeValue("successCount"));
-   }
-   catch (const xml::Exception &) {
-   }
-   return dice::Response{std::move(cast), successCount};
-}
-} // namespace
-
-namespace dice {
 
 std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
 {

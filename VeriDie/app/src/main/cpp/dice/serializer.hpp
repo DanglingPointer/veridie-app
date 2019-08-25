@@ -20,6 +20,8 @@ struct Response
    std::optional<size_t> successCount;
 };
 
+dice::Cast MakeCast(const std::string & type, size_t size);
+
 class ISerializer
 {
 public:
