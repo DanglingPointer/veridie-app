@@ -1,20 +1,26 @@
 package com.vasilyev.veridie.interop;
 
+import android.util.Log;
+
 import com.vasilyev.veridie.CastRequest;
 
 public class UiBridge
 {
-    public static final int NO_ERROR = 0;
-    public static final int ERROR_NO_LISTENER = 1;
-    public static final int ERROR_UNHANDLED_EXCEPTION = 2;
+    private static final int NO_ERROR = 0;
+    private static final int ERROR_NO_LISTENER = 1;
+    private static final int ERROR_UNHANDLED_EXCEPTION = 2;
 
-
-    private final static String TAG = BluetoothBridge.class.getName();
+    private static final String TAG = BluetoothBridge.class.getName();
 
     public interface Listener
     {
-        // TODO
+        void showToast(String message, int duration);
+        void showCandidates(String[] names);
+        void showConnections(String[] names);
+        void showCastResponse(int[] result, int successCount, boolean external);
+        void showLocalName(String ownName);
     }
+
     private static UiBridge s_instance = null;
     public static UiBridge getInstance() {
         if (s_instance == null)
@@ -22,7 +28,7 @@ public class UiBridge
         return s_instance;
     }
 
-    private static Listener m_listener;
+    private Listener m_listener;
     private UiBridge() {}
     public void setListener(Listener l) {
         bridgeCreated();
@@ -31,7 +37,61 @@ public class UiBridge
 
     /** C++ --> JAVA */
 
-    // TODO
+    private static int showToast(String message, int duration) {
+        try {
+            s_instance.m_listener.showToast(message, duration);
+            return NO_ERROR;
+        } catch (NullPointerException e) {
+            return ERROR_NO_LISTENER;
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            return ERROR_UNHANDLED_EXCEPTION;
+        }
+    }
+    private static int showCandidates(String[] names) {
+        try {
+            s_instance.m_listener.showCandidates(names);
+            return NO_ERROR;
+        } catch (NullPointerException e) {
+            return ERROR_NO_LISTENER;
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            return ERROR_UNHANDLED_EXCEPTION;
+        }
+    }
+    private static int showConnections(String[] names) {
+        try {
+            s_instance.m_listener.showConnections(names);
+            return NO_ERROR;
+        } catch (NullPointerException e) {
+            return ERROR_NO_LISTENER;
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            return ERROR_UNHANDLED_EXCEPTION;
+        }
+    }
+    private static int showCastResponse(int[] result, int successCount, boolean external) {
+        try {
+            s_instance.m_listener.showCastResponse(result, successCount, external);
+            return NO_ERROR;
+        } catch (NullPointerException e) {
+            return ERROR_NO_LISTENER;
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            return ERROR_UNHANDLED_EXCEPTION;
+        }
+    }
+    private static int showLocalName(String ownName) {
+        try {
+            s_instance.m_listener.showLocalName(ownName);
+            return NO_ERROR;
+        } catch (NullPointerException e) {
+            return ERROR_NO_LISTENER;
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            return ERROR_UNHANDLED_EXCEPTION;
+        }
+    }
 
     /** Java --> C++*/
 

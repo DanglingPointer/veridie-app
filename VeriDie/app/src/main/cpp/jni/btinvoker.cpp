@@ -8,20 +8,20 @@ BtInvoker::BtInvoker(JNIEnv * env, jclass clazz)
    : m_env(env)
    , m_class(clazz)
 {
-   m_methods.isBluetoothEnabled = env->GetStaticMethodID(clazz, "isBluetoothEnabled", "()Z");
-   m_methods.requestPairedDevices = env->GetStaticMethodID(clazz, "requestPairedDevices", "()I");
-   m_methods.startDiscovery = env->GetStaticMethodID(clazz, "startDiscovery", "()I");
-   m_methods.cancelDiscovery = env->GetStaticMethodID(clazz, "cancelDiscovery", "()I");
-   m_methods.requestDiscoverability =
-      env->GetStaticMethodID(clazz, "requestDiscoverability", "(I)I");
-   m_methods.startListening =
-      env->GetStaticMethodID(clazz, "startListening", "(Ljava/lang/String;JJ)I");
-   m_methods.stopListening = env->GetStaticMethodID(clazz, "stopListening", "()I");
-   m_methods.connect = env->GetStaticMethodID(clazz, "connect", "(Ljava/lang/String;JJ)I");
-   m_methods.closeConnection =
-      env->GetStaticMethodID(clazz, "closeConnection", "(Ljava/lang/String;)I");
-   m_methods.sendMessage = env->GetStaticMethodID(clazz, "sendMessage", "(Ljava/lang/String;[B)I");
+#define GET_METHOD(name, signature) m_methods.name = env->GetStaticMethodID(clazz, #name, signature)
 
+   GET_METHOD(isBluetoothEnabled, "()Z");
+   GET_METHOD(requestPairedDevices, "()I");
+   GET_METHOD(startDiscovery, "()I");
+   GET_METHOD(cancelDiscovery, "()I");
+   GET_METHOD(requestDiscoverability, "(I)I");
+   GET_METHOD(startListening, "(Ljava/lang/String;JJ)I");
+   GET_METHOD(stopListening, "()I");
+   GET_METHOD(connect, "(Ljava/lang/String;JJ)I");
+   GET_METHOD(closeConnection, "(Ljava/lang/String;)I");
+   GET_METHOD(sendMessage, "(Ljava/lang/String;[B)I");
+
+#undef GET_METHOD
    const jmethodID * const begin = &m_methods.isBluetoothEnabled;
    const jmethodID * const end = &m_methods.sendMessage + 1;
    for (const jmethodID * p = begin; p != end; ++p) {

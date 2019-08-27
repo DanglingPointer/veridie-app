@@ -18,7 +18,7 @@ public class BluetoothBridge
     public static final int ERROR_UNHANDLED_EXCEPTION = 2;
     public static final int ERROR_WRONG_STATE = 3;
 
-    private final static String TAG = BluetoothBridge.class.getName();
+    private static final String TAG = BluetoothBridge.class.getName();
 
     public interface Listener
     {

@@ -208,9 +208,13 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_message
    env->ReleaseByteArrayElements(dataArr, elems, JNI_ABORT);
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_bridgeCreated(JNIEnv *, jclass)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_bridgeCreated(
+    JNIEnv * env, jclass clazz)
 {
-   // TODO: What should happen here? Something to think about...
+   g_thread->ScheduleTask([env, clazz](void * arg) {
+      auto * sl = static_cast<ServiceLocatorImpl *>(arg);
+      sl->m_uiInvoker = std::make_unique<jni::UiInvoker>(env, clazz);
+   });
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_queryDevices(JNIEnv *, jclass,
