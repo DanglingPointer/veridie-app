@@ -3,7 +3,6 @@
 
 #include <functional>
 #include <memory>
-#include <atomic>
 #include "utils/blockingconcurrentqueue.h"
 #include "core/logging.hpp"
 
@@ -18,8 +17,10 @@ public:
 
 private:
    void Launch(void * arg);
-   std::shared_ptr<moodycamel::BlockingConcurrentQueue<Task>> m_queue;
-   std::shared_ptr<std::atomic_bool> m_stop;
+
+   using Queue = moodycamel::BlockingConcurrentQueue<Task>;
+   std::shared_ptr<Queue> m_queue;
+   std::shared_ptr<bool> m_stop;
    ILogger & m_log;
 };
 
