@@ -2,7 +2,6 @@
 #define WORKER_HPP
 
 #include <functional>
-#include <memory>
 #include "utils/blockingconcurrentqueue.h"
 #include "core/logging.hpp"
 
@@ -19,8 +18,8 @@ private:
    void Launch(void * arg);
 
    using Queue = moodycamel::BlockingConcurrentQueue<Task>;
-   std::shared_ptr<Queue> m_queue;
-   std::shared_ptr<bool> m_stop;
+   Queue * const m_queue;
+   bool * const m_stop;
    ILogger & m_log;
 };
 

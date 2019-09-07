@@ -1,9 +1,11 @@
+#include <memory>
+#include <stdexcept>
 #include <thread>
 #include "utils/worker.hpp"
 
 Worker::Worker(void * data, ILogger & log)
-   : m_queue(std::make_shared<Queue>(Queue::BLOCK_SIZE * 2))
-   , m_stop(std::make_shared<bool>(false))
+   : m_queue(new Queue(Queue::BLOCK_SIZE * 2))
+   , m_stop(new bool(false))
    , m_log(log)
 {
    Launch(data);
@@ -11,9 +13,7 @@ Worker::Worker(void * data, ILogger & log)
 
 Worker::~Worker()
 {
-   ScheduleTask([stop = std::move(m_stop)] (void *) {
-      *stop = true;
-   });
+   ScheduleTask([stop = m_stop](void *) { *stop = true; });
 }
 
 void Worker::ScheduleTask(Worker::Task item)
@@ -26,11 +26,20 @@ void Worker::ScheduleTask(Worker::Task item)
 
 void Worker::Launch(void * arg)
 {
-   std::thread([queue = m_queue, stop = m_stop, arg] {
+   std::thread([queue = std::unique_ptr<Queue>(m_queue), stop = std::unique_ptr<bool>(m_stop), arg,
+                &log = m_log] {
+      Worker::Task t;
       while (!*stop) {
-         Worker::Task t;
-         queue->wait_dequeue(t);
-         t(arg);
+         try {
+            queue->wait_dequeue(t);
+            t(arg);
+         }
+         catch (const std::exception & e) {
+            log.Write(LogPriority::WARN, std::string("Uncaught exception: ") + e.what());
+         }
+         catch (...) {
+            log.Write(LogPriority::WARN, "Uncaught exception: UNKNOWN");
+         }
       }
    }).detach();
 }

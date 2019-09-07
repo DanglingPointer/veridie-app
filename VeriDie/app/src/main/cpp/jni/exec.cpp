@@ -55,11 +55,12 @@ void Exec(std::function<void(jni::ServiceLocator *)> task)
 {
    if (!g_thread) {
       // Trying to schedule task after Unload
-      return;
+      std::abort();
    }
    g_thread->ScheduleTask(
-      [t = std::move(task)](void * data) { t(static_cast<jni::ServiceLocator *>(data));
-   });
+      [t = std::move(task)](void * data) {
+         t(static_cast<jni::ServiceLocator *>(data));
+      });
 }
 
 std::string ErrorToString(jint error)
@@ -100,13 +101,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * reserved)
 {
    g_thread->ScheduleTask([vm](void * arg) {
-      auto * sl = static_cast<ServiceLocatorImpl *>(arg);
-      sl->m_btInvoker.reset();
-      sl->m_uiInvoker.reset();
-      sl->m_jniEnv = nullptr;
-      sl->m_javaVM = nullptr;
       vm->DetachCurrentThread();
    });
+   g_thread = nullptr;
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bridgeCreated(JNIEnv * env,
