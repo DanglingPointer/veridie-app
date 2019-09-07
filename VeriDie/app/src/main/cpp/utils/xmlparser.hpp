@@ -500,7 +500,7 @@ std::unique_ptr<ElementData<TChar>> BuildElementTree(const std::list<const TChar
 } // namespace details
 
 
-class Exception : std::logic_error
+class Exception : public std::logic_error
 {
 public:
    Exception(const char *what) : std::logic_error(what)
