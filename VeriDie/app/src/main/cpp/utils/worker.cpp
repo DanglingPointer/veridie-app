@@ -28,6 +28,7 @@ void Worker::Launch(void * arg)
 {
    std::thread([queue = std::unique_ptr<Queue>(m_queue), stop = std::unique_ptr<bool>(m_stop), arg,
                 &log = m_log] {
+      log.Write(LogPriority::INFO, "Hello world!");
       Worker::Task t;
       while (!*stop) {
          try {
@@ -41,5 +42,6 @@ void Worker::Launch(void * arg)
             log.Write(LogPriority::WARN, "Uncaught exception: UNKNOWN");
          }
       }
+      log.Write(LogPriority::INFO, "Worker shut down");
    }).detach();
 }

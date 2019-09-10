@@ -44,8 +44,8 @@ public class BluetoothBridge
     private Listener m_listener;
     private BluetoothBridge() {}
     public void setListener(Listener l) {
-        bridgeCreated();
         m_listener = l;
+        bridgeCreated();
     }
 
     /** C++ --> JAVA */

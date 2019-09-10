@@ -9,6 +9,7 @@ class UiInvoker
 {
 public:
    UiInvoker(JNIEnv * env, jclass clazz);
+   ~UiInvoker();
    jint ShowToast(jstring message, jint seconds);
    jint ShowCandidates(jobjectArray names);
    jint ShowConnections(jobjectArray names);

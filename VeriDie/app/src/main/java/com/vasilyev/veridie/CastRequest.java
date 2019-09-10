@@ -36,8 +36,8 @@ public class CastRequest
         if (count < 1)
             throw new RuntimeException("Invalid dice count");
         m_count = count;
-        if (threshold != null && threshold < d)
-            throw new RuntimeException("Invalid thresholde");
+        if (threshold != null && threshold > d)
+            throw new RuntimeException("Invalid threshold");
         m_threshold = threshold;
     }
     public int getD() {

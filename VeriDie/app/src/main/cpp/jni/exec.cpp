@@ -106,25 +106,26 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * reserved)
    g_thread = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bridgeCreated(JNIEnv * env,
-                                                                                       jclass clazz)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bridgeCreated(
+    JNIEnv * env, jclass localClass)
 {
-   g_thread->ScheduleTask([env, clazz](void * arg) {
+   auto globalClass = static_cast<jclass>(env->NewGlobalRef(localClass));
+   g_thread->ScheduleTask([globalClass](void * arg) {
       auto * sl = static_cast<ServiceLocatorImpl *>(arg);
-      sl->m_btInvoker = std::make_unique<jni::BtInvoker>(env, clazz);
+      sl->m_btInvoker = std::make_unique<jni::BtInvoker>(sl->GetJNIEnv(), globalClass);
    });
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOn(JNIEnv * env,
-                                                                                     jclass clazz)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOn(JNIEnv *,
+                                                                                     jclass)
 {
    main::Exec([](main::ServiceLocator * svc) {
       svc->GetBtListener().OnBluetoothOn();
    });
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOff(JNIEnv * env,
-                                                                                      jclass clazz)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOff(JNIEnv *,
+                                                                                      jclass)
 {
    main::Exec([](main::ServiceLocator * svc) {
       svc->GetBtListener().OnBluetoothOff();
@@ -132,7 +133,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoo
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceFound(
-   JNIEnv * env, jclass clazz, jstring name, jstring mac, jboolean paired)
+   JNIEnv *env, jclass, jstring name, jstring mac, jboolean paired)
 {
    main::Exec(
        [deviceName = GetString(env, name), deviceMac = GetString(env, mac), paired = GetBool(paired)]
@@ -145,7 +146,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceF
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityConfirmed(
-   JNIEnv * env, jclass clazz)
+   JNIEnv *, jclass)
 {
    main::Exec([](main::ServiceLocator * svc) {
       svc->GetBtListener().OnDiscoverabilityConfirmed();
@@ -154,7 +155,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discove
 
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityRejected(
-   JNIEnv * env, jclass clazz)
+   JNIEnv *, jclass)
 {
    main::Exec([](main::ServiceLocator * svc) {
       svc->GetBtListener().OnDiscoverabilityRejected();
@@ -162,7 +163,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discove
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_scanModeChanged(
-   JNIEnv * env, jclass clazz, jboolean discoverable, jboolean connectable)
+   JNIEnv *, jclass, jboolean discoverable, jboolean connectable)
 {
    main::Exec(
       [discoverable = GetBool(discoverable),connectable = GetBool(connectable)]
@@ -172,7 +173,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_scanMod
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceConnected(
-   JNIEnv * env, jclass clazz, jstring name, jstring mac)
+   JNIEnv * env, jclass, jstring name, jstring mac)
 {
    main::Exec(
       [deviceName = GetString(env, name),deviceMac = GetString(env, mac)]
@@ -183,7 +184,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceC
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceDisonnected(
-   JNIEnv * env, jclass clazz, jstring mac)
+   JNIEnv * env, jclass, jstring mac)
 {
    main::Exec([deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
       svc->GetBtListener().OnDeviceDisconnected(bt::Device(std::string(), std::move(deviceMac)));
@@ -191,7 +192,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceD
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_messageReceived(
-   JNIEnv * env, jclass clazz, jstring srcDevice, jbyteArray dataArr, jint length)
+   JNIEnv * env, jclass, jstring srcDevice, jbyteArray dataArr, jint length)
 {
    jbyte * elems = env->GetByteArrayElements(dataArr, nullptr);
    auto * first = reinterpret_cast<const char *>(elems);
@@ -206,11 +207,12 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_message
 }
 
 JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_bridgeCreated(
-    JNIEnv * env, jclass clazz)
+    JNIEnv *env, jclass localClass)
 {
-   g_thread->ScheduleTask([env, clazz](void * arg) {
+   auto globalClass = static_cast<jclass>(env->NewGlobalRef(localClass));
+   g_thread->ScheduleTask([globalClass](void * arg) {
       auto * sl = static_cast<ServiceLocatorImpl *>(arg);
-      sl->m_uiInvoker = std::make_unique<jni::UiInvoker>(env, clazz);
+      sl->m_uiInvoker = std::make_unique<jni::UiInvoker>(sl->GetJNIEnv(), globalClass);
    });
 }
 

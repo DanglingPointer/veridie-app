@@ -25,6 +25,10 @@ UiInvoker::UiInvoker(JNIEnv * env, jclass clazz)
       }
    }
 }
+UiInvoker::~UiInvoker()
+{
+   m_env->DeleteGlobalRef(m_class);
+}
 jint UiInvoker::ShowToast(jstring message, jint seconds)
 {
    return m_env->CallStaticIntMethod(m_class, m_methods.showToast, message, seconds);

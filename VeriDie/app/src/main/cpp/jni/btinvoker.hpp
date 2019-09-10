@@ -9,6 +9,7 @@ class BtInvoker
 {
 public:
    BtInvoker(JNIEnv * env, jclass clazz);
+   ~BtInvoker();
    jboolean IsBluetoothEnabled();
    jint RequestPairedDevices();
    jint StartDiscovery();

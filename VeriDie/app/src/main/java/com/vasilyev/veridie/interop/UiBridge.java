@@ -10,7 +10,7 @@ public class UiBridge
     private static final int ERROR_NO_LISTENER = 1;
     private static final int ERROR_UNHANDLED_EXCEPTION = 2;
 
-    private static final String TAG = BluetoothBridge.class.getName();
+    private static final String TAG = UiBridge.class.getName();
 
     public interface Listener
     {
@@ -31,8 +31,8 @@ public class UiBridge
     private Listener m_listener;
     private UiBridge() {}
     public void setListener(Listener l) {
-        bridgeCreated();
         m_listener = l;
+        bridgeCreated();
     }
 
     /** C++ --> JAVA */

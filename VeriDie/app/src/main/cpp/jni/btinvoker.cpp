@@ -30,6 +30,10 @@ BtInvoker::BtInvoker(JNIEnv * env, jclass clazz)
       }
    }
 }
+BtInvoker::~BtInvoker()
+{
+   m_env->DeleteGlobalRef(m_class);
+}
 jboolean BtInvoker::IsBluetoothEnabled()
 {
    return m_env->CallStaticBooleanMethod(m_class, m_methods.isBluetoothEnabled);
