@@ -113,7 +113,7 @@ public class InteropTest
       bridge.discoverabilityResponse(false);
       assertEquals("OnDiscoverabilityRejected", l.get());
 
-      bridge.discoverabilityChanged(SCAN_MODE_NONE); // false, false
-      assertEquals("OnScanModeChanged", l.get());
+      bridge.discoverabilityChanged(SCAN_MODE_NONE);
+      assertEquals("OnScanModeChangedfalsefalse", l.get());
    }
 }

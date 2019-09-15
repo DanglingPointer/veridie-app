@@ -88,6 +88,7 @@ public:
       Cancel();
       m_state = std::move(rhs.m_state);
       m_canceller = std::exchange(rhs.m_canceller, nullptr);
+      return *this;
    }
    Future<R> & operator=(const Future<R> &) = delete;
 
@@ -240,6 +241,8 @@ inline Future<Empty> operator||(Future<R1> && lhs, Future<R2> && rhs)
    return combinedFuture;
 }
 
+using CombinedFuture = Future<Empty>;
+
 using Executor = std::function<void(std::function<void()>)>;
 
 template <typename R>
@@ -266,6 +269,7 @@ public:
       Terminate();
       m_executor = std::move(rhs.m_executor);
       m_state = std::move(rhs.m_state);
+      return *this;
    }
    Promise<R> & operator=(const Promise<R> &) = delete;
 
@@ -334,6 +338,7 @@ public:
    {
       m_promise = std::move(rhs.m_promise);
       m_func = std::move(rhs.m_func);
+      return *this;
    }
    template <typename... TArgs>
    void operator()(TArgs &&... args) const
