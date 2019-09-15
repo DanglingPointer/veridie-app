@@ -10,20 +10,14 @@ namespace main {
 struct Timeout
 {};
 
-class TimerEngine
+class ITimerEngine
 {
 public:
-   explicit TimerEngine(async::Executor callbackExecutor);
-   ~TimerEngine();
-   async::Future<Timeout> ScheduleTimer(std::chrono::seconds period);
-
-private:
-   void Launch();
-
-   struct State;
-   std::shared_ptr<State> m_state;
-   const async::Executor m_executor;
+   virtual ~ITimerEngine() = default;
+   virtual async::Future<Timeout> ScheduleTimer(std::chrono::seconds period) = 0;
 };
+
+std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor callbackExecutor);
 
 } // namespace main
 

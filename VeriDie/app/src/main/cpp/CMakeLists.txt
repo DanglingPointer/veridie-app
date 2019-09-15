@@ -28,6 +28,10 @@ add_library(veridie
         core/exec.cpp
         core/controller.cpp
         core/timerengine.cpp
+        fsm/stateidle.cpp
+        fsm/stateplaying.cpp
+        fsm/stateconnecting.cpp
+        fsm/statenegotiating.cpp
         utils/worker.cpp)
 target_link_libraries(veridie
         ${log-lib})

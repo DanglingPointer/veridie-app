@@ -137,7 +137,7 @@ namespace main {
 
 std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btProxy,
                                               ui::IProxy & uiProxy, dice::IEngine &,
-                                              main::TimerEngine &)
+                                              main::ITimerEngine &)
 {
    return std::make_unique<FakeController>(logger, btProxy, uiProxy);
 }

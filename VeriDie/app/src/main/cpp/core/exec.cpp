@@ -28,7 +28,7 @@ namespace main {
 ServiceLocator::ServiceLocator()
    : m_logger(jni::CreateLogger("MAIN_WORKER"))
    , m_engine(dice::CreateUniformEngine())
-   , m_timer(std::make_unique<TimerEngine>(MainExecutor))
+   , m_timer(main::CreateTimerEngine(MainExecutor))
    , m_btProxy(jni::CreateBtProxy())
    , m_uiProxy(jni::CreateUiProxy())
    , m_ctrl(main::CreateController(*m_logger, *m_btProxy, *m_uiProxy, *m_engine, *m_timer))

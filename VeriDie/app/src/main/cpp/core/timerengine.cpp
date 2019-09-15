@@ -4,10 +4,9 @@
 #include <thread>
 #include "core/timerengine.hpp"
 
-namespace main {
-using namespace std::chrono_literals;
-
 namespace {
+using namespace std::chrono_literals;
+using namespace main;
 
 struct Timer
 {
@@ -15,7 +14,20 @@ struct Timer
    std::chrono::steady_clock::time_point time;
 };
 
-} // namespace
+class TimerEngine : public ITimerEngine
+{
+public:
+   explicit TimerEngine(async::Executor callbackExecutor);
+   virtual ~TimerEngine();
+   async::Future<Timeout> ScheduleTimer(std::chrono::seconds period) override;
+
+private:
+   void Launch();
+
+   struct State;
+   std::shared_ptr<State> m_state;
+   const async::Executor m_executor;
+};
 
 struct TimerEngine::State
 {
@@ -70,6 +82,15 @@ void TimerEngine::Launch()
          }
       }
    }).detach();
+}
+
+} // namespace
+
+namespace main {
+
+std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor callbackExecutor)
+{
+   return std::make_unique<TimerEngine>(std::move(callbackExecutor));
 }
 
 } // namespace main
