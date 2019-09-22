@@ -6,7 +6,7 @@
 #include <string>
 #include "dice/serializer.hpp"
 #include "bt/device.hpp"
-#include "utils/async.hpp"
+#include "utils/future.hpp"
 
 namespace ui {
 

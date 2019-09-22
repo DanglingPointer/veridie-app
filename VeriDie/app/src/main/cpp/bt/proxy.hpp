@@ -3,7 +3,7 @@
 
 #include <functional>
 #include <optional>
-#include "utils/async.hpp"
+#include "utils/future.hpp"
 #include "bt/device.hpp"
 
 namespace bt {

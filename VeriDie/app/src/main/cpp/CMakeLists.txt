@@ -32,7 +32,8 @@ add_library(veridie
         fsm/stateplaying.cpp
         fsm/stateconnecting.cpp
         fsm/statenegotiating.cpp
-        utils/worker.cpp)
+        utils/worker.cpp
+        utils/async.cpp)
 target_link_libraries(veridie
         ${log-lib})
 

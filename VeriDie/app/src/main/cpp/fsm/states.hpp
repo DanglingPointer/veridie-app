@@ -6,7 +6,7 @@
 
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
-#include "utils/async.hpp"
+#include "utils/future.hpp"
 #include "bt/proxy.hpp"
 #include "bt/device.hpp"
 #include "ui/proxy.hpp"
