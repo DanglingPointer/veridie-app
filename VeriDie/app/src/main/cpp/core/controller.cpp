@@ -20,8 +20,8 @@ public:
       , m_gui(uiProxy)
       , m_serializer(dice::CreateXmlSerializer())
    {
-      m_state.emplace<fsm::StateIdle>(
-         fsm::Context{&logger, &engine, m_serializer.get(), &timer, &btProxy, &uiProxy, &m_state});
+      m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger, &m_generator, m_serializer.get(),
+                                                   &m_timer, &m_bluetooth, &m_gui, &m_state});
    }
 
 private: /*bt::IListener*/

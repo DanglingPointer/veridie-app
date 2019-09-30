@@ -4,10 +4,10 @@
 #include <string>
 
 namespace bt {
-class Device;
+struct Device;
 }
 namespace dice {
-class Request;
+struct Request;
 }
 
 namespace fsm {
