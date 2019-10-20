@@ -2,6 +2,7 @@
 #include "core/logging.hpp"
 #include "bt/proxy.hpp"
 #include "ui/proxy.hpp"
+#include "utils/canceller.hpp"
 
 namespace {
 using namespace std::chrono_literals;
@@ -11,7 +12,7 @@ std::string ToString(const char * s) { return s; }
 template <typename T>
 std::string ToString(T s) { return std::to_string(s); }
 
-class FakeController : public main::IController
+class FakeController : public main::IController, private async::Canceller<>
 {
 public:
    FakeController(ILogger & logger, bt::IProxy & /*btProxy*/, ui::IProxy & uiProxy)
@@ -19,13 +20,10 @@ public:
       , m_gui(uiProxy)
    {}
 
-   std::vector<ui::IProxy::Handle> handles;
-
    template <typename... TArgs>
    void Toast(const char * fun, TArgs... args)
    {
-      auto handle = m_gui.ShowToast((fun + ... + ToString(args)), 2s);
-      handles.push_back(std::move(handle));
+      m_gui.ShowToast((fun + ... + ToString(args)), 2s, DetachedCb<ui::IProxy::Error>());
    }
 
 private: /*bt::IListener*/

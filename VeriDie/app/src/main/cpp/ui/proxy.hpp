@@ -4,9 +4,10 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <string_view>
 #include "dice/serializer.hpp"
 #include "bt/device.hpp"
-#include "utils/future.hpp"
+#include "utils/callback.hpp"
 
 namespace ui {
 
@@ -20,14 +21,26 @@ public:
       UNHANDLED_EXCEPTION = 2,
       ILLEGAL_STATE = 3
    };
-   using Handle = async::Future<Error>;
+   using Callback = async::Callback<Error>;
    virtual ~IProxy() = default;
-   virtual Handle ShowToast(std::string message, std::chrono::seconds duration) = 0;
-   virtual Handle ShowCandidates(const std::vector<bt::Device> & candidatePlayers) = 0;
-   virtual Handle ShowConnections(const std::vector<bt::Device> & connectedPlayers) = 0;
-   virtual Handle ShowCastResponse(dice::Response generated, bool external) = 0;
-   virtual Handle ShowLocalName(std::string ownName) = 0;
+   virtual void ShowToast(std::string message, std::chrono::seconds duration, Callback && cb) = 0;
+   virtual void ShowCandidates(const std::vector<bt::Device> & candidatePlayers,
+                               Callback && cb) = 0;
+   virtual void ShowConnections(const std::vector<bt::Device> & connectedPlayers,
+                                Callback && cb) = 0;
+   virtual void ShowCastResponse(dice::Response generated, bool external, Callback && cb) = 0;
+   virtual void ShowLocalName(std::string ownName, Callback && cb) = 0;
 };
+
+inline std::string_view ToString(IProxy::Error e)
+{
+   switch (e) {
+      case IProxy::Error::NO_LISTENER: return "No listener";
+      case IProxy::Error::UNHANDLED_EXCEPTION: return "Unhandled exceptino";
+      case IProxy::Error::ILLEGAL_STATE: return "Illegal state";
+      default: return "";
+   }
+}
 
 } // namespace ui
 

@@ -7,6 +7,7 @@
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
 #include "utils/future.hpp"
+#include "utils/canceller.hpp"
 #include "bt/proxy.hpp"
 #include "bt/device.hpp"
 #include "ui/proxy.hpp"
@@ -15,7 +16,7 @@
 namespace fsm {
 
 // Makes sure bluetooth is on. Goes to Connecting on new game if bluetooth is on.
-class StateIdle : public StateBase
+class StateIdle : public StateBase, private async::Canceller<1>
 {
 public:
    explicit StateIdle(const Context & ctx);
@@ -30,13 +31,12 @@ private:
    Context m_ctx;
 
    async::Future<bool> m_btQuery;
-   ui::IProxy::Handle m_toastHandle;
    async::Future<main::Timeout> m_toastRepeater;
 };
 
 // Discovers and connects to other devices. Goes to Idle if bluetooth is off or if both discovery
 // and discoverability are turned off. Goes to Negotiating after 30 sec of listening/discovering.
-class StateConnecting : public StateBase
+class StateConnecting : public StateBase, private async::Canceller<1>
 {
 public:
    explicit StateConnecting(const Context & ctx);
@@ -65,13 +65,11 @@ private:
    bt::IProxy::Handle m_discovery;
    async::CombinedFuture m_discoveryShutdown;
    async::Future<main::Timeout> m_discoveryTimer;
-   ui::IProxy::Handle m_toastHandle;
 
    bt::Uuid m_conn;
    std::string m_selfName;
    std::unordered_map<bt::Device, int> m_devices;
    std::vector<bt::IProxy::Handle> m_connectingHandles;
-   std::vector<ui::IProxy::Handle> m_approvingHandles;
    async::CombinedFuture m_disconnects;
 };
 

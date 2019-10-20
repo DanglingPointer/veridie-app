@@ -54,7 +54,8 @@ add_library(jni_only_veridie
         core/exec.cpp
         tests/fakecontroller.cpp
         core/timerengine.cpp
-        utils/worker.cpp)
+        utils/worker.cpp
+        utils/async.cpp)
 target_link_libraries(jni_only_veridie
         ${log-lib})
 
@@ -89,3 +90,9 @@ add_custom_command(TARGET tests POST_BUILD
         COMMAND ${ADB} push $<TARGET_FILE:veridie> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} push $<TARGET_FILE:tests> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} shell \"export LD_LIBRARY_PATH=/data/local/tmp/${ANDROID_ABI}\; /data/local/tmp/${ANDROID_ABI}/tests || true\")
+
+
+#
+#
+# adb gdbserver :5039 shell \"export LD_LIBRARY_PATH=/data/local/tmp/armeabi-v7a\; /data/local/tmp/armeabi-v7a/tests\"
+# export LD_LIBRARY_PATH=/data/local/tmp/armeabi-v7a; /data/local/tmp/armeabi-v7a/tests

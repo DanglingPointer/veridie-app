@@ -45,7 +45,11 @@ void StateIdle::CheckBtState()
 
 void StateIdle::OnBtStateError()
 {
-   m_toastHandle = m_ctx.gui->ShowToast("Please, turn Bluetooth on", 3s);
+   m_ctx.gui->ShowToast("Please, turn Bluetooth on", 3s, MakeCb([this](ui::IProxy::Error e) {
+                           if (e != ui::IProxy::Error::NO_ERROR)
+                              m_ctx.logger->Write<LogPriority::ERROR>(
+                                 "StateIdle::OnBtStateError(): Toast failed,", ui::ToString(e));
+                        }));
    m_toastRepeater = m_ctx.timer->ScheduleTimer(15s).Then([this](auto) { CheckBtState(); });
 }
 

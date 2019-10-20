@@ -58,6 +58,8 @@ struct ResponseToIntArray
    }
 };
 
+using Executor = std::function<void(std::function<void()>)>;
+
 class UiProxy : public ui::IProxy
 {
 public:
@@ -65,47 +67,49 @@ public:
    explicit UiProxy(F && cbExecutor)
       : m_cbExecutor(std::forward<F>(cbExecutor))
    {}
-   ui::IProxy::Handle ShowToast(std::string message, std::chrono::seconds duration) override;
-   ui::IProxy::Handle ShowCandidates(const std::vector<bt::Device> & candidatePlayers) override;
-   ui::IProxy::Handle ShowConnections(const std::vector<bt::Device> & connectedPlayers) override;
-   ui::IProxy::Handle ShowCastResponse(dice::Response generated, bool external) override;
-   ui::IProxy::Handle ShowLocalName(std::string ownName) override;
+   void ShowToast(std::string message, std::chrono::seconds duration, Callback && cb) override;
+   void ShowCandidates(const std::vector<bt::Device> & candidatePlayers, Callback && cb) override;
+   void ShowConnections(const std::vector<bt::Device> & connectedPlayers, Callback && cb) override;
+   void ShowCastResponse(dice::Response generated, bool external, Callback && cb) override;
+   void ShowLocalName(std::string ownName, Callback && cb) override;
 
 private:
    template <typename F>
-   ui::IProxy::Handle MarshalToJNI(F && f)
+   void MarshalToJNI(F && f, Callback && cb)
    {
-      async::Promise<ui::IProxy::Error> p(m_cbExecutor);
-      auto handle = p.GetFuture();
-      jni::Exec(async::EmbedPromiseIntoTask(
-         std::move(p), [func = std::forward<F>(f)](jni::ServiceLocator * sl) {
-            auto * invoker = sl->GetUiInvoker();
-            auto * env = sl->GetJNIEnv();
-            if (!invoker || !env) {
-               sl->GetLogger().Write(LogPriority::ERROR,
-                                     "UiProxy error: no "s + (env ? "jni::UiInvoker" : "JNIEnv"));
-               return ui::IProxy::Error::ILLEGAL_STATE;
-            }
-            return func(invoker, env);
-         }));
-      return handle;
+      jni::Exec([func = std::forward<F>(f), cb = std::move(cb),
+                 exec = m_cbExecutor](jni::ServiceLocator * sl) mutable {
+         if (cb.Cancelled())
+            return;
+         auto * invoker = sl->GetUiInvoker();
+         auto * env = sl->GetJNIEnv();
+         Error e;
+         if (!invoker || !env) {
+            sl->GetLogger().Write(LogPriority::ERROR,
+                                  "UiProxy error: no "s + (env ? "jni::UiInvoker" : "JNIEnv"));
+            e = ui::IProxy::Error::ILLEGAL_STATE;
+         } else {
+            e = func(invoker, env);
+         }
+         async::Schedule(std::move(exec), std::move(cb), e);
+      });
    }
 
-   const async::Executor m_cbExecutor;
+   const Executor m_cbExecutor;
 };
 
-ui::IProxy::Handle UiProxy::ShowToast(std::string message, std::chrono::seconds duration)
+void UiProxy::ShowToast(std::string message, std::chrono::seconds duration, Callback && cb)
 {
-   return MarshalToJNI(
+   MarshalToJNI(
       [msg = std::move(message), sec = duration.count()](jni::UiInvoker * invoker, JNIEnv * env) {
          jstring jmsg = env->NewStringUTF(msg.c_str());
          jint error = invoker->ShowToast(jmsg, static_cast<jint>(sec));
          env->DeleteLocalRef(jmsg);
          return static_cast<ui::IProxy::Error>(error);
-      });
+      },
+      std::move(cb));
 }
-
-ui::IProxy::Handle UiProxy::ShowCandidates(const std::vector<bt::Device> & candidatePlayers)
+void UiProxy::ShowCandidates(const std::vector<bt::Device> & candidatePlayers, Callback && cb)
 {
    return MarshalToJNI(
       [names = DevicesToNames(candidatePlayers)](jni::UiInvoker * invoker, JNIEnv * env) {
@@ -113,21 +117,23 @@ ui::IProxy::Handle UiProxy::ShowCandidates(const std::vector<bt::Device> & candi
          jint error = invoker->ShowCandidates(jnames);
          FreeObjectArray(jnames, names.size(), env);
          return static_cast<ui::IProxy::Error>(error);
-      });
+      },
+      std::move(cb));
 }
-ui::IProxy::Handle UiProxy::ShowConnections(const std::vector<bt::Device> & connectedPlayers)
+void UiProxy::ShowConnections(const std::vector<bt::Device> & connectedPlayers, Callback && cb)
 {
-   return MarshalToJNI(
+   MarshalToJNI(
       [names = DevicesToNames(connectedPlayers)](jni::UiInvoker * invoker, JNIEnv * env) {
          jobjectArray jnames = CreateStringArray(names, env);
          jint error = invoker->ShowConnections(jnames);
          FreeObjectArray(jnames, names.size(), env);
          return static_cast<ui::IProxy::Error>(error);
-      });
+      },
+      std::move(cb));
 }
-ui::IProxy::Handle UiProxy::ShowCastResponse(dice::Response response, bool external)
+void UiProxy::ShowCastResponse(dice::Response response, bool external, Callback && cb)
 {
-   return MarshalToJNI(
+   MarshalToJNI(
       [cast = std::move(response), external](jni::UiInvoker * invoker, JNIEnv * env) {
          jintArray data = std::visit(ResponseToIntArray{env}, cast.cast);
          jint successCount = cast.successCount.value_or(-1);
@@ -136,16 +142,19 @@ ui::IProxy::Handle UiProxy::ShowCastResponse(dice::Response response, bool exter
          jint error = invoker->ShowCastResponse(data, successCount, isExternal);
          env->DeleteLocalRef(data);
          return static_cast<ui::IProxy::Error>(error);
-      });
+      },
+      std::move(cb));
 }
-ui::IProxy::Handle UiProxy::ShowLocalName(std::string ownName)
+void UiProxy::ShowLocalName(std::string ownName, Callback && cb)
 {
-   return MarshalToJNI([name = std::move(ownName)](jni::UiInvoker * invoker, JNIEnv * env) {
-      jstring jname = env->NewStringUTF(name.c_str());
-      jint error = invoker->ShowLocalName(jname);
-      env->DeleteLocalRef(jname);
-      return static_cast<ui::IProxy::Error>(error);
-   });
+   MarshalToJNI(
+      [name = std::move(ownName)](jni::UiInvoker * invoker, JNIEnv * env) {
+         jstring jname = env->NewStringUTF(name.c_str());
+         jint error = invoker->ShowLocalName(jname);
+         env->DeleteLocalRef(jname);
+         return static_cast<ui::IProxy::Error>(error);
+      },
+      std::move(cb));
 }
 
 } // namespace

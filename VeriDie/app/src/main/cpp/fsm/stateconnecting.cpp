@@ -10,6 +10,8 @@ constexpr int PAIRED = 0x08;
 
 } // namespace
 
+#define FIRE_AND_FORGET DetachedCb<ui::IProxy::Error>()
+
 namespace fsm {
 using namespace std::chrono_literals;
 
@@ -89,9 +91,9 @@ void StateConnecting::TryStartDiscoveryTimer()
    if (!*m_discoverable && !*m_discovering) {
       m_ctx.logger->Write<LogPriority::ERROR>(
          "Connection failed: not discoverable, not discovering");
-      m_toastHandle = m_ctx.gui->ShowToast("Connection failed", 3s).Then([this](auto) {
-         m_ctx.state->emplace<StateIdle>(m_ctx);
-      });
+      m_ctx.gui->ShowToast("Connection failed", 3s, MakeCb([this](ui::IProxy::Error) {
+                              m_ctx.state->emplace<StateIdle>(m_ctx);
+                           }));
       return;
    }
    if (*m_discoverable || *m_discovering) {
@@ -148,7 +150,7 @@ void StateConnecting::OnDeviceFound(const bt::Device & remote, bool paired)
       it->second |= PAIRED;
 
    if ((it->second & APPROVED) == 0) {
-      m_approvingHandles.emplace_back(m_ctx.gui->ShowCandidates({remote}));
+      m_ctx.gui->ShowCandidates({remote}, FIRE_AND_FORGET);
    }
 }
 
@@ -158,7 +160,7 @@ void StateConnecting::OnDeviceConnected(const bt::Device & remote)
    it->second |= CONNECTED;
 
    if ((it->second & APPROVED) == 0) {
-      m_approvingHandles.emplace_back(m_ctx.gui->ShowCandidates({remote}));
+      m_ctx.gui->ShowCandidates({remote}, FIRE_AND_FORGET);
    }
 }
 
@@ -187,13 +189,13 @@ void StateConnecting::OnDevicesQuery(bool connected, bool discovered)
          if (keyVal.second & CONNECTED)
             ret.emplace_back(keyVal.first);
       }
-      m_approvingHandles.emplace_back(m_ctx.gui->ShowConnections(ret));
+      m_ctx.gui->ShowConnections(ret, FIRE_AND_FORGET);
    } else if (discovered) {
       for (const auto & keyVal : m_devices) {
          if (keyVal.second & DISCOVERED)
             ret.emplace_back(keyVal.first);
       }
-      m_approvingHandles.emplace_back(m_ctx.gui->ShowCandidates(ret));
+      m_ctx.gui->ShowCandidates(ret, FIRE_AND_FORGET);
    }
 }
 
