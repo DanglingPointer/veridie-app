@@ -31,7 +31,7 @@ public:
    bool NoWarningsOrErrors() const
    {
       std::lock_guard lg(mutex);
-      for (auto entry : entries) {
+      for (const auto & entry : entries) {
          switch (entry.prio) {
             case LogPriority::ERROR:
             case LogPriority::WARN:

@@ -54,7 +54,7 @@ struct CallbackTypeDeducer
    using type = typename DeduceCallbackTypeHelper<decltype(&F::operator())>::type;
 };
 template <>
-struct CallbackTypeDeducer<nullptr_t>
+struct CallbackTypeDeducer<std::nullptr_t>
 {
    using type = Callback<>;
 };
@@ -168,7 +168,10 @@ public:
                                     nullptr);
    }
    template <typename... TArgs>
-   Callback<TArgs...> NoCb() const { return Callback<TArgs...>(nullptr, nullptr, nullptr); }
+   Callback<TArgs...> DetachedCb() const
+   {
+      return Callback<TArgs...>(internal::GlobalCancellerToken(), nullptr, nullptr);
+   }
 
 private:
    internal::AtomicFlagRef RegisterCallback(CallbackId * callbackId) const
