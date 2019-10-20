@@ -385,11 +385,11 @@ TEST_F(CancellerFixture, wrapped_lambda_behaves_correctly)
    size_t invocationCount = 0U;
    auto f = Wrap([&](int i) { invocationCount += i; });
    f(42);
-   EXPECT_EQ(42, invocationCount);
+   EXPECT_EQ(42U, invocationCount);
 
    InvalidateCallbacks();
    f(3);
-   EXPECT_EQ(42, invocationCount);
+   EXPECT_EQ(42U, invocationCount);
 }
 
 TEST_F(CancellerFixture, exceeding_max_simult_callbacks_throws_exception)

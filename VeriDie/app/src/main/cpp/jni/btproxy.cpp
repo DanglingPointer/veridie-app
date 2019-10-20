@@ -53,13 +53,13 @@ private:
    const async::Executor m_cbExecutor;
 };
 
-#define DEFINE_BTPROXY_SIMPLE_FUNC(name)                               \
-   bt::IProxy::Handle BtProxy::name()                                  \
-   {                                                                   \
-      return MarshalToJNI([](jni::BtInvoker * invoker, JNIEnv * env) { \
-         jint error = invoker->name();                                 \
-         return static_cast<bt::IProxy::Error>(error);                 \
-      });                                                              \
+#define DEFINE_BTPROXY_SIMPLE_FUNC(name)                                   \
+   bt::IProxy::Handle BtProxy::name()                                      \
+   {                                                                       \
+      return MarshalToJNI([](jni::BtInvoker * invoker, JNIEnv * /*env*/) { \
+         jint error = invoker->name();                                     \
+         return static_cast<bt::IProxy::Error>(error);                     \
+      });                                                                  \
    }
 
 DEFINE_BTPROXY_SIMPLE_FUNC(RequestPairedDevices)
@@ -88,7 +88,7 @@ async::Future<bool> BtProxy::IsBluetoothEnabled()
 
 bt::IProxy::Handle BtProxy::StartListening(std::string selfName, const bt::Uuid & uuid)
 {
-   auto[lsl, msl] = bt::UuidToLong(uuid);
+   auto [lsl, msl] = bt::UuidToLong(uuid);
    return MarshalToJNI(
       [name = std::move(selfName), lsl = lsl, msl = msl](jni::BtInvoker * invoker, JNIEnv * env) {
          jstring jname = env->NewStringUTF(name.c_str());
@@ -100,13 +100,14 @@ bt::IProxy::Handle BtProxy::StartListening(std::string selfName, const bt::Uuid 
 
 bt::IProxy::Handle BtProxy::Connect(const bt::Device & remote, const bt::Uuid & conn)
 {
-   auto[lsl, msl] = bt::UuidToLong(conn);
-   return MarshalToJNI([mac = remote.mac, lsl = lsl, msl = msl](jni::BtInvoker * invoker, JNIEnv * env) {
-      jstring jmac = env->NewStringUTF(mac.c_str());
-      jint error = invoker->Connect(jmac, lsl, msl);
-      env->DeleteLocalRef(jmac);
-      return static_cast<bt::IProxy::Error>(error);
-   });
+   auto [lsl, msl] = bt::UuidToLong(conn);
+   return MarshalToJNI(
+      [mac = remote.mac, lsl = lsl, msl = msl](jni::BtInvoker * invoker, JNIEnv * env) {
+         jstring jmac = env->NewStringUTF(mac.c_str());
+         jint error = invoker->Connect(jmac, lsl, msl);
+         env->DeleteLocalRef(jmac);
+         return static_cast<bt::IProxy::Error>(error);
+      });
 }
 
 bt::IProxy::Handle BtProxy::CloseConnection(const bt::Device & remote)
@@ -121,15 +122,16 @@ bt::IProxy::Handle BtProxy::CloseConnection(const bt::Device & remote)
 
 bt::IProxy::Handle BtProxy::SendMessage(const bt::Device & remote, std::string msg)
 {
-   return MarshalToJNI([remoteMac = remote.mac, msg = std::move(msg)](jni::BtInvoker * invoker, JNIEnv * env) {
-      jstring jmac = env->NewStringUTF(remoteMac.c_str());
-      jbyteArray jmsg = env->NewByteArray(msg.length());
-      env->SetByteArrayRegion(jmsg, 0, msg.size(), reinterpret_cast<const jbyte *>(msg.data()));
-      jint error = invoker->SendMessage(jmac, jmsg);
-      env->DeleteLocalRef(jmac);
-      env->DeleteLocalRef(jmsg);
-      return static_cast<bt::IProxy::Error>(error);
-   });
+   return MarshalToJNI(
+      [remoteMac = remote.mac, msg = std::move(msg)](jni::BtInvoker * invoker, JNIEnv * env) {
+         jstring jmac = env->NewStringUTF(remoteMac.c_str());
+         jbyteArray jmsg = env->NewByteArray(msg.length());
+         env->SetByteArrayRegion(jmsg, 0, msg.size(), reinterpret_cast<const jbyte *>(msg.data()));
+         jint error = invoker->SendMessage(jmac, jmsg);
+         env->DeleteLocalRef(jmac);
+         env->DeleteLocalRef(jmsg);
+         return static_cast<bt::IProxy::Error>(error);
+      });
 }
 
 } // namespace

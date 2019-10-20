@@ -14,9 +14,8 @@ std::string ToString(T s) { return std::to_string(s); }
 class FakeController : public main::IController
 {
 public:
-   FakeController(ILogger & logger, bt::IProxy & btProxy, ui::IProxy & uiProxy)
+   FakeController(ILogger & logger, bt::IProxy & /*btProxy*/, ui::IProxy & uiProxy)
       : m_logger(logger)
-      , m_bluetooth(btProxy)
       , m_gui(uiProxy)
    {}
 
@@ -40,7 +39,7 @@ private: /*bt::IListener*/
       m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
       Toast(__func__);
    };
-   void OnDeviceFound(const bt::Device & remote, bool paired) override
+   void OnDeviceFound(const bt::Device & /*remote*/, bool /*paired*/) override
    {
       m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
       Toast(__func__);
@@ -60,17 +59,17 @@ private: /*bt::IListener*/
       m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
       Toast(__func__, discoverable ? "true" : "false", connectable ? "true" : "false");
    };
-   void OnDeviceConnected(const bt::Device & remote) override
+   void OnDeviceConnected(const bt::Device & /*remote*/) override
    {
       m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
       Toast(__func__);
    };
-   void OnDeviceDisconnected(const bt::Device & remote) override
+   void OnDeviceDisconnected(const bt::Device & /*remote*/) override
    {
       m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
       Toast(__func__);
    };
-   void OnMessageReceived(const bt::Device & remote, std::string message) override
+   void OnMessageReceived(const bt::Device & /*remote*/, std::string /*message*/) override
    {
       m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
       Toast(__func__);
@@ -127,7 +126,6 @@ private: /*ui::IListener*/
 
 private:
    ILogger & m_logger;
-   bt::IProxy & m_bluetooth;
    ui::IProxy & m_gui;
 };
 

@@ -80,7 +80,7 @@ std::string ErrorToString(jint error)
 extern "C" {
 // clang-format off
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * /*reserved*/)
 {
    auto sl = std::make_unique<ServiceLocatorImpl>(vm);
    auto & logger = sl->GetLogger();
@@ -98,9 +98,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * reserved)
    return JNI_VERSION_1_6;
 }
 
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * reserved)
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * /*reserved*/)
 {
-   g_thread->ScheduleTask([vm](void * arg) {
+   g_thread->ScheduleTask([vm](void * /*arg*/) {
       vm->DetachCurrentThread();
    });
    g_thread = nullptr;
