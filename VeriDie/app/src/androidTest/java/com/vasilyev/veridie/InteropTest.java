@@ -11,6 +11,8 @@ import org.junit.runner.RunWith;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
+import static android.bluetooth.BluetoothAdapter.SCAN_MODE_CONNECTABLE;
+import static android.bluetooth.BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE;
 import static android.bluetooth.BluetoothAdapter.SCAN_MODE_NONE;
 import static org.junit.Assert.*;
 
@@ -115,5 +117,11 @@ public class InteropTest
 
       bridge.discoverabilityChanged(SCAN_MODE_NONE);
       assertEquals("OnScanModeChangedfalsefalse", l.get());
+
+      bridge.discoverabilityChanged(SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+      assertEquals("OnScanModeChangedtruetrue", l.get());
+
+      bridge.discoverabilityChanged(SCAN_MODE_CONNECTABLE);
+      assertEquals("OnScanModeChangedfalsetrue", l.get());
    }
 }

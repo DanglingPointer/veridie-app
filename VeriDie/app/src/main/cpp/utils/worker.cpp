@@ -36,10 +36,10 @@ void Worker::Launch(void * arg)
             t(arg);
          }
          catch (const std::exception & e) {
-            log.Write(LogPriority::WARN, std::string("Uncaught exception: ") + e.what());
+            log.Write<LogPriority::ERROR>("Uncaught exception:", e.what());
          }
          catch (...) {
-            log.Write(LogPriority::WARN, "Uncaught exception: UNKNOWN");
+            log.Write<LogPriority::ERROR>("Uncaught exception: UNKNOWN");
          }
       }
       log.Write(LogPriority::INFO, "Worker shut down");
