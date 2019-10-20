@@ -155,9 +155,11 @@ public:
       internal::AtomicFlagRef flag = RegisterCallback(callbackId);
       return DeducedCallbackType<F>(m_token, std::forward<F>(callback), flag);
    }
-   Callback<> MakeCb(CallbackId * callbackId = nullptr) const
+   template <typename... TArgs>
+   Callback<TArgs...> MakeCb(CallbackId * callbackId = nullptr) const
    {
-      return MakeCb(nullptr, callbackId);
+      internal::AtomicFlagRef flag = RegisterCallback(callbackId);
+      return Callback<TArgs...>(m_token, nullptr, flag);
    }
    template <typename F>
    DeducedCallbackType<F> DetachedCb(F && callback) const
@@ -165,7 +167,8 @@ public:
       return DeducedCallbackType<F>(internal::GlobalCancellerToken(), std::forward<F>(callback),
                                     nullptr);
    }
-   Callback<> NoCb() const { return Callback<>(nullptr, nullptr, nullptr); }
+   template <typename... TArgs>
+   Callback<TArgs...> NoCb() const { return Callback<TArgs...>(nullptr, nullptr, nullptr); }
 
 private:
    internal::AtomicFlagRef RegisterCallback(CallbackId * callbackId) const
