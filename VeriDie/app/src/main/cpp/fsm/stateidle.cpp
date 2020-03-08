@@ -9,6 +9,7 @@ using namespace std::chrono_literals;
 
 StateIdle::StateIdle(const Context & ctx)
    : m_ctx(ctx)
+   , m_newGamePending(false)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
    CheckBtState();
@@ -16,41 +17,37 @@ StateIdle::StateIdle(const Context & ctx)
 
 void StateIdle::OnBluetoothOn()
 {
-   if (m_toastRepeater.IsActive())
-      m_toastRepeater.Cancel();
+   m_toastRepeater.Cancel();
+   if (m_newGamePending)
+      m_ctx.state->emplace<StateConnecting>(m_ctx);
 }
 
 void StateIdle::OnBluetoothOff()
 {
-   OnBtStateError();
+   if (m_toastRepeater.IsActive())
+      return;
+   m_ctx.gui->ShowToast("Please, turn Bluetooth on", 3s, MakeCb([this](ui::IProxy::Error e) {
+      if (e != ui::IProxy::Error::NO_ERROR)
+         m_ctx.logger->Write<LogPriority::ERROR>(
+             "StateIdle::OnBluetoothOff(): Toast failed,", ui::ToString(e));
+   }));
+   m_toastRepeater = m_ctx.timer->ScheduleTimer(10s).Then([this](auto) { CheckBtState(); });
 }
 
 void StateIdle::OnNewGame()
 {
-   m_btQuery = m_ctx.bluetooth->IsBluetoothEnabled().Then([this](std::optional<bool> on) {
-      if (!on || !*on)
-         OnBtStateError();
-      else
-         m_ctx.state->emplace<StateConnecting>(m_ctx);
-   });
+   m_newGamePending = true;
+   CheckBtState();
 }
 
 void StateIdle::CheckBtState()
 {
    m_btQuery = m_ctx.bluetooth->IsBluetoothEnabled().Then([this](std::optional<bool> on) {
       if (!on || !*on)
-         OnBtStateError();
+         OnBluetoothOff();
+      else
+         OnBluetoothOn();
    });
-}
-
-void StateIdle::OnBtStateError()
-{
-   m_ctx.gui->ShowToast("Please, turn Bluetooth on", 3s, MakeCb([this](ui::IProxy::Error e) {
-                           if (e != ui::IProxy::Error::NO_ERROR)
-                              m_ctx.logger->Write<LogPriority::ERROR>(
-                                 "StateIdle::OnBtStateError(): Toast failed,", ui::ToString(e));
-                        }));
-   m_toastRepeater = m_ctx.timer->ScheduleTimer(15s).Then([this](auto) { CheckBtState(); });
 }
 
 } // namespace fsm

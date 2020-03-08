@@ -26,12 +26,12 @@ public:
 
 private:
    void CheckBtState();
-   void OnBtStateError();
 
    Context m_ctx;
 
    async::Future<bool> m_btQuery;
    async::Future<main::Timeout> m_toastRepeater;
+   bool m_newGamePending;
 };
 
 // Discovers and connects to other devices. Goes to Idle if bluetooth is off or if both discovery
