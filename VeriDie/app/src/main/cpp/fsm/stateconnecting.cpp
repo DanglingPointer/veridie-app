@@ -21,6 +21,7 @@ StateConnecting::StateConnecting(const Context & ctx)
    // TODO: set m_conn and m_selfName
 
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+
    m_discoverabilityRequest =
       m_ctx.bluetooth->RequestDiscoverability().Then([this](std::optional<bt::IProxy::Error> e) {
          if (!e || *e != bt::IProxy::Error::NO_ERROR) {
@@ -34,7 +35,7 @@ StateConnecting::StateConnecting(const Context & ctx)
          }
       });
    m_discovery = m_ctx.bluetooth->StartDiscovery().Then([this](std::optional<bt::IProxy::Error> e) {
-      m_discovering = e && *e == bt::IProxy::Error::NO_ERROR;
+      m_discovering = (e && *e == bt::IProxy::Error::NO_ERROR);
       TryStartDiscoveryTimer();
    });
 }
@@ -44,7 +45,7 @@ void StateConnecting::StartListening()
    m_listening =
       m_ctx.bluetooth->StartListening(m_selfName, m_conn)
          .Then([this](std::optional<bt::IProxy::Error> e) {
-            m_discoverable = e && *e == bt::IProxy::Error::NO_ERROR;
+            m_discoverable = (e && *e == bt::IProxy::Error::NO_ERROR);
             if (!*m_discoverable) {
                m_ctx.logger->Write<LogPriority::WARN>(
                   "Listening start failed:",
@@ -82,7 +83,7 @@ void StateConnecting::OnScanModeChanged(bool discoverable, bool connectable)
 
 void StateConnecting::TryStartDiscoveryTimer()
 {
-   if (m_discoveryTimer.IsActive())
+   if (m_discoveryTimer.IsActive() || m_disconnects.IsActive())
       return;
 
    if (!m_discoverable || !m_discovering)
@@ -96,22 +97,22 @@ void StateConnecting::TryStartDiscoveryTimer()
                            }));
       return;
    }
-   if (*m_discoverable || *m_discovering) {
-      m_discoveryTimer = m_ctx.timer->ScheduleTimer(30s).Then([this](auto) {
-         m_discovery = m_ctx.bluetooth->CancelDiscovery();
-         m_listening = m_ctx.bluetooth->StopListening();
-         // TODO: turn off discoverability?
-         m_discoveryShutdown =
-            (std::move(m_discovery) && std::move(m_listening)).Then([this](auto) {
-               OnDiscoveryFinished();
-            });
-      });
-   }
+   m_discoveryTimer = m_ctx.timer->ScheduleTimer(30s).Then([this](auto) {
+      m_discovery = m_ctx.bluetooth->CancelDiscovery();
+      m_listening = m_ctx.bluetooth->StopListening();
+      // TODO: turn off discoverability?
+      m_discoveryShutdown =
+         (std::move(m_discovery) && std::move(m_listening)).Then([this](auto) {
+            OnDiscoveryFinished();
+         });
+   });
 }
 
 void StateConnecting::OnDiscoveryFinished()
 {
    m_connectingHandles.clear();
+
+   // remove non-connected devices, disconnect and remove non-approved devices
    std::vector<bt::IProxy::Handle> disconnectRequests;
    for (auto it = std::begin(m_devices); it != std::end(m_devices);) {
       bool connected = (it->second & CONNECTED) != 0;
@@ -125,11 +126,13 @@ void StateConnecting::OnDiscoveryFinished()
       }
    }
 
+   // put all others in a vector
    std::vector<bt::Device> validDevices;
    validDevices.reserve(m_devices.size());
    std::transform(std::begin(m_devices), std::end(m_devices), std::back_inserter(validDevices),
                   [](auto & keyVal) { return keyVal.first; });
 
+   // wait for disconnects to finish, then go to Negotiating
    if (disconnectRequests.empty()) {
       m_ctx.state->emplace<StateNegotiating>(m_ctx, std::move(validDevices));
    } else {
