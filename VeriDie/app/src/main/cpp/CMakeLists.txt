@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.4.1)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-sign-compare -Werror")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-sign-compare -Werror -Wno-error=c++11-narrowing")
 
 include_directories(${PROJECT_SOURCE_DIR})
 
@@ -17,24 +17,30 @@ find_library(log-lib
 # main app logic:
 add_library(veridie
         SHARED
+
+        bt/device.cpp
+
+        core/controller.cpp
+        core/events.cpp
+        core/exec.cpp
+        core/timerengine.cpp
+
         dice/engine.cpp
         dice/serializer.cpp
+
+        fsm/stateconnecting.cpp
+        fsm/stateidle.cpp
+        fsm/statenegotiating.cpp
+        fsm/stateplaying.cpp
+
+        jni/cmdmanager.cpp
         jni/exec.cpp
         jni/logger.cpp
-        jni/btproxy.cpp
-        jni/btinvoker.cpp
-        jni/uiproxy.cpp
-        jni/uiinvoker.cpp
-        bt/device.cpp
-        core/exec.cpp
-        core/controller.cpp
-        core/timerengine.cpp
-        fsm/stateidle.cpp
-        fsm/stateplaying.cpp
-        fsm/stateconnecting.cpp
-        fsm/statenegotiating.cpp
+        jni/proxy.cpp
+
+        utils/async.cpp
         utils/worker.cpp
-        utils/async.cpp)
+        )
 target_link_libraries(veridie
         ${log-lib})
 
@@ -42,20 +48,24 @@ target_link_libraries(veridie
 # fake library with empty controller for testing jni interop:
 add_library(jni_only_veridie
         SHARED
-        dice/engine.cpp
-        dice/serializer.cpp
+
+        bt/device.cpp
+
+        tests/fakecontroller.cpp
+        core/exec.cpp
+
+        # no dice/
+
+        # no fsm/
+
+        jni/cmdmanager.cpp
         jni/exec.cpp
         jni/logger.cpp
-        jni/btproxy.cpp
-        jni/btinvoker.cpp
-        jni/uiproxy.cpp
-        jni/uiinvoker.cpp
-        bt/device.cpp
-        core/exec.cpp
-        tests/fakecontroller.cpp
-        core/timerengine.cpp
+        jni/proxy.cpp
+
+        utils/async.cpp
         utils/worker.cpp
-        utils/async.cpp)
+        )
 target_link_libraries(jni_only_veridie
         ${log-lib})
 

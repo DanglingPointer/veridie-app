@@ -1,46 +1,20 @@
 #ifndef CORE_EXEC_HPP
 #define CORE_EXEC_HPP
 
-#include <memory>
 #include <functional>
-
-namespace dice {
-class IEngine;
-}
-namespace bt {
-class IProxy;
-class IListener;
-}
-namespace ui {
-class IListener;
-class IProxy;
-}
-class ILogger;
+#include "utils/alwayscopyable.hpp"
 
 namespace main {
 class IController;
-class ITimerEngine;
 
-class ServiceLocator
+void InternalExec(std::function<void(IController *)> task);
+
+template <typename F>
+void Exec(F && f)
 {
-public:
-   ServiceLocator();
-   ILogger & GetLogger() { return *m_logger; }
-   bt::IListener & GetBtListener();
-   ui::IListener & GetUiListener();
-
-private:
-   std::unique_ptr<ILogger> m_logger;
-   std::unique_ptr<dice::IEngine> m_engine;
-   std::unique_ptr<main::ITimerEngine> m_timer;
-   std::unique_ptr<bt::IProxy> m_btProxy;
-   std::unique_ptr<ui::IProxy> m_uiProxy;
-   std::unique_ptr<main::IController> m_ctrl;
-};
-
-void Exec(std::function<void(ServiceLocator *)> task);
+   InternalExec(AlwaysCopyable(std::move(f)));
+}
 
 } // namespace main
-
 
 #endif // CORE_EXEC_HPP

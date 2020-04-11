@@ -10,12 +10,10 @@ namespace dice {
 class IEngine;
 class ISerializer;
 }
-namespace bt {
+namespace jni {
 class IProxy;
 }
-namespace ui {
-class IProxy;
-}
+
 class ILogger;
 
 namespace fsm {
@@ -34,8 +32,7 @@ struct Context
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
    main::ITimerEngine * const timer;
-   bt::IProxy * const bluetooth;
-   ui::IProxy * const gui;
+   jni::IProxy * const proxy;
 
    StateHolder * const state;
 };

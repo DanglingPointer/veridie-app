@@ -26,8 +26,8 @@ class ISerializer
 {
 public:
    virtual ~ISerializer() = default;
-   virtual std::string FromRequest(const dice::Request & request) = 0;
-   virtual std::string FromResponse(const dice::Response & response) = 0;
+   virtual std::string WriteRequest(const dice::Request & request) = 0;
+   virtual std::string WriteResponse(const dice::Response & response) = 0;
    virtual dice::Request ParseRequest(const std::string & request) = 0;
    virtual dice::Response ParseResponse(const std::string & response) = 0;
 };

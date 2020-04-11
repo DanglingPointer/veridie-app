@@ -1,37 +1,35 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <jni.h>
 #include "jni/exec.hpp"
 #include "jni/logger.hpp"
-#include "jni/btinvoker.hpp"
-#include "jni/uiinvoker.hpp"
+#include "jni/cmdmanager.hpp"
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "utils/worker.hpp"
 #include "bt/device.hpp"
 
-namespace {
-std::unique_ptr<Worker> g_thread;
 
-class ServiceLocatorImpl : public jni::ServiceLocator
+namespace {
+
+struct Context
 {
-public:
-   explicit ServiceLocatorImpl(JavaVM * javaVM)
-      : m_logger(jni::CreateLogger("JNI_WORKER"))
-      , m_javaVM(javaVM)
-      , m_jniEnv(nullptr)
-   {}
-   JavaVM * GetJavaVM() override { return m_javaVM; }
-   JNIEnv * GetJNIEnv() override { return m_jniEnv; }
-   ILogger & GetLogger() override { return *m_logger; }
-   jni::BtInvoker * GetBtInvoker() override { return m_btInvoker.get(); }
-   jni::UiInvoker * GetUiInvoker() override { return m_uiInvoker.get(); }
-   std::unique_ptr<ILogger> m_logger;
-   JavaVM * m_javaVM;
-   JNIEnv * m_jniEnv;
-   std::unique_ptr<jni::BtInvoker> m_btInvoker;
-   std::unique_ptr<jni::UiInvoker> m_uiInvoker;
+   ILogger & logger;
+   JavaVM * jvm;
+   JNIEnv * jenv;
+   std::unique_ptr<jni::ICmdManager> cmdMgr;
 };
+
+Worker & JniWorker()
+{
+   static auto s_logger = jni::CreateLogger("JNI_WORKER");
+   static Context s_ctx{*s_logger, nullptr, nullptr, nullptr};
+
+   static Worker s_w(&s_ctx, *s_logger);
+   return s_w;
+}
+
 
 std::string GetString(JNIEnv * env, jstring jstr)
 {
@@ -40,27 +38,6 @@ std::string GetString(JNIEnv * env, jstring jstr)
    std::string ret(strChars, static_cast<size_t>(strLength));
    env->ReleaseStringUTFChars(jstr, strChars);
    return ret;
-}
-
-bool GetBool(jboolean var)
-{
-   return var == JNI_TRUE;
-}
-
-} // namespace
-
-namespace jni {
-
-void Exec(std::function<void(jni::ServiceLocator *)> task)
-{
-   if (!g_thread) {
-      // Trying to schedule task after Unload
-      std::abort();
-   }
-   g_thread->ScheduleTask(
-      [t = std::move(task)](void * data) {
-         t(static_cast<jni::ServiceLocator *>(data));
-      });
 }
 
 std::string ErrorToString(jint error)
@@ -75,215 +52,85 @@ std::string ErrorToString(jint error)
       default: return "Unknown error";
    }
 }
+
+} // namespace
+
+namespace jni {
+
+void InternalExec(std::function<void(ICmdManager *)> task)
+{
+   JniWorker().ScheduleTask([t = std::move(task)](void * arg) {
+      t(static_cast<Context *>(arg)->cmdMgr.get());
+   });
+}
+
 } // namespace jni
 
 extern "C" {
-// clang-format off
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * /*reserved*/)
 {
-   auto sl = std::make_unique<ServiceLocatorImpl>(vm);
-   auto & logger = sl->GetLogger();
-   g_thread = std::make_unique<Worker>(sl.release(), logger);
-   g_thread->ScheduleTask([](void * arg) {
-      auto * sl = static_cast<ServiceLocatorImpl *>(arg);
-      JNIEnv * env = nullptr;
-      if (auto err = sl->GetJavaVM()->AttachCurrentThread(&env, nullptr) != JNI_OK) {
-         sl->GetLogger().Write(LogPriority::FATAL,
-                               "Failed to attach jni thread: " + jni::ErrorToString(err));
+   JniWorker().ScheduleTask([vm](void * arg) {
+      auto * ctx = static_cast<Context *>(arg);
+      ctx->jvm = vm;
+      auto res = ctx->jvm->AttachCurrentThread(&ctx->jenv, nullptr);
+      if (res != JNI_OK) {
+         ctx->logger.Write<LogPriority::FATAL>("Failed to attach jni thread:", ErrorToString(res));
          std::abort();
       }
-      sl->m_jniEnv = env;
    });
    return JNI_VERSION_1_6;
 }
 
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM * vm, void * /*reserved*/)
 {
-   g_thread->ScheduleTask([vm](void * /*arg*/) {
+   JniWorker().ScheduleTask([vm](void * arg) {
+      auto * ctx = static_cast<Context *>(arg);
+      ctx->cmdMgr = nullptr;
+      ctx->jvm = nullptr;
+      ctx->jenv = nullptr;
       vm->DetachCurrentThread();
    });
-   g_thread = nullptr;
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bridgeCreated(
-    JNIEnv * env, jclass localClass)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_bridgeReady(JNIEnv * env,
+                                                                            jclass localRef)
 {
-   auto globalClass = static_cast<jclass>(env->NewGlobalRef(localClass));
-   g_thread->ScheduleTask([globalClass](void * arg) {
-      auto * sl = static_cast<ServiceLocatorImpl *>(arg);
-      sl->m_btInvoker = std::make_unique<jni::BtInvoker>(sl->GetJNIEnv(), globalClass);
+   auto globalRef = static_cast<jclass>(env->NewGlobalRef(localRef));
+   JniWorker().ScheduleTask([globalRef](void * arg) {
+      auto * ctx = static_cast<Context *>(arg);
+      ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
+   });
+   main::Exec([](auto) {
+      // Do nothing; this will create Controller and states
    });
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOn(JNIEnv *,
-                                                                                     jclass)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_sendEvent(JNIEnv * env,
+                                                                          jclass,
+                                                                          jint eventId,
+                                                                          jobjectArray args)
 {
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetBtListener().OnBluetoothOn();
+   std::vector<std::string> arguments;
+
+   size_t size = args ? env->GetArrayLength(args) : 0U;
+   for (auto i = 0; i < size; ++i) {
+      auto str = static_cast<jstring>(env->GetObjectArrayElement(args, i));
+      arguments.emplace_back(GetString(env, str));
+   }
+   main::Exec([eventId, arguments = std::move(arguments)](main::IController * ctrl) {
+      ctrl->OnEvent(eventId, arguments);
    });
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_bluetoothOff(JNIEnv *,
-                                                                                      jclass)
+JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_sendResponse(JNIEnv * /*env*/,
+                                                                             jclass /*clazz*/,
+                                                                             jint cmdId,
+                                                                             jlong result)
 {
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetBtListener().OnBluetoothOff();
+   jni::Exec([cmdId, result](jni::ICmdManager * mgr) {
+      mgr->OnCommandResponse(cmdId, result);
    });
 }
 
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceFound(
-   JNIEnv *env, jclass, jstring name, jstring mac, jboolean paired)
-{
-   main::Exec(
-       [deviceName = GetString(env, name), deviceMac = GetString(env, mac), paired = GetBool(paired)]
-       (main::ServiceLocator * svc) mutable {
-          svc->GetBtListener().OnDeviceFound(
-              bt::Device(std::move(deviceName),
-              std::move(deviceMac)),
-              paired);
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityConfirmed(
-   JNIEnv *, jclass)
-{
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetBtListener().OnDiscoverabilityConfirmed();
-   });
-}
-
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_discoverabilityRejected(
-   JNIEnv *, jclass)
-{
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetBtListener().OnDiscoverabilityRejected();
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_scanModeChanged(
-   JNIEnv *, jclass, jboolean discoverable, jboolean connectable)
-{
-   main::Exec(
-      [discoverable = GetBool(discoverable),connectable = GetBool(connectable)]
-      (main::ServiceLocator * svc) {
-         svc->GetBtListener().OnScanModeChanged(discoverable, connectable);
-      });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceConnected(
-   JNIEnv * env, jclass, jstring name, jstring mac)
-{
-   main::Exec(
-      [deviceName = GetString(env, name),deviceMac = GetString(env, mac)]
-      (main::ServiceLocator * svc) mutable {
-        svc->GetBtListener().OnDeviceConnected(
-            bt::Device(std::move(deviceName), std::move(deviceMac)));
-      });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_deviceDisonnected(
-   JNIEnv * env, jclass, jstring mac)
-{
-   main::Exec([deviceMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
-      svc->GetBtListener().OnDeviceDisconnected(bt::Device(std::string(), std::move(deviceMac)));
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_BluetoothBridge_messageReceived(
-   JNIEnv * env, jclass, jstring srcDevice, jbyteArray dataArr, jint length)
-{
-   jbyte * elems = env->GetByteArrayElements(dataArr, nullptr);
-   auto * first = reinterpret_cast<const char *>(elems);
-   std::string buf(first, static_cast<size_t>(length));
-   main::Exec(
-      [message = std::move(buf),deviceMac = GetString(env, srcDevice)]
-      (main::ServiceLocator * svc) mutable {
-         svc->GetBtListener().OnMessageReceived(
-             bt::Device(std::string(), std::move(deviceMac)),std::move(message));
-         });
-   env->ReleaseByteArrayElements(dataArr, elems, JNI_ABORT);
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_bridgeCreated(
-    JNIEnv *env, jclass localClass)
-{
-   auto globalClass = static_cast<jclass>(env->NewGlobalRef(localClass));
-   g_thread->ScheduleTask([globalClass](void * arg) {
-      auto * sl = static_cast<ServiceLocatorImpl *>(arg);
-      sl->m_uiInvoker = std::make_unique<jni::UiInvoker>(sl->GetJNIEnv(), globalClass);
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_queryDevices(JNIEnv *, jclass,
-                                                                               jboolean connected,
-                                                                               jboolean discovered)
-{
-   main::Exec(
-       [connected = GetBool(connected), discovered = GetBool(discovered)]
-       (main::ServiceLocator * svc) {
-          svc->GetUiListener().OnDevicesQuery(connected, discovered);
-       });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_setName(JNIEnv * env, jclass,
-                                                                          jstring name)
-{
-   main::Exec([playerName = GetString(env, name)](main::ServiceLocator * svc) mutable {
-      svc->GetUiListener().OnNameSet(std::move(playerName));
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_queryLocalName(JNIEnv *, jclass)
-{
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetUiListener().OnLocalNameQuery();
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_castRequest(JNIEnv *, jclass,
-                                                                              jint d, jint count,
-                                                                              jint threshold)
-{
-   dice::Request request{
-      dice::MakeCast("D" + std::to_string(d), static_cast<size_t>(count)),
-      threshold == -1 ? std::nullopt : std::make_optional(static_cast<uint32_t>(threshold))
-   };
-   main::Exec([request = std::move(request)](main::ServiceLocator * svc) mutable {
-      svc->GetUiListener().OnCastRequest(std::move(request));
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_candidateApproved(JNIEnv * env,
-                                                                                    jclass,
-                                                                                    jstring mac)
-{
-   main::Exec([approvedMac = GetString(env, mac)](main::ServiceLocator * svc) mutable {
-      svc->GetUiListener().OnCandidateApproved(bt::Device(std::string(), std::move(approvedMac)));
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_newGame(JNIEnv *, jclass)
-{
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetUiListener().OnNewGame();
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_restoringState(JNIEnv *, jclass)
-{
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetUiListener().OnRestoringState();
-   });
-}
-
-JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_UiBridge_savingState(JNIEnv *, jclass)
-{
-   main::Exec([](main::ServiceLocator * svc) {
-      svc->GetUiListener().OnSavingState();
-   });
-}
-
-// clang-format on
 } // extern C

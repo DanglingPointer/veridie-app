@@ -6,11 +6,8 @@
 
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
-#include "utils/future.hpp"
 #include "utils/canceller.hpp"
-#include "bt/proxy.hpp"
 #include "bt/device.hpp"
-#include "ui/proxy.hpp"
 #include "core/timerengine.hpp"
 
 namespace fsm {
@@ -29,7 +26,7 @@ private:
 
    Context m_ctx;
 
-   async::Future<bool> m_btQuery;
+//   async::Future<bool> m_btQuery;
    async::Future<main::Timeout> m_toastRepeater;
    bool m_newGamePending;
 };
@@ -41,15 +38,9 @@ class StateConnecting : public StateBase, private async::Canceller<1>
 public:
    explicit StateConnecting(const Context & ctx);
    void OnBluetoothOff();
-   void OnDiscoverabilityConfirmed();
-   void OnDiscoverabilityRejected();
-   void OnScanModeChanged(bool discoverable, bool connectable);
-
-   void OnDeviceFound(const bt::Device & remote, bool paired);
    void OnDeviceConnected(const bt::Device & remote);
    void OnDeviceDisconnected(const bt::Device & remote);
-   void OnCandidateApproved(const bt::Device & remote);
-   void OnDevicesQuery(bool connected, bool discovered);
+   void OnConnectivityEstablished();
 
 private:
    void TryStartDiscoveryTimer();
@@ -58,19 +49,19 @@ private:
 
    Context m_ctx;
 
-   std::optional<bool> m_discoverable;
+//   std::optional<bool> m_discoverable;
    std::optional<bool> m_discovering;
-   bt::IProxy::Handle m_discoverabilityRequest;
-   bt::IProxy::Handle m_listening;
-   bt::IProxy::Handle m_discovery;
-   async::CombinedFuture m_discoveryShutdown;
-   async::Future<main::Timeout> m_discoveryTimer;
+//   bt::IProxy::Handle m_discoverabilityRequest;
+//   bt::IProxy::Handle m_listening;
+//   bt::IProxy::Handle m_discovery;
+//   async::CombinedFuture m_discoveryShutdown;
+//   async::Future<main::Timeout> m_discoveryTimer;
 
    bt::Uuid m_conn;
    std::string m_selfName;
-   std::unordered_map<bt::Device, int> m_devices;
-   std::vector<bt::IProxy::Handle> m_connectingHandles;
-   async::CombinedFuture m_disconnects;
+//   std::unordered_map<bt::Device, int> m_devices;
+//   std::vector<bt::IProxy::Handle> m_connectingHandles;
+//   async::CombinedFuture m_disconnects;
 };
 
 class StateNegotiating : public StateBase

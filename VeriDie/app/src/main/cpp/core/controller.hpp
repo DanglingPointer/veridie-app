@@ -3,35 +3,32 @@
 
 #include <string>
 #include <memory>
-#include "bt/listener.hpp"
-#include "ui/listener.hpp"
 
 class ILogger;
 
-namespace bt {
-class IProxy;
-}
-namespace ui {
+namespace jni {
 class IProxy;
 }
 namespace dice {
 class IEngine;
+class ISerializer;
 }
 
 namespace main {
 class ITimerEngine;
 
 class IController
-   : public bt::IListener
-   , public ui::IListener
 {
 public:
    virtual ~IController() = default;
+   virtual void OnEvent(int32_t eventId, const std::vector<std::string> & args) = 0;
 };
 
-std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btProxy,
-                                              ui::IProxy & uiProxy, dice::IEngine & engine,
-                                              main::ITimerEngine & timer);
+std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
+                                              std::unique_ptr<dice::IEngine> engine,
+                                              std::unique_ptr<main::ITimerEngine> timer,
+                                              std::unique_ptr<dice::ISerializer> serializer,
+                                              ILogger & logger);
 
 } // namespace main
 

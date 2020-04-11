@@ -1,53 +1,43 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "core/timerengine.hpp"
+#include "core/events.hpp"
 #include "jni/logger.hpp"
-#include "jni/btproxy.hpp"
-#include "jni/uiproxy.hpp"
+#include "jni/proxy.hpp"
 #include "dice/engine.hpp"
+#include "dice/serializer.hpp"
 #include "utils/worker.hpp"
 
 namespace {
 
+void MainExecutor(std::function<void()> task);
+
 Worker & MainWorker()
 {
-   static main::ServiceLocator s_svc;
-   static Worker s_w(&s_svc, s_svc.GetLogger());
+   static auto s_logger = jni::CreateLogger("MAIN_WORKER");
+   static auto s_ctrl = main::CreateController(
+      jni::CreateProxy(*s_logger), dice::CreateUniformEngine(),
+      main::CreateTimerEngine(MainExecutor), dice::CreateXmlSerializer(), *s_logger);
+
+   static Worker s_w(s_ctrl.get(), *s_logger);
    return s_w;
 }
 
 void MainExecutor(std::function<void()> task)
 {
-   MainWorker().ScheduleTask([t = std::move(task)](void *) { t(); });
+   MainWorker().ScheduleTask([t = std::move(task)](void *) {
+      t();
+   });
 }
 
 } // namespace
 
 namespace main {
 
-ServiceLocator::ServiceLocator()
-   : m_logger(jni::CreateLogger("MAIN_WORKER"))
-   , m_engine(dice::CreateUniformEngine())
-   , m_timer(main::CreateTimerEngine(MainExecutor))
-   , m_btProxy(jni::CreateBtProxy())
-   , m_uiProxy(jni::CreateUiProxy())
-   , m_ctrl(main::CreateController(*m_logger, *m_btProxy, *m_uiProxy, *m_engine, *m_timer))
-{}
-
-bt::IListener & ServiceLocator::GetBtListener()
-{
-   return *m_ctrl;
-}
-
-ui::IListener & ServiceLocator::GetUiListener()
-{
-   return *m_ctrl;
-}
-
-void Exec(std::function<void(main::ServiceLocator *)> task)
+void InternalExec(std::function<void(IController *)> task)
 {
    MainWorker().ScheduleTask([t = std::move(task)](void * data) {
-      t(static_cast<main::ServiceLocator *>(data));
+      t(static_cast<IController *>(data));
    });
 }
 

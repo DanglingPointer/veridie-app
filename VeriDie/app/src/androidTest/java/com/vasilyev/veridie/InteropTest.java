@@ -1,22 +1,23 @@
 package com.vasilyev.veridie;
 
+import android.os.HandlerThread;
 import android.support.test.runner.AndroidJUnit4;
 
-import com.vasilyev.veridie.interop.BluetoothBridge;
-import com.vasilyev.veridie.interop.UiBridge;
+import com.vasilyev.veridie.interop.Bridge;
+import com.vasilyev.veridie.interop.Command;
+import com.vasilyev.veridie.interop.CommandHandler;
+import com.vasilyev.veridie.interop.Event;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
-import static android.bluetooth.BluetoothAdapter.SCAN_MODE_CONNECTABLE;
-import static android.bluetooth.BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE;
-import static android.bluetooth.BluetoothAdapter.SCAN_MODE_NONE;
 import static org.junit.Assert.*;
 
-// Tests of Java --> C++ interop. Requires showToast() working properly
 @RunWith(AndroidJUnit4.class)
 public class InteropTest
 {
@@ -24,104 +25,120 @@ public class InteropTest
       System.loadLibrary("jni_only_veridie");
    }
 
-   static class ToastListener implements UiBridge.Listener
+   public static class CommandHandlerThread extends HandlerThread
    {
-      SynchronousQueue<String> toasts;
-      String get() {
+      private final SynchronousQueue<Command> m_receivedCommands = new SynchronousQueue<>();
+      private CommandHandler m_handler;
+
+      public CommandHandlerThread() {
+         super("UnwantedButNecessaryThread");
+      }
+      public CommandHandler getHandler() {
+         assertNotNull(m_handler);
+         return m_handler;
+      }
+      public Command getNextCommand() {
          try {
-            return toasts.poll(5, TimeUnit.SECONDS);
+            return m_receivedCommands.poll(5, TimeUnit.SECONDS);
          } catch (InterruptedException e) {
             fail(e.getMessage());
             return null;
          }
       }
-      ToastListener() {
-         this.toasts = new SynchronousQueue<>();
-      }
       @Override
-      public void showToast(String message, int duration) {
-         assertEquals(2, duration);
-         toasts.offer(message);
-      }
-      @Override
-      public void showCandidates(String[] names) {
-         fail("showCandidates");
-      }
-      @Override
-      public void showConnections(String[] names) {
-         fail("showConnections");
-      }
-      @Override
-      public void showCastResponse(int[] result, int successCount, boolean external) {
-         fail("showCastResponse");
-      }
-      @Override
-      public void showLocalName(String ownName) {
-         fail("showLocalName");
+      public synchronized void start() {
+         super.start();
+         m_handler = new CommandHandler(getLooper()) {
+            @Override
+            protected void onCommandReceived(Command cmd) {
+               try {
+                  m_receivedCommands.put(cmd);
+               } catch (InterruptedException e) {
+                  fail(e.getMessage());
+               }
+            }
+         };
       }
    }
 
-   @Test
-   public void testUiBridge() {
-      ToastListener l = new ToastListener();
-      UiBridge.getInstance().setListener(l);
+   private CommandHandlerThread cht;
 
-      UiBridge bridge = UiBridge.getInstance();
+   @Before
+   public void setupHandler() {
+      cht = new CommandHandlerThread();
+      cht.start();
+      Bridge.setCommandHandlers(cht.getHandler(), cht.getHandler());
+   }
 
-      bridge.queryConnectedDevices();
-      assertEquals("OnDevicesQuerytruefalse", l.get());
-
-      bridge.queryDiscoveredDevices();
-      assertEquals("OnDevicesQueryfalsetrue", l.get());
-
-      bridge.setPlayerName("Marvin");
-      assertEquals("OnNameSetMarvin", l.get());
-
-      bridge.queryPlayerName();
-      assertEquals("OnLocalNameQuery", l.get());
-
-      bridge.requestCast(CastRequest.newD6CastRequest(42, 3));
-      assertEquals("OnCastRequestD6423", l.get());
-
-      bridge.setApprovedCandidate("Some-mac-addr");
-      assertEquals("OnCandidateApprovedSome-mac-addr", l.get());
-
-      bridge.startNewGame();
-      assertEquals("OnNewGame", l.get());
-
-      bridge.restoreState();
-      assertEquals("OnRestoringState", l.get());
-
-      bridge.saveState();
-      assertEquals("OnSavingState", l.get());
+   @After
+   public void stopHandlerThread() {
+      cht.quit();
+      cht = null;
    }
 
    @Test
-   public void testBtBridge() {
-      ToastListener l = new ToastListener();
-      UiBridge.getInstance().setListener(l);
+   public void testMultipleArguments() {
+      String[] args = { "first arg", "<second arg />", "arg ; with ; semicolons ;" };
+      Bridge.send(Event.MESSAGE_RECEIVED.withArgs(args));
+      Command cmd = cht.getNextCommand();
+      assertNotNull(cmd);
+      assertEquals(Event.MESSAGE_RECEIVED.getId(), cmd.getId());
+      assertArrayEquals(args, cmd.getArgs());
+      cmd.respond(Command.ERROR_NO_ERROR);
+   }
 
-      BluetoothBridge bridge = BluetoothBridge.getInstance();
+   @Test
+   public void testLongArgument() {
+      String veryLongArg =
+         "“Two Catholics who have never met can nevertheless go together on crusade or pool funds to\n" +
+         "build a hospital because they both believe that God was incarnated in human flesh and allowed\n" +
+         "Himself to be crucified to redeem our sins. States are rooted in common national myths. Two\n" +
+         "Serbs who have never met might risk their lives to save one another because both believe in\n" +
+         "the existence of the Serbian nation, the Serbian homeland and the Serbian flag. Judicial\n" +
+         "systems are rooted in common legal myths. Two lawyers who have never met can nevertheless\n" +
+         "combine efforts to defend a complete stranger because they both believe in the existence of\n" +
+         "laws, justice, human rights – and the money paid out in fees. Yet none of these things exists\n" +
+         "outside the stories that people invent and tell one another. There are no gods in the\n" +
+         "universe, no nations, no money, no human rights, no laws, and no justice outside the common\n" +
+         "imagination of human beings.”\n";
+      Bridge.send(Event.CAST_REQUEST_ISSUED.withArgs(veryLongArg));
+      Command cmd = cht.getNextCommand();
+      assertNotNull(cmd);
+      assertEquals(Event.CAST_REQUEST_ISSUED.getId(), cmd.getId());
+      assertEquals(1, cmd.getArgs().length);
+      assertEquals(veryLongArg, cmd.getArgs()[0]);
+      cmd.respond(Command.ERROR_NO_ERROR);
+   }
 
-      bridge.onOffState(true);
-      assertEquals("OnBluetoothOn", l.get());
+   @Test
+   public void testCommandIdIncrementation() {
+      Bridge.send(Event.NEW_GAME_REQUESTED);
+      Command cmd1 = cht.getNextCommand();
+      assertNotNull(cmd1);
+      assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd1.getId());
+      assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd1.getNativeId());
 
-      bridge.onOffState(false);
-      assertEquals("OnBluetoothOff", l.get());
+      Bridge.send(Event.NEW_GAME_REQUESTED);
+      Command cmd2 = cht.getNextCommand();
+      assertNotNull(cmd2);
+      assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd2.getId());
+      assertEquals((Event.NEW_GAME_REQUESTED.getId() << 8) + 1, cmd2.getNativeId());
 
-      bridge.discoverabilityResponse(true);
-      assertEquals("OnDiscoverabilityConfirmed", l.get());
+      Bridge.send(Event.NEW_GAME_REQUESTED);
+      Command cmd3 = cht.getNextCommand();
+      assertNotNull(cmd3);
+      assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd3.getId());
+      assertEquals((Event.NEW_GAME_REQUESTED.getId() << 8) + 2, cmd3.getNativeId());
 
-      bridge.discoverabilityResponse(false);
-      assertEquals("OnDiscoverabilityRejected", l.get());
+      cmd1.respond(Command.ERROR_NO_ERROR);
+      cmd2.respond(Command.ERROR_NO_ERROR);
+      cmd3.respond(Command.ERROR_NO_ERROR);
 
-      bridge.discoverabilityChanged(SCAN_MODE_NONE);
-      assertEquals("OnScanModeChangedfalsefalse", l.get());
-
-      bridge.discoverabilityChanged(SCAN_MODE_CONNECTABLE_DISCOVERABLE);
-      assertEquals("OnScanModeChangedtruetrue", l.get());
-
-      bridge.discoverabilityChanged(SCAN_MODE_CONNECTABLE);
-      assertEquals("OnScanModeChangedfalsetrue", l.get());
+      Bridge.send(Event.NEW_GAME_REQUESTED);
+      Command cmd4 = cht.getNextCommand();
+      assertNotNull(cmd4);
+      assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd4.getId());
+      assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd4.getNativeId());
+      cmd4.respond(Command.ERROR_NO_ERROR);
    }
 }

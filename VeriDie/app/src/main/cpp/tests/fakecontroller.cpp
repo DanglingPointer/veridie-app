@@ -1,141 +1,97 @@
+#include <vector>
+#include <sstream>
 #include "core/controller.hpp"
 #include "core/logging.hpp"
-#include "bt/proxy.hpp"
-#include "ui/proxy.hpp"
+#include "core/timerengine.hpp"
+#include "core/commands.hpp"
+#include "jni/proxy.hpp"
 #include "utils/canceller.hpp"
 
-namespace {
-using namespace std::chrono_literals;
-
-const std::string & ToString(const std::string & s) { return s; }
-std::string ToString(const char * s) { return s; }
-template <typename T>
-std::string ToString(T s) { return std::to_string(s); }
-
-class FakeController : public main::IController, private async::Canceller<>
+namespace dice {
+std::unique_ptr<IEngine> CreateUniformEngine()
 {
-public:
-   FakeController(ILogger & logger, bt::IProxy & /*btProxy*/, ui::IProxy & uiProxy)
-      : m_logger(logger)
-      , m_gui(uiProxy)
-   {}
+   return nullptr;
+}
+} // namespace dice
+namespace main {
+std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor)
+{
+   return nullptr;
+}
+} // namespace main
+namespace dice {
+std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
+{
+   return nullptr;
+}
+} // namespace dice
 
-   template <typename... TArgs>
-   void Toast(const char * fun, TArgs... args)
-   {
-      m_gui.ShowToast((fun + ... + ToString(args)), 2s, DetachedCb<ui::IProxy::Error>());
+namespace {
+
+#define ASSERT(cond)  \
+   if (!(cond)) {     \
+      assert((cond)); \
+      std::abort();   \
    }
 
-private: /*bt::IListener*/
-   void OnBluetoothOn() override
+struct TestCommand : public cmd::ICommand
+{
+   TestCommand(int32_t id, std::vector<std::string> args)
+      : id(id)
+      , args(std::move(args))
+      , responded(false)
+   {}
+   ~TestCommand() { ASSERT(responded); }
+   int32_t GetId() const override { return id; }
+   size_t GetArgsCount() const override { return args.size(); }
+   std::string_view GetArgAt(size_t index) const override { return args[index]; }
+   void Respond(int64_t response) override
    {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnBluetoothOff() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnDeviceFound(const bt::Device & /*remote*/, bool /*paired*/) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnDiscoverabilityConfirmed() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnDiscoverabilityRejected() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnScanModeChanged(bool discoverable, bool connectable) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__, discoverable ? "true" : "false", connectable ? "true" : "false");
-   };
-   void OnDeviceConnected(const bt::Device & /*remote*/) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnDeviceDisconnected(const bt::Device & /*remote*/) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnMessageReceived(const bt::Device & /*remote*/, std::string /*message*/) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
+      responded = true;
+      ASSERT(response == 0);
+   }
 
-private: /*ui::IListener*/
-   void OnDevicesQuery(bool connected, bool discovered) override
+   int32_t id;
+   std::vector<std::string> args;
+   bool responded;
+};
+
+class EchoController
+   : public main::IController
+   , private async::Canceller<>
+{
+public:
+   EchoController(ILogger & logger, std::unique_ptr<jni::IProxy> proxy)
+      : m_logger(logger)
+      , m_proxy(std::move(proxy))
+   {}
+   void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__, connected ? "true" : "false", discovered ? "true" : "false");
-   };
-   void OnNameSet(std::string name) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__, name);
-   };
-   void OnLocalNameQuery() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnCastRequest(dice::Request localRequest) override
-   {
-      std::string d = "invalid";
-      size_t size = 0;
-      if (auto cast = std::get_if<dice::D6>(&localRequest.cast)) {
-         d = "D6";
-         size = cast->size();
-      }
-      m_logger.Write<LogPriority::DEBUG>(__PRETTY_FUNCTION__, d, size,
-                                         localRequest.threshold.value_or(0));
-      Toast(__func__, d, size, localRequest.threshold.value_or(0));
-   };
-   void OnCandidateApproved(bt::Device candidatePlayer) override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__, candidatePlayer.mac);
-   };
-   void OnNewGame() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnRestoringState() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
-   void OnSavingState() override
-   {
-      m_logger.Write(LogPriority::DEBUG, __PRETTY_FUNCTION__);
-      Toast(__func__);
-   };
+      std::ostringstream ss;
+      for (const auto & s : args)
+         ss << "[" << s << "] ";
+      m_logger.Write<LogPriority::DEBUG>("EchoController received event Id:",
+                                         eventId,
+                                         "Args:",
+                                         ss.str());
+      m_proxy->ForwardToUi<TestCommand>((eventId << 8), args);
+   }
 
 private:
    ILogger & m_logger;
-   ui::IProxy & m_gui;
+   std::unique_ptr<jni::IProxy> m_proxy;
 };
 
 } // namespace
 
 namespace main {
 
-std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btProxy,
-                                              ui::IProxy & uiProxy, dice::IEngine &,
-                                              main::ITimerEngine &)
+std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
+                                              std::unique_ptr<dice::IEngine> /*engine*/,
+                                              std::unique_ptr<main::ITimerEngine> /*timer*/,
+                                              std::unique_ptr<dice::ISerializer> /*serializer*/,
+                                              ILogger & logger)
 {
-   return std::make_unique<FakeController>(logger, btProxy, uiProxy);
+   return std::make_unique<EchoController>(logger, std::move(proxy));
 }
-
 } // namespace main

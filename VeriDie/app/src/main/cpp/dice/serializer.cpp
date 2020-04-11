@@ -68,13 +68,13 @@ struct FillValues
 class XmlSerializer : public dice::ISerializer
 {
 public:
-   std::string FromRequest(const dice::Request & request) override;
-   std::string FromResponse(const dice::Response & response) override;
+   std::string WriteRequest(const dice::Request & request) override;
+   std::string WriteResponse(const dice::Response & response) override;
    dice::Request ParseRequest(const std::string & request) override;
    dice::Response ParseResponse(const std::string & response) override;
 };
 
-std::string XmlSerializer::FromRequest(const dice::Request & request)
+std::string XmlSerializer::WriteRequest(const dice::Request & request)
 {
    std::string type = std::visit(DiceTypeToString{}, request.cast);
    auto doc = std::visit(RequestToXml(std::move(type)), request.cast);
@@ -84,7 +84,7 @@ std::string XmlSerializer::FromRequest(const dice::Request & request)
    return doc->ToString();
 }
 
-std::string XmlSerializer::FromResponse(const dice::Response & response)
+std::string XmlSerializer::WriteResponse(const dice::Response & response)
 {
    std::string type = std::visit(DiceTypeToString{}, response.cast);
    auto doc = std::visit(ResponseToXml(std::move(type)), response.cast);

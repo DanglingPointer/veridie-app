@@ -31,7 +31,7 @@ public class CastRequest
     private int m_count;
     private Integer m_threshold;
 
-    public CastRequest(int d, int count, Integer threshold) {
+    private CastRequest(int d, int count, Integer threshold) {
         m_d = d;
         if (count < 1)
             throw new RuntimeException("Invalid dice count");

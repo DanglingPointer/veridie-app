@@ -1,32 +1,20 @@
 #ifndef JNI_EXEC_HPP
 #define JNI_EXEC_HPP
 
-#include <string>
 #include <functional>
-#include <jni.h>
-
-class ILogger;
+#include "utils/alwayscopyable.hpp"
 
 namespace jni {
+class ICmdManager;
 
-class BtInvoker;
-class UiInvoker;
+void InternalExec(std::function<void(ICmdManager *)> task);
 
-class ServiceLocator
+template <typename F>
+void Exec(F && f)
 {
-public:
-   virtual ~ServiceLocator() = default;
-   virtual JavaVM * GetJavaVM() = 0;
-   virtual JNIEnv * GetJNIEnv() = 0;
-   virtual ILogger & GetLogger() = 0;
-   virtual BtInvoker * GetBtInvoker() = 0;
-   virtual UiInvoker * GetUiInvoker() = 0;
-};
-
-void Exec(std::function<void(jni::ServiceLocator *)> task);
-
-std::string ErrorToString(jint error);
-
+   InternalExec(AlwaysCopyable(std::move(f)));
 }
+
+} // namespace jni
 
 #endif // JNI_EXEC_HPP

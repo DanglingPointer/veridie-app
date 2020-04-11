@@ -13,7 +13,9 @@ Worker::Worker(void * data, ILogger & log)
 
 Worker::~Worker()
 {
-   ScheduleTask([stop = m_stop](void *) { *stop = true; });
+   ScheduleTask([stop = m_stop](void *) {
+      *stop = true;
+   });
 }
 
 void Worker::ScheduleTask(Worker::Task item)
@@ -26,9 +28,11 @@ void Worker::ScheduleTask(Worker::Task item)
 
 void Worker::Launch(void * arg)
 {
-   std::thread([queue = std::unique_ptr<Queue>(m_queue), stop = std::unique_ptr<bool>(m_stop), arg,
+   std::thread([queue = std::unique_ptr<Queue>(m_queue),
+                stop = std::unique_ptr<bool>(m_stop),
+                arg,
                 &log = m_log] {
-      log.Write(LogPriority::INFO, "Hello world!");
+      log.Write<LogPriority::INFO>("Hello world!");
       Worker::Task t;
       while (!*stop) {
          try {
@@ -42,6 +46,6 @@ void Worker::Launch(void * arg)
             log.Write<LogPriority::ERROR>("Uncaught exception: UNKNOWN");
          }
       }
-      log.Write(LogPriority::INFO, "Worker shut down");
+      log.Write<LogPriority::INFO>("Bye!");
    }).detach();
 }

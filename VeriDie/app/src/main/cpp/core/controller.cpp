@@ -1,9 +1,12 @@
+#include <unordered_map>
+
 #include "core/controller.hpp"
 #include "core/logging.hpp"
-#include "core/timerengine.hpp"
-#include "bt/proxy.hpp"
-#include "ui/proxy.hpp"
+#include "jni/proxy.hpp"
 #include "dice/engine.hpp"
+#include "core/timerengine.hpp"
+#include "dice/serializer.hpp"
+#include "core/events.hpp"
 #include "fsm/states.hpp"
 
 namespace {
@@ -11,108 +14,54 @@ namespace {
 class Controller : public main::IController
 {
 public:
-   Controller(ILogger & logger, bt::IProxy & btProxy, ui::IProxy & uiProxy, dice::IEngine & engine,
-              main::ITimerEngine & timer)
+   Controller(ILogger & logger,
+              std::unique_ptr<jni::IProxy> proxy,
+              std::unique_ptr<dice::IEngine> engine,
+              std::unique_ptr<main::ITimerEngine> timer,
+              std::unique_ptr<dice::ISerializer> serializer)
       : m_logger(logger)
-      , m_generator(engine)
-      , m_timer(timer)
-      , m_bluetooth(btProxy)
-      , m_gui(uiProxy)
-      , m_serializer(dice::CreateXmlSerializer())
+      , m_proxy(std::move(proxy))
+      , m_generator(std::move(engine))
+      , m_timer(std::move(timer))
+      , m_serializer(std::move(serializer))
    {
-      m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger, &m_generator, m_serializer.get(),
-                                                   &m_timer, &m_bluetooth, &m_gui, &m_state});
+      InitializeEventHandlers(event::Dictionary{});
+      m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger,
+                                                   m_generator.get(),
+                                                   m_serializer.get(),
+                                                   m_timer.get(),
+                                                   m_proxy.get(),
+                                                   &m_state});
    }
 
-private: /*bt::IListener*/
-   void OnBluetoothOn() override
-   {
-      StateInvoke([](auto & s) { s.OnBluetoothOn(); });
-   };
-   void OnBluetoothOff() override
-   {
-      StateInvoke([](auto & s) { s.OnBluetoothOff(); });
-   };
-   void OnDeviceFound(const bt::Device & remote, bool paired) override
-   {
-      StateInvoke([&](auto & s) { s.OnDeviceFound(remote, paired); });
-   };
-   void OnDiscoverabilityConfirmed() override
-   {
-      StateInvoke([](auto & s) { s.OnDiscoverabilityConfirmed(); });
-   };
-   void OnDiscoverabilityRejected() override
-   {
-      StateInvoke([](auto & s) { s.OnDiscoverabilityRejected(); });
-   };
-   void OnScanModeChanged(bool discoverable, bool connectable) override
-   {
-      StateInvoke([=](auto & s) { s.OnScanModeChanged(discoverable, connectable); });
-   };
-   void OnDeviceConnected(const bt::Device & remote) override
-   {
-      StateInvoke([&](auto & s) { s.OnDeviceConnected(remote); });
-   };
-   void OnDeviceDisconnected(const bt::Device & remote) override
-   {
-      StateInvoke([&](auto & s) { s.OnDeviceDisconnected(remote); });
-   };
-   void OnMessageReceived(const bt::Device & remote, std::string message) override
-   {
-      StateInvoke([&](auto & s) mutable { s.OnMessageReceived(remote, std::move(message)); });
-   };
-
-private: /*ui::IListener*/
-   void OnDevicesQuery(bool connected, bool discovered) override
-   {
-      StateInvoke([=](auto & s) { s.OnDevicesQuery(connected, discovered); });
-   };
-   void OnNameSet(std::string name) override
-   {
-      StateInvoke([&](auto & s) mutable { s.OnNameSet(name); });
-   };
-   void OnLocalNameQuery() override
-   {
-      StateInvoke([](auto & s) { s.OnLocalNameQuery(); });
-   };
-   void OnCastRequest(dice::Request localRequest) override
-   {
-      StateInvoke([&](auto & s) mutable { s.OnCastRequest(std::move(localRequest)); });
-   };
-   void OnCandidateApproved(bt::Device candidatePlayer) override
-   {
-      StateInvoke([&](auto & s) { s.OnCandidateApproved(candidatePlayer); });
-   };
-   void OnNewGame() override
-   {
-      StateInvoke([](auto & s) { s.OnNewGame(); });
-   };
-   void OnRestoringState() override{
-      // TODO: create m_state from string (after reading it from a file)
-   };
-   void OnSavingState() override{
-      // TODO: save state to a string a write to file
-   };
-
 private:
-   template <typename F>
-   void StateInvoke(F && f)
+   void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
-      struct Workaround : F
-      {
-         using F::operator();
-         void operator()(std::monostate) {}
-      };
-      std::visit(Workaround{std::forward<F>(f)}, m_state);
+      auto it = m_eventHandlers.find(eventId);
+      if (it == std::cend(m_eventHandlers)) {
+         m_logger.Write<LogPriority::ERROR>("Event handler not found, id=", eventId);
+         return;
+      }
+      bool success = (*it->second)(m_state, args);
+      if (!success) {
+         m_logger.Write<LogPriority::ERROR>("Could not parse event args, id=", eventId);
+      }
+   }
+
+   template <typename... Event>
+   void InitializeEventHandlers(event::List<Event...>)
+   {
+      (..., m_eventHandlers.insert({Event::ID, &Event::Handle}));
+      assert(m_eventHandlers.size() == sizeof...(Event));
    }
 
    ILogger & m_logger;
-   dice::IEngine & m_generator;
-   main::ITimerEngine & m_timer;
-   bt::IProxy & m_bluetooth;
-   ui::IProxy & m_gui;
+   std::unique_ptr<jni::IProxy> m_proxy;
+   std::unique_ptr<dice::IEngine> m_generator;
+   std::unique_ptr<main::ITimerEngine> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;
 
+   std::unordered_map<int32_t, event::Handler> m_eventHandlers;
    fsm::StateHolder m_state;
 };
 
@@ -120,11 +69,17 @@ private:
 
 namespace main {
 
-std::unique_ptr<IController> CreateController(ILogger & logger, bt::IProxy & btProxy,
-                                              ui::IProxy & uiProxy, dice::IEngine & engine,
-                                              main::ITimerEngine & timer)
+std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
+                                              std::unique_ptr<dice::IEngine> engine,
+                                              std::unique_ptr<main::ITimerEngine> timer,
+                                              std::unique_ptr<dice::ISerializer> serializer,
+                                              ILogger & logger)
 {
-   return std::make_unique<Controller>(logger, btProxy, uiProxy, engine, timer);
+   return std::make_unique<Controller>(logger,
+                                       std::move(proxy),
+                                       std::move(engine),
+                                       std::move(timer),
+                                       std::move(serializer));
 }
 
 } // namespace main

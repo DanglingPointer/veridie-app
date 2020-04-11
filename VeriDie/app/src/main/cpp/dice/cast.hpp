@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <variant>
-#include <memory>
+#include <cstdint>
 
 namespace dice {
 
