@@ -64,7 +64,7 @@ public final class Bridge
             cmd.respond(Command.ERROR_INVALID_STATE);
             return;
         }
-        Message msg = handler.obtainMessage(cmdId, cmd);
+        Message msg = handler.obtainMessage(cmd.getId(), cmd);
         msg.sendToTarget();
     }
 
