@@ -28,6 +28,7 @@ android {
             externalNativeBuild {
                 cmake {
                     arguments "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                    abiFilters "armeabi-v7a"
                 }
             }
         }
