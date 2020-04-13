@@ -500,16 +500,16 @@ std::unique_ptr<ElementData<TChar>> BuildElementTree(const std::list<const TChar
 } // namespace details
 
 
-class Exception : public std::logic_error
+class Exception : public std::invalid_argument
 {
 public:
-   Exception(const char *what) : std::logic_error(what)
+   Exception(const char *what) : std::invalid_argument(what)
    {}
-   Exception(const std::string &what) : std::logic_error(what)
+   Exception(const std::string &what) : std::invalid_argument(what)
    {}
    virtual const char *what() const noexcept
    {
-      return std::logic_error::what();
+      return std::invalid_argument::what();
    }
 };
 

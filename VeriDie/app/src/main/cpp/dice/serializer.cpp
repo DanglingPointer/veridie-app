@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "dice/serializer.hpp"
 #include "utils/xmlparser.hpp"
 
@@ -68,13 +69,22 @@ struct FillValues
 class XmlSerializer : public dice::ISerializer
 {
 public:
-   std::string WriteRequest(const dice::Request & request) override;
-   std::string WriteResponse(const dice::Response & response) override;
-   dice::Request ParseRequest(const std::string & request) override;
-   dice::Response ParseResponse(const std::string & response) override;
+   std::string Serialize(const dice::Request & request) override;
+   std::string Serialize(const dice::Response & response) override;
+   std::string Serialize(const dice::Hello & hello) override;
+   std::string Serialize(const dice::Offer & offer) override;
+
+   std::variant<dice::Hello, dice::Offer, dice::Request, dice::Response>
+   Deserialize(std::string_view message) override;
+
+private:
+   dice::Request ParseRequest(std::unique_ptr<const xml::Document<char>> doc);
+   dice::Response ParseResponse(std::unique_ptr<const xml::Document<char>> doc);
+   dice::Hello ParseHello(std::unique_ptr<const xml::Document<char>> doc);
+   dice::Offer ParseOffer(std::unique_ptr<const xml::Document<char>> doc);
 };
 
-std::string XmlSerializer::WriteRequest(const dice::Request & request)
+std::string XmlSerializer::Serialize(const dice::Request & request)
 {
    std::string type = std::visit(DiceTypeToString{}, request.cast);
    auto doc = std::visit(RequestToXml(std::move(type)), request.cast);
@@ -84,7 +94,7 @@ std::string XmlSerializer::WriteRequest(const dice::Request & request)
    return doc->ToString();
 }
 
-std::string XmlSerializer::WriteResponse(const dice::Response & response)
+std::string XmlSerializer::Serialize(const dice::Response & response)
 {
    std::string type = std::visit(DiceTypeToString{}, response.cast);
    auto doc = std::visit(ResponseToXml(std::move(type)), response.cast);
@@ -94,13 +104,39 @@ std::string XmlSerializer::WriteResponse(const dice::Response & response)
    return doc->ToString();
 }
 
-dice::Request XmlSerializer::ParseRequest(const std::string & request)
+std::string XmlSerializer::Serialize(const dice::Hello & hello)
 {
-   auto doc = xml::ParseString(request);
+   auto doc = xml::NewDocument("Hello");
+   doc->GetRoot().AddChild("Mac").SetContent(hello.mac);
+   return doc->ToString();
+}
+
+std::string XmlSerializer::Serialize(const dice::Offer & offer)
+{
+   auto doc = xml::NewDocument("Offer");
+   doc->GetRoot().AddAttribute("round", std::to_string(offer.round));
+   doc->GetRoot().AddChild("Mac").SetContent(offer.mac);
+   return doc->ToString();
+}
+
+std::variant<dice::Hello, dice::Offer, dice::Request, dice::Response>
+XmlSerializer::Deserialize(std::string_view message)
+{
+   auto doc = xml::ParseString(message.data(), false);
    const auto & name = doc->GetRoot().GetName();
-   if (name != "Request") {
-      throw xml::Exception("Expected Request, received: " + name);
-   }
+   if (name == "Request")
+      return ParseRequest(std::move(doc));
+   if (name == "Response")
+      return ParseResponse(std::move(doc));
+   if (name == "Hello")
+      return ParseHello(std::move(doc));
+   if (name == "Offer")
+      return ParseOffer(std::move(doc));
+   throw std::invalid_argument("Deserialize(): Unknown message type: " + name);
+}
+
+dice::Request XmlSerializer::ParseRequest(std::unique_ptr<const xml::Document<char>> doc)
+{
    std::string type = doc->GetRoot().GetAttributeValue("type");
    size_t size = std::stoul(doc->GetRoot().GetAttributeValue("size"));
    std::optional<uint32_t> successFrom;
@@ -112,13 +148,8 @@ dice::Request XmlSerializer::ParseRequest(const std::string & request)
    return dice::Request{dice::MakeCast(type, size), successFrom};
 }
 
-dice::Response XmlSerializer::ParseResponse(const std::string & response)
+dice::Response XmlSerializer::ParseResponse(std::unique_ptr<const xml::Document<char>> doc)
 {
-   auto doc = xml::ParseString(response);
-   const auto & name = doc->GetRoot().GetName();
-   if (name != "Response") {
-      throw xml::Exception("Expected Response, received: " + name);
-   }
    std::string type = doc->GetRoot().GetAttributeValue("type");
    size_t size = std::stoul(doc->GetRoot().GetAttributeValue("size"));
    dice::Cast cast = dice::MakeCast(type, size);
@@ -137,31 +168,41 @@ dice::Response XmlSerializer::ParseResponse(const std::string & response)
    }
    return dice::Response{std::move(cast), successCount};
 }
+
+dice::Hello XmlSerializer::ParseHello(std::unique_ptr<const xml::Document<char>> doc)
+{
+   return dice::Hello{doc->GetRoot().GetChild("Mac").GetContent()};
+}
+
+dice::Offer XmlSerializer::ParseOffer(std::unique_ptr<const xml::Document<char>> doc)
+{
+   return dice::Offer{doc->GetRoot().GetChild("Mac").GetContent(),
+                      static_cast<uint32_t>(std::stoi(doc->GetRoot().GetAttributeValue("round")))};
+}
+
 } // namespace
 
 namespace dice {
 
 dice::Cast MakeCast(const std::string & type, size_t size)
 {
-   dice::Cast result;
-   if (type == "D4") {
-      result = dice::D4(size);
-   } else if (type == "D6") {
-      result = dice::D6(size);
-   } else if (type == "D8") {
-      result = dice::D8(size);
-   } else if (type == "D10") {
-      result = dice::D10(size);
-   } else if (type == "D12") {
-      result = dice::D12(size);
-   } else if (type == "D16") {
-      result = dice::D16(size);
-   } else if (type == "D20") {
-      result = dice::D20(size);
-   } else if (type == "D100") {
-      result = dice::D100(size);
-   }
-   return result;
+   if (type == "D4")
+      return dice::D4(size);
+   if (type == "D6")
+      return dice::D6(size);
+   if (type == "D8")
+      return dice::D8(size);
+   if (type == "D10")
+      return dice::D10(size);
+   if (type == "D12")
+      return dice::D12(size);
+   if (type == "D16")
+      return dice::D16(size);
+   if (type == "D20")
+      return dice::D20(size);
+   if (type == "D100")
+      return dice::D100(size);
+   throw std::invalid_argument("MakeCast(): Invalid cast type: " + type);
 }
 
 std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
