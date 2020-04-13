@@ -24,6 +24,7 @@ public:
    void OnMessageReceived(const bt::Device & /*sender*/, const std::string & /*message*/){}
    void OnCastRequest(dice::Request && /*localRequest*/){}
    void OnGameStopped(){}
+   void OnSocketReadFailure(const bt::Device & /*transmitter*/){}
 };
 
 } // namespace fsm
