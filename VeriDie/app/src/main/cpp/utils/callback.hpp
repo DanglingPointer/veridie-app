@@ -110,8 +110,10 @@ public:
    template <typename... TArgs>
    void InvokeOneShot(TArgs &&... args)
    {
+      Deactivate();
       Invoke(std::forward<TArgs>(args)...);
       m_callback = nullptr;
+      m_flagRef = nullptr;
    }
    template <typename... TArgs>
    void operator()(TArgs &&... args) const
