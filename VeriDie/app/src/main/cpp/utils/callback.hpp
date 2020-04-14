@@ -34,7 +34,9 @@ bool operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept;
 bool operator!=(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept;
 
 struct CancellerToken
-{};
+{
+   virtual ~CancellerToken() = default;
+};
 
 const std::shared_ptr<CancellerToken> & GlobalCancellerToken();
 

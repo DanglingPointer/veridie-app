@@ -89,6 +89,13 @@ class Canceller
 {
    using FlagsArray = internal::AtomicFlagsArray<N>;
 
+   struct Token : internal::CancellerToken
+   {
+      Token() : lastUsedFlag(std::begin(activeFlags)) {}
+      FlagsArray activeFlags{};
+      typename FlagsArray::iterator lastUsedFlag;
+   };
+
 public:
    static constexpr size_t MAX_SIMULT_CALLBACKS = N;
    using MyT = Canceller<MAX_SIMULT_CALLBACKS>;
@@ -98,31 +105,25 @@ public:
    };
 
    Canceller()
-      : m_token(std::make_shared<internal::CancellerToken>())
-      , m_lastUsedFlag(std::begin(m_activeFlags))
+      : m_token(std::make_shared<Token>())
    {}
    Canceller(MyT &&) = delete;
    Canceller(const MyT &)
       : Canceller()
    { /* To ensure correct behaviour when inheriting from Canceller */
    }
-   ~Canceller()
-   {
-      while (m_token.use_count() > 1)
-         ;
-   }
    void InvalidateCallbacks()
    {
-      m_token = std::make_shared<internal::CancellerToken>();
-      for (auto & flag : m_activeFlags)
+      for (auto & flag : m_token->activeFlags)
          internal::AtomicFlagRef(&flag).Deactivate();
+      m_token = std::make_shared<Token>();
    }
    void CancelCallback(CallbackId & callbackId) noexcept
    {
       if (!callbackId.value)
          return;
       auto index = internal::GetFlagIndex(*callbackId.value);
-      internal::AtomicFlagRef flag(&m_activeFlags[index]);
+      internal::AtomicFlagRef flag(&m_token->activeFlags[index]);
       if (flag.GetId() == internal::GetOperationId(*callbackId.value))
          flag.Cancel();
       callbackId.value = std::nullopt;
@@ -132,7 +133,7 @@ public:
       if (!callbackId.value)
          return false;
       auto index = internal::GetFlagIndex(*callbackId.value);
-      internal::AtomicFlagRef flag(&m_activeFlags[index]);
+      internal::AtomicFlagRef flag(&m_token->activeFlags[index]);
       bool active = flag.GetId() == internal::GetOperationId(*callbackId.value) && flag.IsAlive() &&
                     !flag.IsCancelled();
       if (!active)
@@ -142,7 +143,7 @@ public:
    template <typename F>
    auto Wrap(F && func) const
    {
-      return [token = std::weak_ptr<internal::CancellerToken>(m_token),
+      return [token = std::weak_ptr<Token>(m_token),
               f = std::forward<F>(func)](auto &&... args) {
          if (auto p = token.lock())
             f(std::forward<decltype(args)>(args)...);
@@ -179,23 +180,22 @@ private:
       if (!callbackId)
          return nullptr;
       auto index = [this] {
-         for (size_t i = 0; i < m_activeFlags.size(); ++i) {
-            ++m_lastUsedFlag;
-            if (m_lastUsedFlag == std::end(m_activeFlags))
-               m_lastUsedFlag = std::begin(m_activeFlags);
-            if (!internal::AtomicFlagRef(&(*m_lastUsedFlag)).IsAlive())
-               return std::distance(std::begin(m_activeFlags), m_lastUsedFlag);
+         for (size_t i = 0; i < m_token->activeFlags.size(); ++i) {
+            ++m_token->lastUsedFlag;
+            if (m_token->lastUsedFlag == std::end(m_token->activeFlags))
+               m_token->lastUsedFlag = std::begin(m_token->activeFlags);
+            if (!internal::AtomicFlagRef(&(*m_token->lastUsedFlag)).IsAlive())
+               return std::distance(std::begin(m_token->activeFlags), m_token->lastUsedFlag);
          }
          throw std::runtime_error("Number of callbacks exceeds Canceller capacity");
       }();
-      internal::AtomicFlagRef flag(&(*m_lastUsedFlag));
+      internal::AtomicFlagRef flag(&(*m_token->lastUsedFlag));
       flag.Activate();
       callbackId->value.emplace(internal::MakeCallbackId(flag, index));
       return flag;
    }
-   std::shared_ptr<internal::CancellerToken> m_token;
-   mutable FlagsArray m_activeFlags{};
-   mutable typename FlagsArray::iterator m_lastUsedFlag;
+
+   std::shared_ptr<Token> m_token;
 };
 
 
