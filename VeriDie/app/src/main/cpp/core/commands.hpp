@@ -2,17 +2,17 @@
 #define CORE_COMMANDS_HPP
 
 #include <array>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <utility>
+#include <type_traits>
+#include <variant>
 #include "dice/cast.hpp"
 #include "bt/device.hpp"
 #include "utils/callback.hpp"
 
 namespace cmd {
-namespace details {
+namespace internal {
 
 inline std::string ToString(const std::string & s)
 {
@@ -46,7 +46,28 @@ inline std::string ToString(const bt::Uuid & uuid)
    return std::to_string(msl) + ";" + std::to_string(lsl);
 }
 
-} // namespace details
+template<typename... Ts>
+struct CreateVariant
+{
+   template<typename T, typename... TArgs>
+   static std::variant<Ts...> Match(int64_t value, T /*first*/, TArgs... args)
+   {
+      if (value == T::value)
+         return T{};
+      return Match(value, args...);
+   }
+   static std::variant<Ts...> Match(int64_t value)
+   {
+      throw std::invalid_argument(std::to_string(value));
+   }
+
+   static std::variant<Ts...> FromValue(int64_t value)
+   {
+      return Match(value, Ts{}...);
+   }
+};
+
+} // namespace internal
 
 
 class ICommand
@@ -70,7 +91,7 @@ public:
 
    CommonBase(async::Callback<Response> && cb, Params... params)
       : m_cb(std::move(cb))
-      , m_args({details::ToString(params)...})
+      , m_args({internal::ToString(params)...})
    {}
    int32_t GetId() const override { return ID; }
    size_t GetArgsCount() const override { return m_args.size(); }
@@ -85,34 +106,41 @@ private:
 
 // response codes must be in sync with interop/Command.java
 
-enum class ResponseCode : int64_t
+struct ResponseCode final
 {
-   OK = 0,
-   INVALID_STATE = 0xff'ff'ff'ff'ff'ff'ff'ffLL,
-   BLUETOOTH_OFF = 2,
-   LISTEN_FAILED = 3,
-   CONNECTION_NOT_FOUND = 4,
-   NO_BT_ADAPTER = 5,
-   USER_DECLINED = 6,
-   SOCKET_ERROR = 7
+   template <int64_t V>
+   using Code = std::integral_constant<int64_t, V>;
+
+   using OK = Code<0>;
+   using INVALID_STATE = Code<0xff'ff'ff'ff'ff'ff'ff'ffLL>;
+   using BLUETOOTH_OFF = Code<2>;
+   using LISTEN_FAILED = Code<3>;
+   using CONNECTION_NOT_FOUND = Code<4>;
+   using NO_BT_ADAPTER = Code<5>;
+   using USER_DECLINED = Code<6>;
+   using SOCKET_ERROR = Code<7>;
 };
 
-template <ResponseCode... Cs>
-struct ResponseCodeSubset
+template <typename... Cs>
+class ResponseCodeSubset
 {
 public:
-   ResponseCodeSubset(int64_t code) noexcept
-      : m_code(code)
+   ResponseCodeSubset(int64_t code)
+      : m_code(internal::CreateVariant<Cs...>::FromValue(code))
    {}
-   int64_t GetRaw() const noexcept { return m_code; }
-   std::optional<ResponseCode> GetCode() const
+   template <typename... Fs>
+   void Handle(Fs... funcs)
    {
-      bool found = ((m_code == static_cast<int64_t>(Cs)) || ...);
-      return found ? std::make_optional(ResponseCode(m_code)) : std::nullopt;
+      struct Overload : Fs... { using Fs::operator()...; };
+      std::visit(Overload{funcs...}, m_code);
+   }
+   int64_t Value() const
+   {
+      return std::visit([](auto code) { return code(); }, m_code);
    }
 
 private:
-   int64_t m_code;
+   std::variant<Cs...> m_code;
 };
 
 
