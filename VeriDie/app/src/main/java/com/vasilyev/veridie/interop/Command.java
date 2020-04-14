@@ -12,11 +12,12 @@ public interface Command
     int ID_NEGOTIATION_START = 106;
     int ID_NEGOTIATION_STOP = 107;
     int ID_SEND_MESSAGE = 108;
-    int ID_SHOW_TEXT = 109;
+    int ID_SHOW_AND_EXIT = 109;
     int ID_SHOW_TOAST = 110;
     int ID_SHOW_NOTIFICATION = 111;
     int ID_SHOW_REQUEST = 112;
     int ID_SHOW_RESPONSE = 113;
+    int ID_RESET_GAME = 114;
 
     // result codes, must be in sync with core/commands.hpp
     long ERROR_NO_ERROR = 0;

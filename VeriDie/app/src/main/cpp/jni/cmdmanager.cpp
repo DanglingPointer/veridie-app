@@ -1,5 +1,6 @@
 #include <unordered_map>
-#include "core/commands.hpp"
+
+#include "sign/commands.hpp"
 #include "jni/cmdmanager.hpp"
 #include "core/logging.hpp"
 #include "core/exec.hpp"

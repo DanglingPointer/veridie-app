@@ -18,10 +18,10 @@ find_library(log-lib
 add_library(veridie
         SHARED
 
-        bt/device.cpp
+        sign/commands.cpp
+        sign/events.cpp
 
         core/controller.cpp
-        core/events.cpp
         core/exec.cpp
         core/timerengine.cpp
 
@@ -49,7 +49,7 @@ target_link_libraries(veridie
 add_library(jni_only_veridie
         SHARED
 
-        bt/device.cpp
+        sign/commands.cpp
 
         tests/fakecontroller.cpp
         core/exec.cpp
@@ -82,10 +82,10 @@ target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 # google test executable:
 add_executable(tests
         tests/dice_test.cpp
-        tests/bt_test.cpp
         tests/async_test.cpp
         tests/threading_test.cpp
-        tests/cmd_test.cpp)
+        tests/cmd_test.cpp
+        tests/controller_test.cpp)
 target_link_libraries(tests
         gtest
         veridie)

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "utils/canceller.hpp"
-#include "core/commands.hpp"
+#include "sign/commands.hpp"
 #include "dice/serializer.hpp"
 
 namespace {
@@ -17,7 +17,7 @@ protected:
 using TestResponse =
    ResponseCodeSubset<ResponseCode::OK, ResponseCode::INVALID_STATE, ResponseCode::BLUETOOTH_OFF>;
 
-using TestCommand = CommonBase<199, TestResponse, bt::Uuid, dice::Cast, std::string>;
+using TestCommand = CommonBase<199, TestResponse, int, dice::Cast, std::string>;
 
 
 TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
@@ -74,7 +74,6 @@ TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
 TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
 {
    auto cast = dice::MakeCast("D6", 4);
-   auto uuid = bt::UuidFromLong(123, 456);
 
    const int64_t expectedResponse = 0LL;
    std::optional<int64_t> responseValue;
@@ -82,19 +81,32 @@ TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
    TestCommand cmd(MakeCb([&](TestResponse r) {
                       responseValue = r.Value();
                    }),
-                   uuid,
+                   42,
                    cast,
                    "<Wow>No comments</Wow>");
 
    EXPECT_EQ(199, cmd.GetId());
    EXPECT_EQ(3U, cmd.GetArgsCount());
-   EXPECT_EQ("456;123", cmd.GetArgAt(0));
+   EXPECT_EQ("42", cmd.GetArgAt(0));
    EXPECT_EQ("0;0;0;0;", cmd.GetArgAt(1));
    EXPECT_EQ("<Wow>No comments</Wow>", cmd.GetArgAt(2));
 
    cmd.Respond(expectedResponse);
    EXPECT_TRUE(responseValue);
    EXPECT_EQ(expectedResponse, *responseValue);
+}
+
+TEST_F(CmdFixture, invalid_response_throws_exception)
+{
+   auto cast = dice::MakeCast("D6", 4);
+   TestCommand cmd(MakeCb([&](TestResponse r) {
+                      ADD_FAILURE() << "Responded to: " << r.Value();
+                   }),
+                   42,
+                   cast,
+                   "<Wow>No comments</Wow>");
+
+   EXPECT_THROW(cmd.Respond(123456789), std::invalid_argument);
 }
 
 

@@ -1,149 +1,192 @@
+#include <chrono>
+
 #include "fsm/states.hpp"
+#include "jni/proxy.hpp"
+#include "dice/serializer.hpp"
+#include "sign/commands.hpp"
 #include "core/logging.hpp"
+#include "core/timerengine.hpp"
 
-//namespace {
-//
-//constexpr int CONNECTED = 0x01;
-//constexpr int APPROVED = 0x02;
-//constexpr int DISCOVERED = 0x04;
-//constexpr int PAIRED = 0x08;
-//
-//} // namespace
+using namespace std::chrono_literals;
 
-#define FIRE_AND_FORGET DetachedCb<ui::IProxy::Error>()
+namespace {
+
+constexpr auto APP_UUID = "76445157-4f39-42e9-a62e-877390cbb4bb";
+constexpr auto APP_NAME = "VeriDie";
+constexpr uint32_t MAX_SEND_RETRY_COUNT = 10U;
+constexpr uint32_t MAX_GAME_START_RETRY_COUNT = 30U;
+constexpr auto DISCOVERABILITY_DURATION = 60s;
+
+} // namespace
+
 
 namespace fsm {
-using namespace std::chrono_literals;
 
 StateConnecting::StateConnecting(const Context & ctx)
    : m_ctx(ctx)
 {
-   // TODO: set m_conn and m_selfName
-
-//   m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
-//
-//   m_discoverabilityRequest =
-//      m_ctx.bluetooth->RequestDiscoverability().Then([this](std::optional<bt::IProxy::Error> e) {
-//         if (!e || *e != bt::IProxy::Error::NO_ERROR) {
-//            m_discoverable = false;
-//            m_ctx.logger->Write<LogPriority::WARN>(
-//               "Discoverability request failed:",
-//               std::to_string(static_cast<int>(e.value_or(bt::IProxy::Error::NO_ERROR))));
-//            TryStartDiscoveryTimer();
-//         } else {
-//            StartListening();
-//         }
-//      });
-//   m_discovery = m_ctx.bluetooth->StartDiscovery().Then([this](std::optional<bt::IProxy::Error> e) {
-//      m_discovering = (e && *e == bt::IProxy::Error::NO_ERROR);
-//      TryStartDiscoveryTimer();
-//   });
+   m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+   m_ctx.proxy->Forward<cmd::StartListening>(MakeCb(
+      [this](cmd::StartListeningResponse result) {
+         result.Handle(
+            [this](cmd::ResponseCode::OK) {
+               m_listening = true;
+            },
+            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
+               OnBluetoothOff();
+            },
+            [this](auto) {
+               m_listening = false;
+               CheckStatus();
+            });
+      }),
+      APP_UUID,
+      APP_NAME,
+      DISCOVERABILITY_DURATION);
+   const bool includePaired = true;
+   m_ctx.proxy->Forward<cmd::StartDiscovery>(MakeCb(
+      [this](cmd::StartDiscoveryResponse result) {
+         result.Handle(
+            [this](cmd::ResponseCode::OK) {
+               m_discovering = true;
+            },
+            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
+               OnBluetoothOff();
+            },
+            [this](auto) {
+               m_discovering = false;
+               CheckStatus();
+            });
+      }),
+      APP_UUID,
+      APP_NAME,
+      includePaired);
 }
 
-void StateConnecting::OnConnectivityEstablished()
+StateConnecting::~StateConnecting()
 {
-   // TODO
-}
-
-void StateConnecting::StartListening()
-{
-//   m_listening =
-//      m_ctx.bluetooth->StartListening(m_selfName, m_conn)
-//         .Then([this](std::optional<bt::IProxy::Error> e) {
-//            m_discoverable = (e && *e == bt::IProxy::Error::NO_ERROR);
-//            if (!*m_discoverable) {
-//               m_ctx.logger->Write<LogPriority::WARN>(
-//                  "Listening start failed:",
-//                  std::to_string(static_cast<int>(e.value_or(bt::IProxy::Error::NO_ERROR))));
-//            }
-//            TryStartDiscoveryTimer();
-//         });
+   if (m_discovering.value_or(false))
+      m_ctx.proxy->Forward<cmd::StopDiscovery>(DetachedCb<cmd::StopDiscoveryResponse>());
+   if (m_listening.value_or(false))
+      m_ctx.proxy->Forward<cmd::StopListening>(DetachedCb<cmd::StopListeningResponse>());
 }
 
 void StateConnecting::OnBluetoothOff()
 {
-   m_ctx.logger->Write<LogPriority::ERROR>("Connection failed: bluetooth turned off unexpectedly");
-   m_ctx.state->emplace<StateIdle>(m_ctx);
+   fsm::Context ctx{m_ctx};
+   m_ctx.state->emplace<StateIdle>(ctx);
+   std::get_if<StateIdle>(ctx.state)->OnNewGame();
 }
 
-void StateConnecting::TryStartDiscoveryTimer()
+void StateConnecting::OnDeviceConnected(const bt::Device & remote)
 {
-//   if (m_discoveryTimer.IsActive() || m_disconnects.IsActive())
-//      return;
-//
-//   if (!m_discoverable || !m_discovering)
-//      return;
-//
-//   if (!*m_discoverable && !*m_discovering) {
-//      m_ctx.logger->Write<LogPriority::ERROR>(
-//         "Connection failed: not discoverable, not discovering");
-//      m_ctx.gui->ShowToast("Connection failed", 3s, MakeCb([this](ui::IProxy::Error) {
-//                              m_ctx.state->emplace<StateIdle>(m_ctx);
-//                           }));
-//      return;
-//   }
-//   m_discoveryTimer = m_ctx.timer->ScheduleTimer(30s).Then([this](auto) {
-//      m_discovery = m_ctx.bluetooth->CancelDiscovery();
-//      m_listening = m_ctx.bluetooth->StopListening();
-//      // TODO: turn off discoverability?
-//      m_discoveryShutdown =
-//         (std::move(m_discovery) && std::move(m_listening)).Then([this](auto) {
-//            OnDiscoveryFinished();
-//         });
-//   });
+   m_peers.insert(remote);
+   SendHelloTo(remote.mac, MAX_SEND_RETRY_COUNT);
 }
 
-void StateConnecting::OnDiscoveryFinished()
+void StateConnecting::OnDeviceDisconnected(const bt::Device & remote)
 {
-//   m_connectingHandles.clear();
-//
-//   // remove non-connected devices, disconnect and remove non-approved devices
-//   std::vector<bt::IProxy::Handle> disconnectRequests;
-//   for (auto it = std::begin(m_devices); it != std::end(m_devices);) {
-//      bool connected = (it->second & CONNECTED) != 0;
-//      bool approved = (it->second & APPROVED) != 0;
-//      if (!connected || !approved) {
-//         if (connected)
-//            disconnectRequests.emplace_back(m_ctx.bluetooth->CloseConnection(it->first));
-//         it = m_devices.erase(it);
-//      } else {
-//         ++it;
-//      }
-//   }
-//
-//   // put all others in a vector
-//   std::vector<bt::Device> validDevices;
-//   validDevices.reserve(m_devices.size());
-//   std::transform(std::begin(m_devices), std::end(m_devices), std::back_inserter(validDevices),
-//                  [](auto & keyVal) { return keyVal.first; });
-//
-//   // wait for disconnects to finish, then go to Negotiating
-//   if (disconnectRequests.empty()) {
-//      m_ctx.state->emplace<StateNegotiating>(m_ctx, std::move(validDevices));
-//   } else {
-//      for (auto & handle : disconnectRequests)
-//         m_disconnects = std::move(handle) && std::move(m_disconnects);
-//
-//      m_disconnects.Then([this, devices = std::move(validDevices)](auto) mutable {
-//         m_ctx.state->emplace<StateNegotiating>(m_ctx, std::move(devices));
-//      });
-//   }
+   m_peers.erase(remote);
 }
 
-void StateConnecting::OnDeviceConnected(const bt::Device & /*remote*/)
+void StateConnecting::OnMessageReceived(const bt::Device & sender, const std::string & message)
 {
-//   auto [it, _] = m_devices.try_emplace(remote, 0);
-//   it->second |= CONNECTED;
-//
-//   if ((it->second & APPROVED) == 0) {
-//      m_ctx.gui->ShowCandidates({remote}, FIRE_AND_FORGET);
-//   }
+   if (m_peers.count(sender) == 0)
+      OnDeviceConnected(sender);
+
+   if (m_localMac.has_value())
+      return;
+
+   // Code below might throw, but it will be caught in Worker and we don't care about the call stack
+   auto decoded = m_ctx.serializer->Deserialize(message);
+   const auto & hello = std::get<dice::Hello>(decoded);
+   m_localMac = hello.mac;
 }
 
-void StateConnecting::OnDeviceDisconnected(const bt::Device & /*remote*/)
+void StateConnecting::OnSocketReadFailure(const bt::Device & from)
 {
-//   auto [it, _] = m_devices.try_emplace(remote, 0);
-//   it->second &= ~CONNECTED;
+   m_peers.erase(from);
+   DisconnectDevice(from.mac);
+}
+
+void StateConnecting::OnConnectivityEstablished()
+{
+   if (m_retryStartHandle.IsActive())
+      return;
+   AttemptNegotiationStart(MAX_GAME_START_RETRY_COUNT);
+}
+
+void StateConnecting::CheckStatus()
+{
+   if (m_listening.has_value() && !*m_listening && m_discovering.has_value() && !*m_discovering) {
+      m_ctx.proxy->Forward<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
+                                             "Cannot proceed due to a fatal failure.");
+      m_ctx.state->emplace<std::monostate>();
+   }
+}
+
+void StateConnecting::SendHelloTo(const std::string & mac, uint32_t retriesLeft)
+{
+   if (retriesLeft == 0)
+      return;
+   if (m_peers.count(bt::Device{"", mac}) == 0)
+      return;
+
+   std::string hello = m_ctx.serializer->Serialize(dice::Hello{ mac });
+   m_ctx.proxy->Forward<cmd::SendMessage>(MakeCb(
+      [=](cmd::SendMessageResponse result) {
+         result.Handle(
+            [&](cmd::ResponseCode::CONNECTION_NOT_FOUND) {
+               OnDeviceDisconnected(bt::Device{"", mac});
+            },
+            [&](cmd::ResponseCode::SOCKET_ERROR) {
+               m_peers.erase(bt::Device{"", mac});
+               DisconnectDevice(mac);
+            },
+            [&](cmd::ResponseCode::INVALID_STATE) {
+               SendHelloTo(mac, retriesLeft - 1);
+            },
+            [](cmd::ResponseCode::OK) { /*enjoy*/ });
+      }),
+      mac,
+      std::move(hello));
+}
+
+void StateConnecting::DisconnectDevice(const std::string & mac)
+{
+   m_ctx.proxy->Forward<cmd::CloseConnection>(MakeCb(
+      [this, mac](cmd::CloseConnectionResponse result) {
+         result.Handle(
+            [&](cmd::ResponseCode::INVALID_STATE) {
+               DisconnectDevice(mac);
+            },
+            [&](auto) {});
+      }),
+      mac,
+      "");
+}
+
+void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
+{
+   if (retriesLeft == 0U) {
+      m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+      fsm::Context ctx{m_ctx};
+      m_ctx.state->emplace<StateIdle>(ctx);
+      return;
+   }
+   if (!m_localMac.has_value()) {
+      if (retriesLeft % 3 == 0) {
+         m_ctx.proxy->Forward<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
+                                              "Getting ready...", 3s);
+      }
+      m_retryStartHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
+         AttemptNegotiationStart(retriesLeft - 1);
+      });
+   } else {
+      fsm::Context ctx{m_ctx};
+      std::unordered_set<bt::Device> peers(std::move(m_peers));
+      m_ctx.state->emplace<StateNegotiating>(ctx, std::move(peers));
+   }
 }
 
 } // namespace fsm

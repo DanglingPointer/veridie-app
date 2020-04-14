@@ -23,6 +23,16 @@ public:
       std::lock_guard lg(mutex);
       return entries;
    }
+   const std::string & GetLastLine() const
+   {
+      std::lock_guard lg(mutex);
+      return entries.back().msg;
+   }
+   bool Empty() const
+   {
+      std::lock_guard lg(mutex);
+      return entries.empty();
+   }
    void Clear()
    {
       std::lock_guard lg(mutex);
@@ -42,6 +52,12 @@ public:
          }
       }
       return true;
+   }
+   void DumpLines() const
+   {
+      for (const auto & entry : entries) {
+         fprintf(stderr, "Prio(%d): %s\n", static_cast<int>(entry.prio), entry.msg.c_str());
+      }
    }
 
 private:

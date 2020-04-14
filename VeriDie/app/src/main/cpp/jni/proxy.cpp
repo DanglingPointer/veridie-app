@@ -1,5 +1,5 @@
 #include "jni/proxy.hpp"
-#include "core/commands.hpp"
+#include "sign/commands.hpp"
 #include "core/logging.hpp"
 #include "jni/exec.hpp"
 #include "jni/cmdmanager.hpp"

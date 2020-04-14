@@ -52,6 +52,7 @@ TimerEngine::~TimerEngine()
 
 async::Future<Timeout> TimerEngine::ScheduleTimer(std::chrono::seconds period)
 {
+   // TODO: call cb immediately if period == 0
    async::Promise<Timeout> p(m_executor);
    auto future = p.GetFuture();
    const auto timeToFire = std::chrono::steady_clock::now() + period;

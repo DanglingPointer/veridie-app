@@ -7,12 +7,6 @@
 
 namespace bt {
 
-using Uuid = std::bitset<128>;
-
-Uuid UuidFromLong(uint64_t lsl, uint64_t msl) noexcept;
-
-std::pair<uint64_t/*lsl*/, uint64_t/*msl*/> UuidToLong(const Uuid & uuid) noexcept;
-
 struct Device
 {
    Device(std::string name, std::string mac)
@@ -26,6 +20,8 @@ struct Device
 
    bool operator==(const Device & rhs) const noexcept { return mac == rhs.mac; }
    bool operator!=(const Device & rhs) const noexcept { return !(*this == rhs); }
+   bool operator<(const Device & rhs) const noexcept { return mac < rhs.mac; }
+   bool operator>(const Device & rhs) const noexcept { return mac > rhs.mac; }
 };
 } // namespace bt
 

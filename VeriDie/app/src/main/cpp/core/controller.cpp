@@ -6,7 +6,7 @@
 #include "dice/engine.hpp"
 #include "core/timerengine.hpp"
 #include "dice/serializer.hpp"
-#include "core/events.hpp"
+#include "sign/events.hpp"
 #include "fsm/states.hpp"
 
 namespace {

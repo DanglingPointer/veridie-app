@@ -2,48 +2,27 @@
 #define CORE_COMMANDS_HPP
 
 #include <array>
-#include <sstream>
+#include <chrono>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <variant>
 #include "dice/cast.hpp"
-#include "bt/device.hpp"
 #include "utils/callback.hpp"
 
 namespace cmd {
 namespace internal {
 
-inline std::string ToString(const std::string & s)
-{
-   return s;
-}
-inline std::string ToString(const char * s)
-{
-   return std::string(s);
-}
-inline std::string ToString(std::string_view s)
-{
-   return std::string(s);
-}
+std::string ToString(const std::string & s);
+std::string ToString(const char * s);
+std::string ToString(bool b);
+std::string ToString(std::string_view s);
+std::string ToString(const dice::Cast & cast);
+std::string ToString(std::chrono::seconds sec);
 template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>>>
 std::string ToString(T s)
 {
    return std::to_string(s);
-}
-inline std::string ToString(const dice::Cast & cast)
-{
-   std::ostringstream ss;
-   std::visit([&](const auto & vec) {
-      for (const auto & e : vec)
-         ss << e << ';';
-   }, cast);
-   return ss.str();
-}
-inline std::string ToString(const bt::Uuid & uuid)
-{
-   auto[lsl, msl] = bt::UuidToLong(uuid);
-   return std::to_string(msl) + ";" + std::to_string(lsl);
 }
 
 template<typename... Ts>
@@ -161,7 +140,7 @@ using StartListeningResponse = ResponseCodeSubset<
 using StartListening = CommonBase<
    ID(100),
    StartListeningResponse,
-   bt::Uuid, std::string /*name*/>;
+   std::string /*uuid*/, std::string /*name*/, std::chrono::seconds /*discoverability duration*/>;
 
 
 using StartDiscoveryResponse = ResponseCodeSubset<
@@ -171,7 +150,7 @@ using StartDiscoveryResponse = ResponseCodeSubset<
 using StartDiscovery = CommonBase<
    ID(101),
    StartDiscoveryResponse,
-   bt::Uuid, std::string /*name*/>;
+   std::string /*uuid*/, std::string /*name*/, bool /*include paired*/>;
 
 
 using StopListeningResponse = ResponseCodeSubset<
@@ -237,12 +216,12 @@ using SendMessage = CommonBase<
    std::string/*remote mac addr*/, std::string/*message*/>;
 
 
-using ShowTextResponse = ResponseCodeSubset<
+using ShowAndExitResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 
-using ShowText = CommonBase<
+using ShowAndExit = CommonBase<
    ID(109),
-   ShowTextResponse,
+   ShowAndExitResponse,
    std::string>;
 
 
@@ -252,7 +231,7 @@ using ShowToastResponse = ResponseCodeSubset<
 using ShowToast = CommonBase<
    ID(110),
    ShowToastResponse,
-   std::string, int>;
+   std::string, std::chrono::seconds>;
 
 
 using ShowNotificationResponse = ResponseCodeSubset<
@@ -282,6 +261,14 @@ using ShowResponse = CommonBase<
    std::string/*type*/, dice::Cast/*numbers*/, uint32_t/*threshold*/>;
 
 
+using ResetGameResponse = ResponseCodeSubset<
+   COMMON_RESPONSES>;
+
+using ResetGame = CommonBase<
+   ID(114),
+   ResetGameResponse>;
+
+
 #undef COMMON_RESPONSES
 #undef ID
 
@@ -294,17 +281,18 @@ using BtDictionary = List<
    StopListening,
    StopDiscovery,
    CloseConnection,
-   EnableBluetooth,
    SendMessage>;
 
 using UiDictionary = List<
+   EnableBluetooth,
    NegotiationStart,
    NegotiationStop,
-   ShowText,
+   ShowAndExit,
    ShowToast,
    ShowNotification,
    ShowRequest,
-   ShowResponse>;
+   ShowResponse,
+   ResetGame>;
 
 
 } // namespace cmd

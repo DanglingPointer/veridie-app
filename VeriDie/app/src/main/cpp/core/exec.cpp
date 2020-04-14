@@ -1,7 +1,6 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "core/timerengine.hpp"
-#include "core/events.hpp"
 #include "jni/logger.hpp"
 #include "jni/proxy.hpp"
 #include "dice/engine.hpp"

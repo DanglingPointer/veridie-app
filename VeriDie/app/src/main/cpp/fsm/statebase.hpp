@@ -2,6 +2,7 @@
 #define FSM_STATEBASE_HPP
 
 #include <string>
+#include "utils/canceller.hpp"
 
 namespace bt {
 struct Device;
@@ -12,8 +13,12 @@ struct Request;
 
 namespace fsm {
 
-class StateBase
+class StateBase : protected async::Canceller<128U>
 {
+protected:
+   using async::Canceller<128U>::CallbackId;
+   StateBase() = default;
+
 public:
    void OnBluetoothOn(){}
    void OnBluetoothOff(){}
