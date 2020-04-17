@@ -41,7 +41,7 @@ public:
          ForwardCommandToBt(std::move(c));
          return;
       }
-      m_logger.Write<LogPriority::ERROR>("Proxy unable to auto-forward cmd:", c->GetId());
+      m_logger.Write<LogPriority::FATAL>("Proxy unable to auto-forward cmd:", c->GetId());
    }
 
 

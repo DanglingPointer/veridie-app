@@ -39,7 +39,7 @@ private:
    {
       auto it = m_eventHandlers.find(eventId);
       if (it == std::cend(m_eventHandlers)) {
-         m_logger.Write<LogPriority::ERROR>("Event handler not found, id=", eventId);
+         m_logger.Write<LogPriority::FATAL>("Event handler not found, id=", eventId);
          return;
       }
       bool success = (*it->second)(m_state, args);

@@ -35,7 +35,7 @@ class StatePlaying::RemotePeerManager : private async::Canceller<32>
 
 
 
-StatePlaying::StatePlaying(const Context & ctx, std::unordered_set<bt::Device> && /*peers*/)
+StatePlaying::StatePlaying(const Context & ctx, std::unordered_set<bt::Device> && /*peers*/, std::string && /*generatorMac*/)
    : m_ctx(ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);

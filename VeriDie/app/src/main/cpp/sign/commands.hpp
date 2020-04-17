@@ -66,7 +66,6 @@ class CommonBase : public ICommand
 
 public:
    static constexpr int32_t ID = Id;
-   using Cb = async::Callback<Response>;
 
    CommonBase(async::Callback<Response> && cb, Params... params)
       : m_cb(std::move(cb))

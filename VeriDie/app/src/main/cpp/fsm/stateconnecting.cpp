@@ -1,5 +1,6 @@
 #include <chrono>
 
+#include "bt/device.hpp"
 #include "fsm/states.hpp"
 #include "jni/proxy.hpp"
 #include "dice/serializer.hpp"
@@ -99,8 +100,8 @@ void StateConnecting::OnMessageReceived(const bt::Device & sender, const std::st
 
    // Code below might throw, but it will be caught in Worker and we don't care about the call stack
    auto decoded = m_ctx.serializer->Deserialize(message);
-   const auto & hello = std::get<dice::Hello>(decoded);
-   m_localMac = hello.mac;
+   auto & hello = std::get<dice::Hello>(decoded);
+   m_localMac = std::move(hello.mac);
 }
 
 void StateConnecting::OnSocketReadFailure(const bt::Device & from)
@@ -184,8 +185,9 @@ void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
       });
    } else {
       fsm::Context ctx{m_ctx};
+      std::string localMac(*std::move(m_localMac));
       std::unordered_set<bt::Device> peers(std::move(m_peers));
-      m_ctx.state->emplace<StateNegotiating>(ctx, std::move(peers));
+      m_ctx.state->emplace<StateNegotiating>(ctx, std::move(peers), std::move(localMac));
    }
 }
 

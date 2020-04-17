@@ -1,4 +1,5 @@
 #include "sign/events.hpp"
+#include "bt/device.hpp"
 #include "fsm/states.hpp"
 #include "dice/serializer.hpp"
 

@@ -8,12 +8,20 @@
 
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
-#include "bt/device.hpp"
-#include "core/timerengine.hpp"
+#include "utils/future.hpp"
+
+namespace bt {
+struct Device;
+}
+namespace dice {
+struct Offer;
+}
+namespace main {
+struct Timeout;
+}
 
 namespace fsm {
 
-// Makes sure bluetooth is on. Goes to Connecting on new game if bluetooth is on.
 class StateIdle : public StateBase
 {
 public:
@@ -34,8 +42,6 @@ private:
    bool m_bluetoothOn;
 };
 
-// Discovers and connects to other devices. Goes to Idle if bluetooth is off or if both discovery
-// and discoverability are turned off. Goes to Negotiating after 30 sec of listening/discovering.
 class StateConnecting : public StateBase
 {
 public:
@@ -67,24 +73,36 @@ private:
 class StateNegotiating : public StateBase
 {
 public:
-   StateNegotiating(const Context & ctx, std::unordered_set<bt::Device> && peers);
+   StateNegotiating(const Context & ctx,
+                    std::unordered_set<bt::Device> && peers,
+                    std::string && localMac);
+   ~StateNegotiating();
    void OnBluetoothOff();
    void OnMessageReceived(const bt::Device & sender, const std::string & message);
    void OnSocketReadFailure(const bt::Device & from);
 
 private:
-   Context m_ctx;
-
-   std::unordered_set<bt::Device> m_peers;
-   std::map<std::string, uint32_t> m_votes;
+   void UpdateAndBroadcastOffer();
+   const std::string & GetLocalOfferMac();
+   void DisconnectDevice(const std::string & mac);
 
    static uint32_t s_round;
+
+   Context m_ctx;
+   std::string m_localMac;
+
+   std::unordered_set<bt::Device> m_peers;
+   std::map<std::string, dice::Offer> m_offers;
+
+   async::Future<main::Timeout> m_retrySendOffer;
 };
 
 class StatePlaying : public StateBase
 {
 public:
-   explicit StatePlaying(const Context & ctx, std::unordered_set<bt::Device> && peers);
+   explicit StatePlaying(const Context & ctx,
+                         std::unordered_set<bt::Device> && peers,
+                         std::string && generatorMac);
    ~StatePlaying();
 
 private:

@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 #include <queue>
 #include <list>
+#include <vector>
+
 #include "tests/fakelogger.hpp"
+#include "bt/device.hpp"
 #include "core/controller.hpp"
 #include "sign/commands.hpp"
 #include "core/timerengine.hpp"
@@ -423,10 +426,274 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    EXPECT_EQ(ID(102), stopListening->GetId());
 }
 
+TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
+{
+   StartDiscoveryAndListening();
+
+   // 3 well-behaved peers
+   ctrl->OnEvent(10, {"5c:b9:01:f8:b6:41", "Chalie Chaplin 1"});
+   ctrl->OnEvent(10, {"5c:b9:01:f8:b6:42", "Chalie Chaplin 2"});
+   ctrl->OnEvent(10, {"5c:b9:01:f8:b6:43", "Chalie Chaplin 3"});
+
+   for (int i = 0; i < 3; ++i) {
+      auto cmdHello = proxy->PopNextCommand();
+      EXPECT_TRUE(cmdHello);
+      cmdHello->Respond(0);
+   }
+
+   // 1 weird peer
+   ctrl->OnEvent(14, {R"(<Hello><Mac>5c:b9:01:f8:b6:40</Mac></Hello>)", "5c:b9:01:f8:b6:44", "Charlie Chaplin 4"});
+   auto cmdHello = proxy->PopNextCommand();
+   EXPECT_TRUE(cmdHello);
+   EXPECT_EQ(ID(108), cmdHello->GetId());
+   EXPECT_EQ(2U, cmdHello->GetArgsCount());
+   EXPECT_STREQ("5c:b9:01:f8:b6:44", cmdHello->GetArgAt(0).data());
+   EXPECT_STREQ(R"(<Hello><Mac>5c:b9:01:f8:b6:44</Mac></Hello>)", cmdHello->GetArgAt(1).data());
+   cmdHello->Respond(0);
+
+   // 1 disconnects
+   ctrl->OnEvent(19, {"5c:b9:01:f8:b6:42", ""});
+   auto disconnect = proxy->PopNextCommand();
+   EXPECT_TRUE(disconnect);
+   EXPECT_EQ(ID(104), disconnect->GetId());
+   EXPECT_EQ(2U, disconnect->GetArgsCount());
+   EXPECT_STREQ("5c:b9:01:f8:b6:42", disconnect->GetArgAt(0).data());
+   disconnect->Respond(0);
+
+   EXPECT_TRUE(proxy->NoCommands());
+   EXPECT_TRUE(logger.Empty());
+
+   // game start
+   ctrl->OnEvent(12, {});
+   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+
+   auto stopDiscovery = proxy->PopNextCommand();
+   EXPECT_TRUE(stopDiscovery);
+   auto stopListening = proxy->PopNextCommand();
+   EXPECT_TRUE(stopListening);
+
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+   negotiationStart->Respond(0);
+
+   // sorted list of candidates should be:
+   // 5c:b9:01:f8:b6:40
+   // 5c:b9:01:f8:b6:41
+   // 5c:b9:01:f8:b6:43 <-- round 2
+   // 5c:b9:01:f8:b6:44
+   const char * expectedOffer = R"(<Offer round="2"><Mac>5c:b9:01:f8:b6:43</Mac></Offer>)";
+
+   // local offer is being broadcast
+   {
+      auto offer = proxy->PopNextCommand();
+      EXPECT_TRUE(offer);
+      EXPECT_EQ(ID(108), offer->GetId());
+      EXPECT_EQ(2U, offer->GetArgsCount());
+      EXPECT_STREQ("5c:b9:01:f8:b6:44", offer->GetArgAt(0).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      offer->Respond(0);
+   }
+   {
+      auto offer = proxy->PopNextCommand();
+      EXPECT_TRUE(offer);
+      EXPECT_EQ(ID(108), offer->GetId());
+      EXPECT_EQ(2U, offer->GetArgsCount());
+      EXPECT_STREQ("5c:b9:01:f8:b6:43", offer->GetArgAt(0).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      offer->Respond(0);
+   }
+   {
+      auto offer = proxy->PopNextCommand();
+      EXPECT_TRUE(offer);
+      EXPECT_EQ(ID(108), offer->GetId());
+      EXPECT_EQ(2U, offer->GetArgsCount());
+      EXPECT_STREQ("5c:b9:01:f8:b6:41", offer->GetArgAt(0).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      offer->Respond(0);
+   }
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
 template <size_t PEERS_COUNT>
 class NegotiatingFixture : public ConnectingFixture
 {
 protected:
+   static constexpr size_t peersCount = PEERS_COUNT;
+
+   NegotiatingFixture()
+      : ConnectingFixture()
+      , localMac("5c:b9:01:f8:b6:4" + std::to_string(peersCount))
+   {
+      StartDiscoveryAndListening();
+
+      for (size_t i = 0; i < peersCount; ++i)
+         peers.emplace_back("Chalie Chaplin " + std::to_string(i), "5c:b9:01:f8:b6:4" + std::to_string(i));
+
+      for (const auto & peer : peers) {
+         ctrl->OnEvent(10, {peer.mac, peer.name});
+         auto cmdHello = proxy->PopNextCommand();
+         EXPECT_TRUE(cmdHello);
+         EXPECT_EQ(ID(108), cmdHello->GetId());
+         cmdHello->Respond(0);
+      }
+      for (const auto & peer : peers) {
+         ctrl->OnEvent(14, {R"(<Hello><Mac>)" + localMac + R"(</Mac></Hello>)", peer.mac, peer.name});
+         EXPECT_TRUE(proxy->NoCommands());
+      }
+      ctrl->OnEvent(12, {}); // start
+      EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+
+      auto stopDiscovery = proxy->PopNextCommand();
+      EXPECT_TRUE(stopDiscovery);
+      EXPECT_EQ(ID(103), stopDiscovery->GetId());
+
+      auto stopListening = proxy->PopNextCommand();
+      EXPECT_TRUE(stopListening);
+      EXPECT_EQ(ID(102), stopListening->GetId());
+      logger.Clear();
+   }
+   void CheckLocalOffer(const char * expectedOffer)
+   {
+      for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
+         auto offer = proxy->PopNextCommand();
+         EXPECT_TRUE(offer);
+         EXPECT_EQ(ID(108), offer->GetId());
+         EXPECT_EQ(2U, offer->GetArgsCount());
+         EXPECT_STREQ(it->mac.c_str(), offer->GetArgAt(0).data());
+         EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+         offer->Respond(0);
+      }
+   }
+
+
+   const std::vector<bt::Device> & Peers() const { return peers; }
+   const std::string localMac;
+
+private:
+   std::vector<bt::Device> peers;
 };
+
+#define NEG_FIX_ALIAS(num) using NegotiatingFixture##num = NegotiatingFixture<num>
+
+NEG_FIX_ALIAS(2);
+NEG_FIX_ALIAS(3);
+NEG_FIX_ALIAS(4);
+NEG_FIX_ALIAS(5);
+NEG_FIX_ALIAS(6);
+NEG_FIX_ALIAS(7);
+NEG_FIX_ALIAS(8);
+NEG_FIX_ALIAS(9);
+NEG_FIX_ALIAS(10);
+
+#undef NEG_FIX_ALIAS
+
+// round 3
+TEST_F(NegotiatingFixture10, goes_to_negotiation_successfully)
+{
+   SUCCEED();
+}
+
+// round 4
+TEST_F(NegotiatingFixture4, increases_round_appropriately)
+{
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+   negotiationStart->Respond(0);
+
+   // sorted list of candidates should be:
+   // 5c:b9:01:f8:b6:40 <-- round 5
+   // 5c:b9:01:f8:b6:41 <-- round 6
+   // 5c:b9:01:f8:b6:42
+   // 5c:b9:01:f8:b6:43
+   // 5c:b9:01:f8:b6:44 <-- round 4
+   CheckLocalOffer(R"(<Offer round="4"><Mac>5c:b9:01:f8:b6:44</Mac></Offer>)");
+   EXPECT_TRUE(proxy->NoCommands());
+
+   ctrl->OnEvent(14, {R"(<Offer round="5"><Mac>5c:b9:01:f8:b6:40</Mac></Offer>)", "5c:b9:01:f8:b6:42", ""});
+   EXPECT_TRUE(proxy->NoCommands());
+
+   ctrl->OnEvent(14, {R"(<Offer round="3"><Mac>5c:b9:01:f8:b6:43</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   CheckLocalOffer(R"(<Offer round="5"><Mac>5c:b9:01:f8:b6:40</Mac></Offer>)");
+   EXPECT_TRUE(proxy->NoCommands());
+
+   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:40", ""});
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   CheckLocalOffer(R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)");
+   EXPECT_TRUE(proxy->NoCommands());
+
+   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
+   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:42", ""});
+   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:43", ""});
+
+   timer->FastForwardTime(1s);
+   auto negotiationStop = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStop);
+   EXPECT_EQ(ID(107), negotiationStop->GetId());
+   negotiationStop->Respond(0);
+   EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+// round 7
+TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_mac)
+{
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+   negotiationStart->Respond(0);
+
+   // sorted list of candidates should be:
+   // 5c:b9:01:f8:b6:40
+   // 5c:b9:01:f8:b6:41 <-- round 7
+   // 5c:b9:01:f8:b6:42
+   CheckLocalOffer(R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)");
+   EXPECT_TRUE(proxy->NoCommands());
+
+   ctrl->OnEvent(14, {R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
+   // peer 1 disconnected from peer 0
+   ctrl->OnEvent(14, {R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:42</Mac></Offer>)", "5c:b9:01:f8:b6:40", ""});
+
+   timer->FastForwardTime(1s);
+   CheckLocalOffer(R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)");
+   EXPECT_TRUE(proxy->NoCommands());
+
+   // peer 1 disconnected from us as well
+   ctrl->OnEvent(19, {"5c:b9:01:f8:b6:41", ""});
+   auto disconnect = proxy->PopNextCommand();
+   EXPECT_TRUE(disconnect);
+   EXPECT_EQ(ID(104), disconnect->GetId());
+   EXPECT_EQ(2U, disconnect->GetArgsCount());
+   EXPECT_STREQ("5c:b9:01:f8:b6:41", disconnect->GetArgAt(0).data());
+   disconnect->Respond(0);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   const char * expectedOffer = R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:42</Mac></Offer>)";
+   {
+      auto offer = proxy->PopNextCommand();
+      EXPECT_TRUE(offer);
+      EXPECT_EQ(ID(108), offer->GetId());
+      EXPECT_EQ(2U, offer->GetArgsCount());
+      EXPECT_STREQ("5c:b9:01:f8:b6:40", offer->GetArgAt(0).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      offer->Respond(0);
+   }
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   auto negotiationStop = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStop);
+   EXPECT_EQ(ID(107), negotiationStop->GetId());
+   negotiationStop->Respond(0);
+   EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
+   EXPECT_TRUE(proxy->NoCommands());
+}
 
 } // namespace
