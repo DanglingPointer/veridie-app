@@ -12,9 +12,9 @@ import com.vasilyev.veridie.interop.Command;
 import com.vasilyev.veridie.interop.CommandHandler;
 import com.vasilyev.veridie.interop.Event;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,13 +29,13 @@ public class ConnectionManager extends HandlerThread
         Connection(BluetoothSocket socket) throws IOException
         {
             this.socket = socket;
-            this.instream = socket.getInputStream();
-            this.outstream = socket.getOutputStream();
+            this.instream = new DataInputStream(socket.getInputStream());
+            this.outstream = new DataOutputStream(socket.getOutputStream());
         }
 
         final BluetoothSocket socket;
-        final InputStream instream;
-        final OutputStream outstream;
+        final DataInputStream instream;
+        final DataOutputStream outstream;
     }
 
     private final Map<String, Connection> m_connections = new HashMap<>(5);
@@ -127,14 +127,16 @@ public class ConnectionManager extends HandlerThread
     {
         for (Map.Entry<String, Connection> entry : m_connections.entrySet()) {
             String mac = entry.getKey();
-            InputStream stream = entry.getValue().instream;
+            DataInputStream stream = entry.getValue().instream;
             try {
-                if (stream.available() <= 0)
+                if (stream.available() < 2)
                     continue;
-                int readCount = stream.read(m_buffer);
-                if (readCount <= 0)
-                    continue;
-                String message = new String(m_buffer, 0, readCount, StandardCharsets.UTF_8);
+                final int length = stream.readShort();
+                int read = 0;
+                while(read < length) {
+                    read += stream.read(m_buffer, read, length - read);
+                }
+                String message = new String(m_buffer, 0, read, StandardCharsets.UTF_8);
                 Log.d(TAG, String.format("[ %s => ]: %s", mac, message));
                 Bridge.send(Event.MESSAGE_RECEIVED.withArgs(message, mac, ""));
             }
@@ -152,7 +154,9 @@ public class ConnectionManager extends HandlerThread
         if (conn == null)
             return Command.ERROR_CONNECTION_NOT_FOUND;
         try {
+            conn.outstream.writeShort(message.length());
             conn.outstream.write(message.getBytes(StandardCharsets.UTF_8));
+            conn.outstream.flush();
             Log.d(TAG, String.format("[ %s <= ]: %s", receiverMac, message));
             return Command.ERROR_NO_ERROR;
         }
