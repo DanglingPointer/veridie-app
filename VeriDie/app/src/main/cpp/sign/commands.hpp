@@ -201,7 +201,8 @@ using NegotiationStopResponse = ResponseCodeSubset<
 
 using NegotiationStop = CommonBase<
    ID(107),
-   NegotiationStopResponse>;
+   NegotiationStopResponse,
+   std::string/*nominee name*/>;
 
 
 using SendMessageResponse = ResponseCodeSubset<

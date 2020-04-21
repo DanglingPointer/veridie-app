@@ -528,7 +528,7 @@ protected:
       StartDiscoveryAndListening();
 
       for (size_t i = 0; i < peersCount; ++i)
-         peers.emplace_back("Chalie Chaplin " + std::to_string(i), "5c:b9:01:f8:b6:4" + std::to_string(i));
+         peers.emplace_back("Charlie Chaplin " + std::to_string(i), "5c:b9:01:f8:b6:4" + std::to_string(i));
 
       for (const auto & peer : peers) {
          ctrl->OnEvent(10, {peer.mac, peer.name});
@@ -636,6 +636,8 @@ TEST_F(NegotiatingFixture4, increases_round_appropriately)
    auto negotiationStop = proxy->PopNextCommand();
    EXPECT_TRUE(negotiationStop);
    EXPECT_EQ(ID(107), negotiationStop->GetId());
+   EXPECT_EQ(1U, negotiationStop->GetArgsCount());
+   EXPECT_STREQ("Charlie Chaplin 1", negotiationStop->GetArgAt(0).data());
    negotiationStop->Respond(0);
    EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
    EXPECT_TRUE(proxy->NoCommands());
@@ -691,6 +693,8 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    auto negotiationStop = proxy->PopNextCommand();
    EXPECT_TRUE(negotiationStop);
    EXPECT_EQ(ID(107), negotiationStop->GetId());
+   EXPECT_EQ(1U, negotiationStop->GetArgsCount());
+   EXPECT_STREQ("You", negotiationStop->GetArgAt(0).data());
    negotiationStop->Respond(0);
    EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
    EXPECT_TRUE(proxy->NoCommands());

@@ -81,15 +81,20 @@ void StateNegotiating::UpdateAndBroadcastOffer()
 
    bool allOffersEqual =
       std::all_of(cbegin(m_offers), std::cend(m_offers), [localOffer](const auto & e) {
-         return e.second.round == localOffer->second.round && e.second.mac == localOffer->second.mac;
+         return e.second.round == localOffer->second.round &&
+                e.second.mac == localOffer->second.mac;
       });
 
    if (allOffersEqual) {
-      m_ctx.proxy->Forward<cmd::NegotiationStop>(DetachedCb<cmd::NegotiationStopResponse>());
+      std::string nomineeName("You");
+      if (auto it = m_peers.find(bt::Device{"", localOffer->second.mac}); it != std::cend(m_peers))
+         nomineeName = it->name;
+      m_ctx.proxy->Forward<cmd::NegotiationStop>(DetachedCb<cmd::NegotiationStopResponse>(),
+                                                 nomineeName);
       fsm::Context ctx{m_ctx};
       std::unordered_set<bt::Device> peers(std::move(m_peers));
-      std::string nominee = std::move(localOffer->second.mac);
-      ctx.state->emplace<StatePlaying>(ctx, std::move(peers), std::move(nominee));
+      std::string nomineeMac = std::move(localOffer->second.mac);
+      ctx.state->emplace<StatePlaying>(ctx, std::move(peers), std::move(nomineeMac));
       return;
    }
 
