@@ -3,7 +3,7 @@
 
 #include <variant>
 
-namespace main {
+namespace core {
 class ITimerEngine;
 }
 namespace dice {
@@ -31,7 +31,7 @@ struct Context
    ILogger * const logger;
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
-   main::ITimerEngine * const timer;
+   core::ITimerEngine * const timer;
    jni::IProxy * const proxy;
 
    StateHolder * const state;

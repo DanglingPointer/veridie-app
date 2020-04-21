@@ -9,11 +9,11 @@ using namespace std::chrono_literals;
 
 TEST(TimerTest, timer_fires_within_1s_of_scheduled_time)
 {
-   auto engine = main::CreateTimerEngine([](auto task) { task(); });
+   auto engine = core::CreateTimerEngine([](auto task) { task(); });
 
    std::atomic_bool fired = false;
-   std::optional<main::Timeout> timeout;
-   auto handle = engine->ScheduleTimer(3s).Then([&](std::optional<main::Timeout> t) {
+   std::optional<core::Timeout> timeout;
+   auto handle = engine->ScheduleTimer(3s).Then([&](std::optional<core::Timeout> t) {
       fired = true;
       timeout = std::move(t);
    });

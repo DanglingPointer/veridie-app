@@ -16,7 +16,7 @@ struct Device;
 namespace dice {
 struct Offer;
 }
-namespace main {
+namespace core {
 struct Timeout;
 }
 
@@ -36,7 +36,7 @@ private:
    Context m_ctx;
 
    CallbackId m_enableBtCb;
-   async::Future<main::Timeout> m_retryHandle;
+   async::Future<core::Timeout> m_retryHandle;
 
    bool m_newGamePending;
    bool m_bluetoothOn;
@@ -67,7 +67,7 @@ private:
 
    std::optional<std::string> m_localMac;
    std::unordered_set<bt::Device> m_peers;
-   async::Future<main::Timeout> m_retryStartHandle;
+   async::Future<core::Timeout> m_retryStartHandle;
 };
 
 class StateNegotiating : public StateBase
@@ -94,7 +94,7 @@ private:
    std::unordered_set<bt::Device> m_peers;
    std::map<std::string, dice::Offer> m_offers;
 
-   async::Future<main::Timeout> m_retrySendOffer;
+   async::Future<core::Timeout> m_retrySendOffer;
 };
 
 class StatePlaying : public StateBase

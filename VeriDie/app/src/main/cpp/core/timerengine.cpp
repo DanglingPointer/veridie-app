@@ -6,7 +6,7 @@
 
 namespace {
 using namespace std::chrono_literals;
-using namespace main;
+using namespace core;
 
 struct Timer
 {
@@ -87,11 +87,11 @@ void TimerEngine::Launch()
 
 } // namespace
 
-namespace main {
+namespace core {
 
 std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor callbackExecutor)
 {
    return std::make_unique<TimerEngine>(std::move(callbackExecutor));
 }
 
-} // namespace main
+} // namespace core

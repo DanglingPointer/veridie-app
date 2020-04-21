@@ -47,7 +47,7 @@ public:
          m_logger.Write<LogPriority::WARN>("CmdManager received orphaned response, cmdId =", cmdId);
          return;
       }
-      main::Exec([cmd = std::move(it->second), response](auto) {
+      core::Exec([cmd = std::move(it->second), response](auto) {
          cmd->Respond(response);
       });
       m_waitingCmds.erase(it);

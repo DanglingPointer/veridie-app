@@ -14,12 +14,12 @@ std::unique_ptr<IEngine> CreateUniformEngine()
    return nullptr;
 }
 } // namespace dice
-namespace main {
+namespace core {
 std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor)
 {
    return nullptr;
 }
-} // namespace main
+} // namespace core
 namespace dice {
 std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
 {
@@ -58,7 +58,7 @@ struct TestCommand : public cmd::ICommand
 };
 
 class EchoController
-   : public main::IController
+   : public core::IController
    , private async::Canceller<>
 {
 public:
@@ -85,14 +85,14 @@ private:
 
 } // namespace
 
-namespace main {
+namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
                                               std::unique_ptr<dice::IEngine> /*engine*/,
-                                              std::unique_ptr<main::ITimerEngine> /*timer*/,
+                                              std::unique_ptr<core::ITimerEngine> /*timer*/,
                                               std::unique_ptr<dice::ISerializer> /*serializer*/,
                                               ILogger & logger)
 {
    return std::make_unique<EchoController>(logger, std::move(proxy));
 }
-} // namespace main
+} // namespace core

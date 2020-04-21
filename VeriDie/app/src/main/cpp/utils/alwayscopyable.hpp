@@ -24,8 +24,6 @@ public:
    AlwaysCopyable(const AlwaysCopyable & c)
       : AlwaysCopyable(const_cast<AlwaysCopyable &>(c))
    {}
-
-   using F::operator();
 };
 
 #endif // ALWAYS_COPYABLE_HPP

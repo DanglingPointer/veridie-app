@@ -11,13 +11,13 @@
 
 namespace {
 
-class Controller : public main::IController
+class Controller : public core::IController
 {
 public:
    Controller(ILogger & logger,
               std::unique_ptr<jni::IProxy> proxy,
               std::unique_ptr<dice::IEngine> engine,
-              std::unique_ptr<main::ITimerEngine> timer,
+              std::unique_ptr<core::ITimerEngine> timer,
               std::unique_ptr<dice::ISerializer> serializer)
       : m_logger(logger)
       , m_proxy(std::move(proxy))
@@ -58,7 +58,7 @@ private:
    ILogger & m_logger;
    std::unique_ptr<jni::IProxy> m_proxy;
    std::unique_ptr<dice::IEngine> m_generator;
-   std::unique_ptr<main::ITimerEngine> m_timer;
+   std::unique_ptr<core::ITimerEngine> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;
 
    std::unordered_map<int32_t, event::Handler> m_eventHandlers;
@@ -67,11 +67,11 @@ private:
 
 } // namespace
 
-namespace main {
+namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
                                               std::unique_ptr<dice::IEngine> engine,
-                                              std::unique_ptr<main::ITimerEngine> timer,
+                                              std::unique_ptr<core::ITimerEngine> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,
                                               ILogger & logger)
 {
@@ -82,4 +82,4 @@ std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy
                                        std::move(serializer));
 }
 
-} // namespace main
+} // namespace core

@@ -14,9 +14,9 @@ void MainExecutor(std::function<void()> task);
 Worker & MainWorker()
 {
    static auto s_logger = jni::CreateLogger("MAIN_WORKER");
-   static auto s_ctrl = main::CreateController(
+   static auto s_ctrl = core::CreateController(
       jni::CreateProxy(*s_logger), dice::CreateUniformEngine(),
-      main::CreateTimerEngine(MainExecutor), dice::CreateXmlSerializer(), *s_logger);
+      core::CreateTimerEngine(MainExecutor), dice::CreateXmlSerializer(), *s_logger);
 
    static Worker s_w(s_ctrl.get(), *s_logger);
    return s_w;
@@ -31,7 +31,7 @@ void MainExecutor(std::function<void()> task)
 
 } // namespace
 
-namespace main {
+namespace core {
 
 void InternalExec(std::function<void(IController *)> task)
 {
@@ -40,4 +40,4 @@ void InternalExec(std::function<void(IController *)> task)
    });
 }
 
-} // namespace main
+} // namespace core

@@ -5,7 +5,7 @@
 #include <memory>
 #include "utils/future.hpp"
 
-namespace main {
+namespace core {
 
 struct Timeout
 {};
@@ -19,6 +19,6 @@ public:
 
 std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor callbackExecutor);
 
-} // namespace main
+} // namespace core
 
 #endif // TIMERENGINE_HPP

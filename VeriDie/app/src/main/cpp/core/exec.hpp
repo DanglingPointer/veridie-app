@@ -4,7 +4,7 @@
 #include <functional>
 #include "utils/alwayscopyable.hpp"
 
-namespace main {
+namespace core {
 class IController;
 
 void InternalExec(std::function<void(IController *)> task);
@@ -15,6 +15,6 @@ void Exec(F && f)
    InternalExec(AlwaysCopyable(std::move(f)));
 }
 
-} // namespace main
+} // namespace core
 
 #endif // CORE_EXEC_HPP

@@ -37,7 +37,7 @@ private:
    std::queue<std::unique_ptr<cmd::ICommand>> m_q;
 };
 
-class MockTimerEngine : public main::ITimerEngine
+class MockTimerEngine : public core::ITimerEngine
 {
 public:
    MockTimerEngine()
@@ -55,9 +55,9 @@ public:
    }
 
 private:
-   async::Future<main::Timeout> ScheduleTimer(std::chrono::seconds period) override
+   async::Future<core::Timeout> ScheduleTimer(std::chrono::seconds period) override
    {
-      async::Promise<main::Timeout> p([](auto task) {
+      async::Promise<core::Timeout> p([](auto task) {
          task();
       });
       auto future = p.GetFuture();
@@ -70,7 +70,7 @@ private:
 private:
    struct Timer
    {
-      async::Promise<main::Timeout> promise;
+      async::Promise<core::Timeout> promise;
       std::chrono::steady_clock::time_point time;
    };
    void ProcessTimers()
@@ -82,7 +82,7 @@ private:
          if (it->promise.IsCancelled()) {
             it = m_timers.erase(it);
          } else if (it->time <= m_now) {
-            it->promise.Finished(main::Timeout{});
+            it->promise.Finished(core::Timeout{});
             it = m_timers.erase(it);
          } else {
             ++it;
@@ -104,14 +104,14 @@ class StubGenerator : public dice::IEngine
 class IdlingFixture : public ::testing::Test
 {
 protected:
-   std::unique_ptr<main::IController> CreateController()
+   std::unique_ptr<core::IController> CreateController()
    {
       proxy = new MockProxy;
       timer = new MockTimerEngine;
       generator = new StubGenerator;
-      return main::CreateController(std::unique_ptr<jni::IProxy>(proxy),
+      return core::CreateController(std::unique_ptr<jni::IProxy>(proxy),
                                     std::unique_ptr<dice::IEngine>(generator),
-                                    std::unique_ptr<main::ITimerEngine>(timer),
+                                    std::unique_ptr<core::ITimerEngine>(timer),
                                     dice::CreateXmlSerializer(),
                                     logger);
    }
@@ -239,7 +239,7 @@ protected:
       EXPECT_TRUE(proxy->NoCommands());
    }
 
-   std::unique_ptr<main::IController> ctrl;
+   std::unique_ptr<core::IController> ctrl;
 };
 
 TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)

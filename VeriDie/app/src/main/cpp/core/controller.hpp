@@ -14,7 +14,7 @@ class IEngine;
 class ISerializer;
 }
 
-namespace main {
+namespace core {
 class ITimerEngine;
 
 class IController
@@ -26,10 +26,10 @@ public:
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
                                               std::unique_ptr<dice::IEngine> engine,
-                                              std::unique_ptr<main::ITimerEngine> timer,
+                                              std::unique_ptr<core::ITimerEngine> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,
                                               ILogger & logger);
 
-} // namespace main
+} // namespace core
 
 #endif // CORE_CONTROLLER_HPP

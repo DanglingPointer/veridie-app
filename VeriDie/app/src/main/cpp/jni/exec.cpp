@@ -101,7 +101,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_bridgeReady(JNIE
       auto * ctx = static_cast<Context *>(arg);
       ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
    });
-   main::Exec([](auto) {
+   core::Exec([](auto) {
       // Do nothing; this will create Controller and states
    });
 }
@@ -118,7 +118,7 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_sendEvent(JNIEnv
       auto str = static_cast<jstring>(env->GetObjectArrayElement(args, i));
       arguments.emplace_back(GetString(env, str));
    }
-   main::Exec([eventId, arguments = std::move(arguments)](main::IController * ctrl) {
+   core::Exec([eventId, arguments = std::move(arguments)](core::IController * ctrl) {
       ctrl->OnEvent(eventId, arguments);
    });
 }
