@@ -93,8 +93,12 @@ void StateNegotiating::UpdateAndBroadcastOffer()
                                                  nomineeName);
       fsm::Context ctx{m_ctx};
       std::unordered_set<bt::Device> peers(std::move(m_peers));
+      std::string localMac = std::move(m_localMac);
       std::string nomineeMac = std::move(localOffer->second.mac);
-      ctx.state->emplace<StatePlaying>(ctx, std::move(peers), std::move(nomineeMac));
+      ctx.state->emplace<StatePlaying>(ctx,
+                                       std::move(peers),
+                                       std::move(localMac),
+                                       std::move(nomineeMac));
       return;
    }
 

@@ -249,7 +249,7 @@ using ShowRequestResponse = ResponseCodeSubset<
 using ShowRequest = CommonBase<
    ID(112),
    ShowRequestResponse,
-   std::string/*type*/, size_t/*size*/, uint32_t/*threshold*/>;
+   std::string/*type*/, size_t/*size*/, uint32_t/*threshold, 0=not set*/, std::string/*name*/>;
 
 
 using ShowResponseResponse = ResponseCodeSubset<
@@ -258,7 +258,7 @@ using ShowResponseResponse = ResponseCodeSubset<
 using ShowResponse = CommonBase<
    ID(113),
    ShowResponseResponse,
-   std::string/*type*/, dice::Cast/*numbers*/, uint32_t/*threshold*/>;
+   std::string/*type*/, dice::Cast/*numbers*/, int32_t/*success count, -1=not set*/, std::string/*name*/>;
 
 
 using ResetGameResponse = ResponseCodeSubset<

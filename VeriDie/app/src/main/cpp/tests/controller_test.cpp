@@ -98,7 +98,19 @@ private:
 
 class StubGenerator : public dice::IEngine
 {
-   void GenerateResult(dice::Cast &) override {}
+public:
+   uint32_t value = 3;
+
+private:
+   void GenerateResult(dice::Cast & cast) override
+   {
+      std::visit(
+         [this](auto & vec) {
+            for (auto & e : vec)
+               e(value);
+         },
+         cast);
+   }
 };
 
 class IdlingFixture : public ::testing::Test
@@ -442,7 +454,9 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    }
 
    // 1 weird peer
-   ctrl->OnEvent(14, {R"(<Hello><Mac>5c:b9:01:f8:b6:40</Mac></Hello>)", "5c:b9:01:f8:b6:44", "Charlie Chaplin 4"});
+   ctrl->OnEvent(
+      14,
+      {R"(<Hello><Mac>5c:b9:01:f8:b6:40</Mac></Hello>)", "5c:b9:01:f8:b6:44", "Charlie Chaplin 4"});
    auto cmdHello = proxy->PopNextCommand();
    EXPECT_TRUE(cmdHello);
    EXPECT_EQ(ID(108), cmdHello->GetId());
@@ -528,7 +542,8 @@ protected:
       StartDiscoveryAndListening();
 
       for (size_t i = 0; i < peersCount; ++i)
-         peers.emplace_back("Charlie Chaplin " + std::to_string(i), "5c:b9:01:f8:b6:4" + std::to_string(i));
+         peers.emplace_back("Charlie Chaplin " + std::to_string(i),
+                            "5c:b9:01:f8:b6:4" + std::to_string(i));
 
       for (const auto & peer : peers) {
          ctrl->OnEvent(10, {peer.mac, peer.name});
@@ -538,7 +553,8 @@ protected:
          cmdHello->Respond(0);
       }
       for (const auto & peer : peers) {
-         ctrl->OnEvent(14, {R"(<Hello><Mac>)" + localMac + R"(</Mac></Hello>)", peer.mac, peer.name});
+         ctrl->OnEvent(14,
+                       {R"(<Hello><Mac>)" + localMac + R"(</Mac></Hello>)", peer.mac, peer.name});
          EXPECT_TRUE(proxy->NoCommands());
       }
       ctrl->OnEvent(12, {}); // start
@@ -611,26 +627,38 @@ TEST_F(NegotiatingFixture4, increases_round_appropriately)
    CheckLocalOffer(R"(<Offer round="4"><Mac>5c:b9:01:f8:b6:44</Mac></Offer>)");
    EXPECT_TRUE(proxy->NoCommands());
 
-   ctrl->OnEvent(14, {R"(<Offer round="5"><Mac>5c:b9:01:f8:b6:40</Mac></Offer>)", "5c:b9:01:f8:b6:42", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="5"><Mac>5c:b9:01:f8:b6:40</Mac></Offer>)", "5c:b9:01:f8:b6:42", ""});
    EXPECT_TRUE(proxy->NoCommands());
 
-   ctrl->OnEvent(14, {R"(<Offer round="3"><Mac>5c:b9:01:f8:b6:43</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="3"><Mac>5c:b9:01:f8:b6:43</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
    EXPECT_TRUE(proxy->NoCommands());
 
    timer->FastForwardTime(1s);
    CheckLocalOffer(R"(<Offer round="5"><Mac>5c:b9:01:f8:b6:40</Mac></Offer>)");
    EXPECT_TRUE(proxy->NoCommands());
 
-   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:40", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:40", ""});
    EXPECT_TRUE(proxy->NoCommands());
 
    timer->FastForwardTime(1s);
    CheckLocalOffer(R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)");
    EXPECT_TRUE(proxy->NoCommands());
 
-   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
-   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:42", ""});
-   ctrl->OnEvent(14, {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:43", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:42", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="6"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:43", ""});
 
    timer->FastForwardTime(1s);
    auto negotiationStop = proxy->PopNextCommand();
@@ -658,9 +686,13 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    CheckLocalOffer(R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)");
    EXPECT_TRUE(proxy->NoCommands());
 
-   ctrl->OnEvent(14, {R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)", "5c:b9:01:f8:b6:41", ""});
    // peer 1 disconnected from peer 0
-   ctrl->OnEvent(14, {R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:42</Mac></Offer>)", "5c:b9:01:f8:b6:40", ""});
+   ctrl->OnEvent(
+      14,
+      {R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:42</Mac></Offer>)", "5c:b9:01:f8:b6:40", ""});
 
    timer->FastForwardTime(1s);
    CheckLocalOffer(R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:41</Mac></Offer>)");
@@ -697,6 +729,394 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    EXPECT_STREQ("You", negotiationStop->GetArgAt(0).data());
    negotiationStop->Respond(0);
    EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+template <size_t PEERS_COUNT, uint32_t ROUND>
+class PlayingFixture : public NegotiatingFixture<PEERS_COUNT>
+{
+protected:
+   static constexpr uint32_t round = ROUND;
+
+   using Base = NegotiatingFixture<PEERS_COUNT>;
+
+   PlayingFixture()
+      : Base()
+   {
+      auto negotiationStart = Base::proxy->PopNextCommand();
+      EXPECT_TRUE(negotiationStart);
+      EXPECT_EQ(ID(106), negotiationStart->GetId());
+      negotiationStart->Respond(0);
+
+      int nomineeIndex = round % (Base::Peers().size() + 1);
+      nomineeMac =
+         nomineeIndex == Base::Peers().size() ? Base::localMac : Base::Peers()[nomineeIndex].mac;
+      nomineeName = nomineeIndex == Base::Peers().size() ? "You" : Base::Peers()[nomineeIndex].name;
+
+      std::string offer =
+         "<Offer round=\"" + std::to_string(round) + "\"><Mac>" + nomineeMac + "</Mac></Offer>";
+      Base::CheckLocalOffer(offer.c_str());
+      for (const auto & device : Base::Peers())
+         Base::ctrl->OnEvent(14, {offer, device.mac, device.name});
+
+      Base::timer->FastForwardTime(1s);
+      auto negotiationStop = Base::proxy->PopNextCommand();
+      EXPECT_TRUE(negotiationStop);
+      EXPECT_EQ(ID(107), negotiationStop->GetId());
+      EXPECT_EQ(1U, negotiationStop->GetArgsCount());
+      EXPECT_STREQ(nomineeName.c_str(), negotiationStop->GetArgAt(0).data());
+      negotiationStop->Respond(0);
+      EXPECT_EQ("New state: StatePlaying ", Base::logger.GetLastLine());
+      Base::logger.Clear();
+      EXPECT_TRUE(Base::proxy->NoCommands());
+   }
+
+   std::string nomineeMac;
+   std::string nomineeName;
+};
+
+using P2R8 = PlayingFixture<2u, 8u>;
+
+TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
+{
+   timer->FastForwardTime(2s);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   // remote request
+   {
+      generator->value = 3;
+      ctrl->OnEvent(14, {R"(<Request type="D6" size="4" successFrom="3" />)", Peers()[0].mac, ""});
+
+      auto showRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(showRequest);
+      EXPECT_EQ(ID(112), showRequest->GetId());
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D6", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("4", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("3", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ(Peers()[0].name.c_str(), showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+
+      const char * expectedResponse =
+         R"(<Response successCount="4" size="4" type="D6"><Val>3</Val><Val>3</Val><Val>3</Val><Val>3</Val></Response>)";
+      for (const auto & peer : Peers()) {
+         auto sendResponse = proxy->PopNextCommand();
+         EXPECT_TRUE(sendResponse);
+         EXPECT_EQ(ID(108), sendResponse->GetId());
+         EXPECT_EQ(2U, sendResponse->GetArgsCount());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(1).data());
+         sendResponse->Respond(0);
+      }
+
+      auto showResponse = proxy->PopNextCommand();
+      EXPECT_TRUE(showResponse);
+      EXPECT_EQ(ID(113), showResponse->GetId());
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ("D6", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("3;3;3;3;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("4", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   // local request w threshold
+   {
+      generator->value = 42;
+      ctrl->OnEvent(15, {"D100", "2", "43"});
+
+      auto showRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(showRequest);
+      EXPECT_EQ(ID(112), showRequest->GetId());
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D100", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("2", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("43", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ("You", showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+
+      const char * expectedRequest = R"(<Request successFrom="43" size="2" type="D100" />)";
+      for (const auto & peer : Peers()) {
+         auto sendRequest = proxy->PopNextCommand();
+         EXPECT_TRUE(sendRequest);
+         EXPECT_EQ(ID(108), sendRequest->GetId());
+         EXPECT_EQ(2U, sendRequest->GetArgsCount());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+         sendRequest->Respond(0);
+      }
+
+      const char * expectedResponse =
+         R"(<Response successCount="0" size="2" type="D100"><Val>42</Val><Val>42</Val></Response>)";
+      for (const auto & peer : Peers()) {
+         auto sendResponse = proxy->PopNextCommand();
+         EXPECT_TRUE(sendResponse);
+         EXPECT_EQ(ID(108), sendResponse->GetId());
+         EXPECT_EQ(2U, sendResponse->GetArgsCount());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(1).data());
+         sendResponse->Respond(0);
+      }
+
+      auto showResponse = proxy->PopNextCommand();
+      EXPECT_TRUE(showResponse);
+      EXPECT_EQ(ID(113), showResponse->GetId());
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ("D100", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("42;42;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("0", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   // local request w/o threshold
+   {
+      generator->value = 42;
+      ctrl->OnEvent(15, {"D100", "2"});
+
+      auto showRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(showRequest);
+      EXPECT_EQ(ID(112), showRequest->GetId());
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D100", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("2", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("0", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ("You", showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+
+      const char * expectedRequest = R"(<Request size="2" type="D100" />)";
+      for (const auto & peer : Peers()) {
+         auto sendRequest = proxy->PopNextCommand();
+         EXPECT_TRUE(sendRequest);
+         EXPECT_EQ(ID(108), sendRequest->GetId());
+         EXPECT_EQ(2U, sendRequest->GetArgsCount());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+         sendRequest->Respond(0);
+      }
+
+      const char * expectedResponse =
+         R"(<Response size="2" type="D100"><Val>42</Val><Val>42</Val></Response>)";
+      for (const auto & peer : Peers()) {
+         auto sendResponse = proxy->PopNextCommand();
+         EXPECT_TRUE(sendResponse);
+         EXPECT_EQ(ID(108), sendResponse->GetId());
+         EXPECT_EQ(2U, sendResponse->GetArgsCount());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(1).data());
+         sendResponse->Respond(0);
+      }
+
+      auto showResponse = proxy->PopNextCommand();
+      EXPECT_TRUE(showResponse);
+      EXPECT_EQ(ID(113), showResponse->GetId());
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ("D100", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("42;42;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("-1", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   // Peer 1 wants to re-negotiate before 5 sec
+   std::string offer = R"(<Offer round="12"><Mac>)" + Peers()[0].mac + "</Mac></Offer>";
+   ctrl->OnEvent(14, {offer, Peers()[1].mac, ""});
+   EXPECT_TRUE(proxy->NoCommands());
+
+   // Peer 1 tries again 3 sec later
+   timer->FastForwardTime(3s);
+   EXPECT_TRUE(proxy->NoCommands());
+   ctrl->OnEvent(14, {offer, Peers()[1].mac, ""});
+   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+   negotiationStart->Respond(0);
+
+   for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
+      auto sendOffer = proxy->PopNextCommand();
+      EXPECT_TRUE(sendOffer);
+      EXPECT_EQ(ID(108), sendOffer->GetId());
+      EXPECT_EQ(2U, sendOffer->GetArgsCount());
+      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
+      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
+      sendOffer->Respond(0);
+   }
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+using P2R13 = PlayingFixture<2u, 13u>;
+
+TEST_F(P2R13, remote_generator_is_respoected)
+{
+   // remote request
+   {
+      // peer 0 makes a request
+      ctrl->OnEvent(14, {R"(<Request type="D8" size="1" />)", Peers()[0].mac, ""});
+      auto showRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(showRequest);
+      EXPECT_EQ(ID(112), showRequest->GetId());
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D8", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("1", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("0", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ(Peers()[0].name.c_str(), showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+
+      timer->FastForwardTime(1s);
+      EXPECT_TRUE(proxy->NoCommands());
+
+      // peer 0 answers its own request even though it's not generator
+      ctrl->OnEvent(
+         14,
+         {R"(<Response size="1" type="D8"><Val>8</Val></Response>)", Peers()[0].mac, ""});
+      EXPECT_TRUE(proxy->NoCommands());
+
+      // generator answers the request
+      ctrl->OnEvent(
+         14,
+         {R"(<Response size="1" type="D8"><Val>1</Val></Response> )", Peers()[1].mac, ""});
+      auto showResponse = proxy->PopNextCommand();
+      EXPECT_TRUE(showResponse);
+      EXPECT_EQ(ID(113), showResponse->GetId());
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ("D8", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("1;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("-1", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   // repeating local request
+   {
+      ctrl->OnEvent(15, {"D4", "1", "3"});
+      auto showRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(showRequest);
+      EXPECT_EQ(ID(112), showRequest->GetId());
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D4", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("1", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("3", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ("You", showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+
+      const char * expectedRequest = R"(<Request successFrom="3" size="1" type="D4" />)";
+      for (const auto & peer : Peers()) {
+         auto sendRequest = proxy->PopNextCommand();
+         EXPECT_TRUE(sendRequest);
+         EXPECT_EQ(ID(108), sendRequest->GetId());
+         EXPECT_EQ(2U, sendRequest->GetArgsCount());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+         sendRequest->Respond(0);
+      }
+      EXPECT_TRUE(proxy->NoCommands());
+
+      timer->FastForwardTime(1s);
+
+      auto sendRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(sendRequest);
+      EXPECT_EQ(ID(108), sendRequest->GetId());
+      EXPECT_EQ(2U, sendRequest->GetArgsCount());
+      EXPECT_STREQ(Peers()[1].mac.c_str(), sendRequest->GetArgAt(0).data());
+      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+      sendRequest->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+
+      ctrl->OnEvent(14,
+                    {R"(<Response successCount="1" size="1" type="D4"><Val>4</Val></Response>)",
+                     Peers()[1].mac,
+                     ""});
+      auto showResponse = proxy->PopNextCommand();
+      EXPECT_TRUE(showResponse);
+      EXPECT_EQ(ID(113), showResponse->GetId());
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ("D4", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("4;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("1", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+
+      timer->FastForwardTime(1s);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   // 7 more requests and responses
+   for (int i = 0; i < 7; ++i) {
+      ctrl->OnEvent(14, {R"(<Request successFrom="3" type="D4" size="1" />)", Peers()[0].mac, ""});
+      auto showRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(showRequest);
+      EXPECT_EQ(ID(112), showRequest->GetId());
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D4", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("1", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("3", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ(Peers()[0].name.c_str(), showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+
+      ctrl->OnEvent(14,
+                    {R"(<Response successCount="0" size="1" type="D4"><Val>2</Val></Response>)",
+                     Peers()[1].mac,
+                     ""});
+      auto showResponse = proxy->PopNextCommand();
+      EXPECT_TRUE(showResponse);
+      EXPECT_EQ(ID(113), showResponse->GetId());
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ("D4", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("2;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("0", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   // one response from unauthorized peer
+   ctrl->OnEvent(14,
+                 {R"(<Response successCount="1" size="1" type="D4"><Val>4</Val></Response>)",
+                  Peers()[0].mac,
+                  ""});
+   EXPECT_TRUE(proxy->NoCommands());
+
+   // one authorized response without previous request
+   ctrl->OnEvent(14,
+                 {R"(<Response successCount="1" size="1" type="D6"><Val>5</Val></Response>)",
+                  Peers()[1].mac,
+                  ""});
+   auto showResponse = proxy->PopNextCommand();
+   EXPECT_TRUE(showResponse);
+   EXPECT_EQ(ID(113), showResponse->GetId());
+   EXPECT_EQ(4u, showResponse->GetArgsCount());
+   EXPECT_STREQ("D6", showResponse->GetArgAt(0).data());
+   EXPECT_STREQ("5;", showResponse->GetArgAt(1).data());
+   EXPECT_STREQ("1", showResponse->GetArgAt(2).data());
+   EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
+   showResponse->Respond(0);
+
+   // starting negotiation
+   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+   negotiationStart->Respond(0);
+
+   std::string offer = R"(<Offer round="14"><Mac>)" + localMac + "</Mac></Offer>";
+   for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
+      auto sendOffer = proxy->PopNextCommand();
+      EXPECT_TRUE(sendOffer);
+      EXPECT_EQ(ID(108), sendOffer->GetId());
+      EXPECT_EQ(2U, sendOffer->GetArgsCount());
+      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
+      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
+      sendOffer->Respond(0);
+   }
    EXPECT_TRUE(proxy->NoCommands());
 }
 

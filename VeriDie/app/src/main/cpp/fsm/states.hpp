@@ -15,6 +15,8 @@ struct Device;
 }
 namespace dice {
 struct Offer;
+struct Request;
+struct Response;
 }
 namespace core {
 struct Timeout;
@@ -100,16 +102,34 @@ private:
 class StatePlaying : public StateBase
 {
 public:
-   explicit StatePlaying(const Context & ctx,
-                         std::unordered_set<bt::Device> && peers,
-                         std::string && generatorMac);
+   StatePlaying(const Context & ctx,
+                std::unordered_set<bt::Device> && peers,
+                std::string && localMac,
+                std::string && generatorMac);
    ~StatePlaying();
+   void OnBluetoothOff();
+   void OnDeviceConnected(const bt::Device & remote);
+   void OnMessageReceived(const bt::Device & sender, const std::string & message);
+   void OnCastRequest(dice::Request && localRequest);
+   void OnGameStopped();
+   void OnSocketReadFailure(const bt::Device & transmitter);
 
 private:
    class RemotePeerManager;
 
+   [[maybe_unused]] StateNegotiating * StartNegotiation();
+   void ShowRequest(const dice::Request & request, const std::string & from);
+   void ShowResponse(const dice::Response & response, const std::string & from);
+
    Context m_ctx;
+   std::string m_localMac;
+   bool m_localGenerator;
+
+   async::Future<core::Timeout> m_ignoreOffers;
+   std::unique_ptr<dice::Request> m_pendingRequest;
+
    std::unordered_map<std::string, RemotePeerManager> m_managers;
+   uint32_t m_responseCount;
 };
 
 } // namespace fsm

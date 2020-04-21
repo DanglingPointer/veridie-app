@@ -205,6 +205,11 @@ dice::Cast MakeCast(const std::string & type, size_t size)
    throw std::invalid_argument("MakeCast(): Invalid cast type: " + type);
 }
 
+std::string TypeToString(const dice::Cast & cast)
+{
+   return std::visit(DiceTypeToString{}, cast);
+}
+
 std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
 {
    return std::make_unique<XmlSerializer>();

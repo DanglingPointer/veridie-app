@@ -34,6 +34,7 @@ struct Offer
 };
 
 dice::Cast MakeCast(const std::string & type, size_t size);
+std::string TypeToString(const dice::Cast & cast);
 
 class ISerializer
 {
