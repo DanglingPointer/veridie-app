@@ -1130,6 +1130,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
    EXPECT_EQ(ID(112), showRequest->GetId());
    showRequest->Respond(0);
 
+   // sends request
    const char * expectedRequest = R"(<Request successFrom="3" size="1" type="D4" />)";
    for (const auto & peer : Peers()) {
       auto sendRequest = proxy->PopNextCommand();
@@ -1142,6 +1143,17 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
    }
    EXPECT_TRUE(proxy->NoCommands());
 
+   // received response to other request
+   ctrl->OnEvent(14,
+                 {R"(<Response successCount="1" size="1" type="D6"><Val>5</Val></Response>)",
+                  Peers()[0].mac,
+                  ""});
+   auto showResponse = proxy->PopNextCommand();
+   EXPECT_TRUE(showResponse);
+   EXPECT_EQ(ID(113), showResponse->GetId());
+   showResponse->Respond(0);
+
+   // retries request
    for (int i = 0; i < 2; ++i) {
       timer->FastForwardTime(1s);
       auto sendRequest = proxy->PopNextCommand();
@@ -1154,6 +1166,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
       EXPECT_TRUE(proxy->NoCommands());
    }
 
+   // no success => goes to Negotiation
    timer->FastForwardTime(1s);
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
    auto negotiationStart = proxy->PopNextCommand();
@@ -1171,6 +1184,75 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
       EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
       sendOffer->Respond(0);
    }
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+using P2R17 = PlayingFixture<2u, 17u>;
+
+TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
+{
+   timer->FastForwardTime(5s);
+
+   // both peers report read errors...
+   ctrl->OnEvent(19, {Peers()[0].mac, ""});
+   EXPECT_TRUE(proxy->NoCommands());
+   ctrl->OnEvent(19, {Peers()[1].mac, ""});
+   EXPECT_TRUE(proxy->NoCommands());
+   timer->FastForwardTime(1s);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   // ...but peer 0 comes back with an offer
+   std::string offer = R"(<Offer round="19"><Mac>)" + Peers()[1].mac + "</Mac></Offer>";
+   ctrl->OnEvent(14, {offer, Peers()[0].mac, ""});
+
+   // so we should disconnect peer 1 and start negotiation...
+   auto disconnect = proxy->PopNextCommand();
+   EXPECT_TRUE(disconnect);
+   EXPECT_EQ(ID(104), disconnect->GetId());
+   EXPECT_EQ(2U, disconnect->GetArgsCount());
+   EXPECT_STREQ(Peers()[1].mac.c_str(), disconnect->GetArgAt(0).data());
+
+   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+
+   EXPECT_TRUE(proxy->NoCommands());
+   disconnect->Respond(0);
+   negotiationStart->Respond(0);
+
+   // ...with only one remote peer
+   std::string expectedOffer = R"(<Offer round="19"><Mac>)" + localMac + "</Mac></Offer>";
+   auto sendOffer = proxy->PopNextCommand();
+   EXPECT_TRUE(sendOffer);
+   EXPECT_EQ(ID(108), sendOffer->GetId());
+   EXPECT_EQ(2U, sendOffer->GetArgsCount());
+   EXPECT_STREQ(Peers()[0].mac.c_str(), sendOffer->GetArgAt(0).data());
+   EXPECT_STREQ(expectedOffer.c_str(), sendOffer->GetArgAt(1).data());
+   sendOffer->Respond(0);
+
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+using P2R20 = PlayingFixture<2u, 20u>;
+
+TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
+{
+   ctrl->OnEvent(16, {}); // game stopped
+
+   auto reset = proxy->PopNextCommand();
+   EXPECT_TRUE(reset);
+   EXPECT_EQ(ID(114), reset->GetId());
+   EXPECT_EQ(0U, reset->GetArgsCount());
+   reset->Respond(0);
+
+   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   auto btOn = proxy->PopNextCommand();
+   EXPECT_TRUE(btOn);
+   EXPECT_EQ(ID(105), btOn->GetId());
+   EXPECT_EQ(0U, btOn->GetArgsCount());
+   btOn->Respond(0);
+
    EXPECT_TRUE(proxy->NoCommands());
 }
 
