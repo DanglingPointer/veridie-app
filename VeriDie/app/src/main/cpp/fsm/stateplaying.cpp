@@ -14,6 +14,7 @@ using namespace std::chrono_literals;
 namespace {
 
 constexpr uint32_t RETRY_COUNT = 5U;
+constexpr uint32_t REQUEST_ATTEMPTS = 3U;
 constexpr uint32_t ROUNDS_PER_GENERATOR = 10U;
 constexpr auto IGNORE_OFFERS_DURATION = 5s;
 
@@ -78,14 +79,18 @@ public:
    const bt::Device & GetDevice() const { return m_remote; }
    bool IsConnected() const { return m_connected; }
    bool IsGenerator() const { return m_isGenerator; }
-   void SendRequest(const std::string & request)
+   void SendRequest(const std::string & request, uint32_t attempt = REQUEST_ATTEMPTS)
    {
+      if (attempt == 0) {
+         m_renegotiate();
+         return;
+      }
       m_pendingRequest = true;
       Send(request, RETRY_COUNT);
       if (m_isGenerator) {
          m_retryRequest = m_timer.ScheduleTimer(1s).Then([=](auto) {
             if (m_pendingRequest)
-               SendRequest(request);
+               SendRequest(request, attempt - 1);
          });
       }
    }
@@ -198,6 +203,7 @@ void StatePlaying::OnMessageReceived(const bt::Device & sender, const std::strin
    auto parsed = m_ctx.serializer->Deserialize(message);
 
    if (std::holds_alternative<dice::Offer>(parsed)) {
+      mgr->second.OnReceptionSuccess(m_pendingRequest == nullptr);
       if (m_ignoreOffers.IsActive())
          return;
       StateNegotiating * s = StartNegotiation();
@@ -258,10 +264,8 @@ void StatePlaying::OnGameStopped()
 
 void StatePlaying::OnSocketReadFailure(const bt::Device & transmitter)
 {
-   auto mgr = m_managers.find(transmitter.mac);
-   if (mgr == std::cend(m_managers))
-      return;
-   mgr->second.OnReceptionFailure();
+   if (auto mgr = m_managers.find(transmitter.mac); mgr != std::cend(m_managers))
+      mgr->second.OnReceptionFailure();
 }
 
 StateNegotiating * StatePlaying::StartNegotiation()

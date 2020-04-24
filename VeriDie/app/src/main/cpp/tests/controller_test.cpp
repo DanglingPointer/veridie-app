@@ -951,7 +951,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
 
 using P2R13 = PlayingFixture<2u, 13u>;
 
-TEST_F(P2R13, remote_generator_is_respoected)
+TEST_F(P2R13, remote_generator_is_respected)
 {
    // remote request
    {
@@ -1108,6 +1108,60 @@ TEST_F(P2R13, remote_generator_is_respoected)
    negotiationStart->Respond(0);
 
    std::string offer = R"(<Offer round="14"><Mac>)" + localMac + "</Mac></Offer>";
+   for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
+      auto sendOffer = proxy->PopNextCommand();
+      EXPECT_TRUE(sendOffer);
+      EXPECT_EQ(ID(108), sendOffer->GetId());
+      EXPECT_EQ(2U, sendOffer->GetArgsCount());
+      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
+      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
+      sendOffer->Respond(0);
+   }
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+using P2R15 = PlayingFixture<2u, 15u>;
+
+TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
+{
+   ctrl->OnEvent(15, {"D4", "1", "3"});
+   auto showRequest = proxy->PopNextCommand();
+   EXPECT_TRUE(showRequest);
+   EXPECT_EQ(ID(112), showRequest->GetId());
+   showRequest->Respond(0);
+
+   const char * expectedRequest = R"(<Request successFrom="3" size="1" type="D4" />)";
+   for (const auto & peer : Peers()) {
+      auto sendRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(sendRequest);
+      EXPECT_EQ(ID(108), sendRequest->GetId());
+      EXPECT_EQ(2U, sendRequest->GetArgsCount());
+      EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
+      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+      sendRequest->Respond(0);
+   }
+   EXPECT_TRUE(proxy->NoCommands());
+
+   for (int i = 0; i < 2; ++i) {
+      timer->FastForwardTime(1s);
+      auto sendRequest = proxy->PopNextCommand();
+      EXPECT_TRUE(sendRequest);
+      EXPECT_EQ(ID(108), sendRequest->GetId());
+      EXPECT_EQ(2U, sendRequest->GetArgsCount());
+      EXPECT_STREQ(Peers()[0].mac.c_str(), sendRequest->GetArgAt(0).data());
+      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+      sendRequest->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
+   timer->FastForwardTime(1s);
+   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   auto negotiationStart = proxy->PopNextCommand();
+   EXPECT_TRUE(negotiationStart);
+   EXPECT_EQ(ID(106), negotiationStart->GetId());
+   negotiationStart->Respond(0);
+
+   std::string offer = R"(<Offer round="16"><Mac>)" + Peers()[1].mac + "</Mac></Offer>";
    for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
       auto sendOffer = proxy->PopNextCommand();
       EXPECT_TRUE(sendOffer);
