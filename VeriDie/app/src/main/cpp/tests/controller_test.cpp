@@ -143,7 +143,7 @@ TEST_F(IdlingFixture, state_idle_bluetooth_turned_on_successfully)
 
    logger.Clear();
    auto c = proxy->PopNextCommand();
-   EXPECT_TRUE(c);
+   ASSERT_TRUE(c);
    EXPECT_EQ(105, ID(c)); // enable bt
    EXPECT_EQ(0U, c->GetArgsCount());
 
@@ -164,13 +164,13 @@ TEST_F(IdlingFixture, state_idle_bluetooth_fatal_failure)
    logger.Clear();
 
    auto c = proxy->PopNextCommand();
-   EXPECT_TRUE(c);
+   ASSERT_TRUE(c);
 
    // user declined
    c->Respond(6);
    EXPECT_TRUE(logger.Empty());
    c = proxy->PopNextCommand();
-   EXPECT_TRUE(c);
+   ASSERT_TRUE(c);
    EXPECT_EQ(109, ID(c)); // text message
    EXPECT_EQ(1U, c->GetArgsCount());
    EXPECT_TRUE(proxy->NoCommands());
@@ -192,7 +192,7 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
    logger.Clear();
 
    auto c = proxy->PopNextCommand();
-   EXPECT_TRUE(c);
+   ASSERT_TRUE(c);
 
    // invalid state
    c->Respond(0xffffffffffffffffLL);
@@ -202,14 +202,14 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
    // check retry
    timer->FastForwardTime(1s);
    c = proxy->PopNextCommand();
-   EXPECT_TRUE(c);
+   ASSERT_TRUE(c);
    EXPECT_EQ(105, ID(c)); // enable bt
    EXPECT_EQ(0U, c->GetArgsCount());
 
    // no adapter
    c->Respond(5);
    c = proxy->PopNextCommand();
-   EXPECT_TRUE(c);
+   ASSERT_TRUE(c);
    EXPECT_EQ(109, ID(c)); // text message
    EXPECT_EQ(1U, c->GetArgsCount());
    EXPECT_TRUE(proxy->NoCommands());
@@ -241,10 +241,10 @@ protected:
    void StartDiscoveryAndListening()
    {
       auto cmdListening = proxy->PopNextCommand();
-      EXPECT_TRUE(cmdListening);
+      ASSERT_TRUE(cmdListening);
       EXPECT_EQ(100, ID(cmdListening));
       auto cmdDiscovering = proxy->PopNextCommand();
-      EXPECT_TRUE(cmdDiscovering);
+      ASSERT_TRUE(cmdDiscovering);
       EXPECT_EQ(101, ID(cmdDiscovering));
       cmdDiscovering->Respond(0);
       cmdListening->Respond(0);
@@ -257,13 +257,13 @@ protected:
 TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
 {
    auto cmdListening = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdListening);
+   ASSERT_TRUE(cmdListening);
    EXPECT_EQ(100, ID(cmdListening));
    EXPECT_EQ(3U, cmdListening->GetArgsCount());
    EXPECT_EQ("60", cmdListening->GetArgAt(2));
 
    auto cmdDiscovering = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdDiscovering);
+   ASSERT_TRUE(cmdDiscovering);
    EXPECT_EQ(101, ID(cmdDiscovering));
    EXPECT_EQ(3U, cmdDiscovering->GetArgsCount());
    EXPECT_STREQ("true", cmdDiscovering->GetArgAt(2).data());
@@ -276,16 +276,16 @@ TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
 TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed)
 {
    auto cmdListening = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdListening);
+   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdDiscovering);
+   ASSERT_TRUE(cmdDiscovering);
 
    logger.Clear();
    cmdDiscovering->Respond(0xffffffffffffffff);
    cmdListening->Respond(3);
 
    auto fatalFailureText = proxy->PopNextCommand();
-   EXPECT_TRUE(fatalFailureText);
+   ASSERT_TRUE(fatalFailureText);
    EXPECT_EQ(109, ID(fatalFailureText));
    EXPECT_TRUE(logger.Empty());
 }
@@ -293,9 +293,9 @@ TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed
 TEST_F(ConnectingFixture, no_fatal_failure_when_only_listening_failed)
 {
    auto cmdListening = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdListening);
+   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdDiscovering);
+   ASSERT_TRUE(cmdDiscovering);
 
    cmdDiscovering->Respond(0);
    cmdListening->Respond(3);
@@ -305,9 +305,9 @@ TEST_F(ConnectingFixture, no_fatal_failure_when_only_listening_failed)
 TEST_F(ConnectingFixture, no_fatal_failure_when_only_discovery_failed)
 {
    auto cmdListening = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdListening);
+   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdDiscovering);
+   ASSERT_TRUE(cmdDiscovering);
 
    cmdDiscovering->Respond(0xffffffffffffffff);
    cmdListening->Respond(0);
@@ -317,15 +317,15 @@ TEST_F(ConnectingFixture, no_fatal_failure_when_only_discovery_failed)
 TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
 {
    auto cmdListening = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdListening);
+   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdDiscovering);
+   ASSERT_TRUE(cmdDiscovering);
 
    cmdDiscovering->Respond(2);
    cmdListening->Respond(2);
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
    auto enableBt = proxy->PopNextCommand();
-   EXPECT_TRUE(enableBt);
+   ASSERT_TRUE(enableBt);
    EXPECT_EQ(105, ID(enableBt));
    EXPECT_TRUE(proxy->NoCommands());
    enableBt->Respond(0);
@@ -339,7 +339,7 @@ TEST_F(ConnectingFixture, sends_hello_to_connected_device)
    ctrl->OnEvent(10, {"5c:b9:01:f8:b6:49", "Chalie Chaplin"});
 
    auto cmdHello = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdHello);
+   ASSERT_TRUE(cmdHello);
    EXPECT_EQ(108, ID(cmdHello));
    EXPECT_EQ(2U, cmdHello->GetArgsCount());
    EXPECT_STREQ("5c:b9:01:f8:b6:49", cmdHello->GetArgAt(0).data());
@@ -356,17 +356,17 @@ TEST_F(ConnectingFixture, retries_hello_on_invalid_state_and_disconnects_on_sock
    ctrl->OnEvent(10, {"5c:b9:01:f8:b6:49", "Chalie Chaplin"});
 
    auto hello1 = proxy->PopNextCommand();
-   EXPECT_TRUE(hello1);
+   ASSERT_TRUE(hello1);
    EXPECT_EQ(108, ID(hello1));
    hello1->Respond(0xffffffffffffffff);
 
    auto hello2 = proxy->PopNextCommand();
-   EXPECT_TRUE(hello2);
+   ASSERT_TRUE(hello2);
    EXPECT_EQ(108, ID(hello2));
    hello2->Respond(7);
 
    auto disconnect = proxy->PopNextCommand();
-   EXPECT_TRUE(disconnect);
+   ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
    EXPECT_STREQ("5c:b9:01:f8:b6:49", disconnect->GetArgAt(0).data());
@@ -382,13 +382,13 @@ TEST_F(ConnectingFixture, disconnects_on_read_error_and_does_not_retry_hello)
    ctrl->OnEvent(10, {"5c:b9:01:f8:b6:49", "Chalie Chaplin"});
 
    auto hello = proxy->PopNextCommand();
-   EXPECT_TRUE(hello);
+   ASSERT_TRUE(hello);
    EXPECT_EQ(108, ID(hello));
    EXPECT_TRUE(proxy->NoCommands());
 
    ctrl->OnEvent(19, {"5c:b9:01:f8:b6:49", ""});
    auto disconnect = proxy->PopNextCommand();
-   EXPECT_TRUE(disconnect);
+   ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
    EXPECT_STREQ("5c:b9:01:f8:b6:49", disconnect->GetArgAt(0).data());
@@ -405,14 +405,14 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    ctrl->OnEvent(10, {"5c:b9:01:f8:b6:49", "Chalie Chaplin"});
 
    auto cmdHello = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdHello);
+   ASSERT_TRUE(cmdHello);
    EXPECT_EQ(108, ID(cmdHello));
    cmdHello->Respond(0);
    logger.Clear();
 
    ctrl->OnEvent(12, {}); // start
    auto toast = proxy->PopNextCommand();
-   EXPECT_TRUE(toast);
+   ASSERT_TRUE(toast);
    EXPECT_EQ(110, ID(toast));
    EXPECT_EQ(2U, toast->GetArgsCount());
    EXPECT_STREQ("3", toast->GetArgAt(1).data());
@@ -430,11 +430,11 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
 
    auto stopDiscovery = proxy->PopNextCommand();
-   EXPECT_TRUE(stopDiscovery);
+   ASSERT_TRUE(stopDiscovery);
    EXPECT_EQ(103, ID(stopDiscovery));
 
    auto stopListening = proxy->PopNextCommand();
-   EXPECT_TRUE(stopListening);
+   ASSERT_TRUE(stopListening);
    EXPECT_EQ(102, ID(stopListening));
 }
 
@@ -449,7 +449,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
 
    for (int i = 0; i < 3; ++i) {
       auto cmdHello = proxy->PopNextCommand();
-      EXPECT_TRUE(cmdHello);
+      ASSERT_TRUE(cmdHello);
       cmdHello->Respond(0);
    }
 
@@ -458,7 +458,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
       14,
       {R"(<Hello><Mac>5c:b9:01:f8:b6:40</Mac></Hello>)", "5c:b9:01:f8:b6:44", "Charlie Chaplin 4"});
    auto cmdHello = proxy->PopNextCommand();
-   EXPECT_TRUE(cmdHello);
+   ASSERT_TRUE(cmdHello);
    EXPECT_EQ(108, ID(cmdHello));
    EXPECT_EQ(2U, cmdHello->GetArgsCount());
    EXPECT_STREQ("5c:b9:01:f8:b6:44", cmdHello->GetArgAt(0).data());
@@ -468,7 +468,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    // 1 disconnects
    ctrl->OnEvent(19, {"5c:b9:01:f8:b6:42", ""});
    auto disconnect = proxy->PopNextCommand();
-   EXPECT_TRUE(disconnect);
+   ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
    EXPECT_STREQ("5c:b9:01:f8:b6:42", disconnect->GetArgAt(0).data());
@@ -482,12 +482,12 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
 
    auto stopDiscovery = proxy->PopNextCommand();
-   EXPECT_TRUE(stopDiscovery);
+   ASSERT_TRUE(stopDiscovery);
    auto stopListening = proxy->PopNextCommand();
-   EXPECT_TRUE(stopListening);
+   ASSERT_TRUE(stopListening);
 
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
    negotiationStart->Respond(0);
 
@@ -501,7 +501,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    // local offer is being broadcast
    {
       auto offer = proxy->PopNextCommand();
-      EXPECT_TRUE(offer);
+      ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
       EXPECT_STREQ("5c:b9:01:f8:b6:44", offer->GetArgAt(0).data());
@@ -510,7 +510,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    }
    {
       auto offer = proxy->PopNextCommand();
-      EXPECT_TRUE(offer);
+      ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
       EXPECT_STREQ("5c:b9:01:f8:b6:43", offer->GetArgAt(0).data());
@@ -519,7 +519,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    }
    {
       auto offer = proxy->PopNextCommand();
-      EXPECT_TRUE(offer);
+      ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
       EXPECT_STREQ("5c:b9:01:f8:b6:41", offer->GetArgAt(0).data());
@@ -573,7 +573,7 @@ protected:
    {
       for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
          auto offer = proxy->PopNextCommand();
-         EXPECT_TRUE(offer);
+         ASSERT_TRUE(offer);
          EXPECT_EQ(108, ID(offer));
          EXPECT_EQ(2U, offer->GetArgsCount());
          EXPECT_STREQ(it->mac.c_str(), offer->GetArgAt(0).data());
@@ -614,7 +614,7 @@ TEST_F(NegotiatingFixture10, goes_to_negotiation_successfully)
 TEST_F(NegotiatingFixture4, increases_round_appropriately)
 {
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
    negotiationStart->Respond(0);
 
@@ -662,7 +662,7 @@ TEST_F(NegotiatingFixture4, increases_round_appropriately)
 
    timer->FastForwardTime(1s);
    auto negotiationStop = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStop);
+   ASSERT_TRUE(negotiationStop);
    EXPECT_EQ(107, ID(negotiationStop));
    EXPECT_EQ(1U, negotiationStop->GetArgsCount());
    EXPECT_STREQ("Charlie Chaplin 1", negotiationStop->GetArgAt(0).data());
@@ -675,7 +675,7 @@ TEST_F(NegotiatingFixture4, increases_round_appropriately)
 TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_mac)
 {
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
    negotiationStart->Respond(0);
 
@@ -701,7 +701,7 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    // peer 1 disconnected from us as well
    ctrl->OnEvent(19, {"5c:b9:01:f8:b6:41", ""});
    auto disconnect = proxy->PopNextCommand();
-   EXPECT_TRUE(disconnect);
+   ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
    EXPECT_STREQ("5c:b9:01:f8:b6:41", disconnect->GetArgAt(0).data());
@@ -712,7 +712,7 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    const char * expectedOffer = R"(<Offer round="7"><Mac>5c:b9:01:f8:b6:42</Mac></Offer>)";
    {
       auto offer = proxy->PopNextCommand();
-      EXPECT_TRUE(offer);
+      ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
       EXPECT_STREQ("5c:b9:01:f8:b6:40", offer->GetArgAt(0).data());
@@ -723,7 +723,7 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
 
    timer->FastForwardTime(1s);
    auto negotiationStop = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStop);
+   ASSERT_TRUE(negotiationStop);
    EXPECT_EQ(107, ID(negotiationStop));
    EXPECT_EQ(1U, negotiationStop->GetArgsCount());
    EXPECT_STREQ("You", negotiationStop->GetArgAt(0).data());
@@ -788,7 +788,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ctrl->OnEvent(14, {R"(<Request type="D6" size="4" successFrom="3" />)", Peers()[0].mac, ""});
 
       auto showRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(showRequest);
+      ASSERT_TRUE(showRequest);
       EXPECT_EQ(112, ID(showRequest));
       EXPECT_EQ(4U, showRequest->GetArgsCount());
       EXPECT_STREQ("D6", showRequest->GetArgAt(0).data());
@@ -801,7 +801,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          R"(<Response successCount="4" size="4" type="D6"><Val>3</Val><Val>3</Val><Val>3</Val><Val>3</Val></Response>)";
       for (const auto & peer : Peers()) {
          auto sendResponse = proxy->PopNextCommand();
-         EXPECT_TRUE(sendResponse);
+         ASSERT_TRUE(sendResponse);
          EXPECT_EQ(108, ID(sendResponse));
          EXPECT_EQ(2U, sendResponse->GetArgsCount());
          EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
@@ -810,7 +810,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       }
 
       auto showResponse = proxy->PopNextCommand();
-      EXPECT_TRUE(showResponse);
+      ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
       EXPECT_STREQ("D6", showResponse->GetArgAt(0).data());
@@ -827,7 +827,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ctrl->OnEvent(15, {"D100", "2", "43"});
 
       auto showRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(showRequest);
+      ASSERT_TRUE(showRequest);
       EXPECT_EQ(112, ID(showRequest));
       EXPECT_EQ(4U, showRequest->GetArgsCount());
       EXPECT_STREQ("D100", showRequest->GetArgAt(0).data());
@@ -839,7 +839,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       const char * expectedRequest = R"(<Request successFrom="43" size="2" type="D100" />)";
       for (const auto & peer : Peers()) {
          auto sendRequest = proxy->PopNextCommand();
-         EXPECT_TRUE(sendRequest);
+         ASSERT_TRUE(sendRequest);
          EXPECT_EQ(108, ID(sendRequest));
          EXPECT_EQ(2U, sendRequest->GetArgsCount());
          EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
@@ -851,7 +851,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          R"(<Response successCount="0" size="2" type="D100"><Val>42</Val><Val>42</Val></Response>)";
       for (const auto & peer : Peers()) {
          auto sendResponse = proxy->PopNextCommand();
-         EXPECT_TRUE(sendResponse);
+         ASSERT_TRUE(sendResponse);
          EXPECT_EQ(108, ID(sendResponse));
          EXPECT_EQ(2U, sendResponse->GetArgsCount());
          EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
@@ -860,7 +860,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       }
 
       auto showResponse = proxy->PopNextCommand();
-      EXPECT_TRUE(showResponse);
+      ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
       EXPECT_STREQ("D100", showResponse->GetArgAt(0).data());
@@ -877,7 +877,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ctrl->OnEvent(15, {"D100", "2"});
 
       auto showRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(showRequest);
+      ASSERT_TRUE(showRequest);
       EXPECT_EQ(112, ID(showRequest));
       EXPECT_EQ(4U, showRequest->GetArgsCount());
       EXPECT_STREQ("D100", showRequest->GetArgAt(0).data());
@@ -889,7 +889,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       const char * expectedRequest = R"(<Request size="2" type="D100" />)";
       for (const auto & peer : Peers()) {
          auto sendRequest = proxy->PopNextCommand();
-         EXPECT_TRUE(sendRequest);
+         ASSERT_TRUE(sendRequest);
          EXPECT_EQ(108, ID(sendRequest));
          EXPECT_EQ(2U, sendRequest->GetArgsCount());
          EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
@@ -901,7 +901,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          R"(<Response size="2" type="D100"><Val>42</Val><Val>42</Val></Response>)";
       for (const auto & peer : Peers()) {
          auto sendResponse = proxy->PopNextCommand();
-         EXPECT_TRUE(sendResponse);
+         ASSERT_TRUE(sendResponse);
          EXPECT_EQ(108, ID(sendResponse));
          EXPECT_EQ(2U, sendResponse->GetArgsCount());
          EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
@@ -910,7 +910,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       }
 
       auto showResponse = proxy->PopNextCommand();
-      EXPECT_TRUE(showResponse);
+      ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
       EXPECT_STREQ("D100", showResponse->GetArgAt(0).data());
@@ -933,13 +933,13 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
 
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
    negotiationStart->Respond(0);
 
    for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
       auto sendOffer = proxy->PopNextCommand();
-      EXPECT_TRUE(sendOffer);
+      ASSERT_TRUE(sendOffer);
       EXPECT_EQ(108, ID(sendOffer));
       EXPECT_EQ(2U, sendOffer->GetArgsCount());
       EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
@@ -958,7 +958,7 @@ TEST_F(P2R13, remote_generator_is_respected)
       // peer 0 makes a request
       ctrl->OnEvent(14, {R"(<Request type="D8" size="1" />)", Peers()[0].mac, ""});
       auto showRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(showRequest);
+      ASSERT_TRUE(showRequest);
       EXPECT_EQ(112, ID(showRequest));
       EXPECT_EQ(4U, showRequest->GetArgsCount());
       EXPECT_STREQ("D8", showRequest->GetArgAt(0).data());
@@ -982,7 +982,7 @@ TEST_F(P2R13, remote_generator_is_respected)
          14,
          {R"(<Response size="1" type="D8"><Val>1</Val></Response> )", Peers()[1].mac, ""});
       auto showResponse = proxy->PopNextCommand();
-      EXPECT_TRUE(showResponse);
+      ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
       EXPECT_STREQ("D8", showResponse->GetArgAt(0).data());
@@ -997,7 +997,7 @@ TEST_F(P2R13, remote_generator_is_respected)
    {
       ctrl->OnEvent(15, {"D4", "1", "3"});
       auto showRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(showRequest);
+      ASSERT_TRUE(showRequest);
       EXPECT_EQ(112, ID(showRequest));
       EXPECT_EQ(4U, showRequest->GetArgsCount());
       EXPECT_STREQ("D4", showRequest->GetArgAt(0).data());
@@ -1009,7 +1009,7 @@ TEST_F(P2R13, remote_generator_is_respected)
       const char * expectedRequest = R"(<Request successFrom="3" size="1" type="D4" />)";
       for (const auto & peer : Peers()) {
          auto sendRequest = proxy->PopNextCommand();
-         EXPECT_TRUE(sendRequest);
+         ASSERT_TRUE(sendRequest);
          EXPECT_EQ(108, ID(sendRequest));
          EXPECT_EQ(2U, sendRequest->GetArgsCount());
          EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
@@ -1021,7 +1021,7 @@ TEST_F(P2R13, remote_generator_is_respected)
       timer->FastForwardTime(1s);
 
       auto sendRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(sendRequest);
+      ASSERT_TRUE(sendRequest);
       EXPECT_EQ(108, ID(sendRequest));
       EXPECT_EQ(2U, sendRequest->GetArgsCount());
       EXPECT_STREQ(Peers()[1].mac.c_str(), sendRequest->GetArgAt(0).data());
@@ -1034,7 +1034,7 @@ TEST_F(P2R13, remote_generator_is_respected)
                      Peers()[1].mac,
                      ""});
       auto showResponse = proxy->PopNextCommand();
-      EXPECT_TRUE(showResponse);
+      ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
       EXPECT_STREQ("D4", showResponse->GetArgAt(0).data());
@@ -1052,7 +1052,7 @@ TEST_F(P2R13, remote_generator_is_respected)
    for (int i = 0; i < 7; ++i) {
       ctrl->OnEvent(14, {R"(<Request successFrom="3" type="D4" size="1" />)", Peers()[0].mac, ""});
       auto showRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(showRequest);
+      ASSERT_TRUE(showRequest);
       EXPECT_EQ(112, ID(showRequest));
       EXPECT_EQ(4U, showRequest->GetArgsCount());
       EXPECT_STREQ("D4", showRequest->GetArgAt(0).data());
@@ -1067,7 +1067,7 @@ TEST_F(P2R13, remote_generator_is_respected)
                      Peers()[1].mac,
                      ""});
       auto showResponse = proxy->PopNextCommand();
-      EXPECT_TRUE(showResponse);
+      ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
       EXPECT_STREQ("D4", showResponse->GetArgAt(0).data());
@@ -1091,7 +1091,7 @@ TEST_F(P2R13, remote_generator_is_respected)
                   Peers()[1].mac,
                   ""});
    auto showResponse = proxy->PopNextCommand();
-   EXPECT_TRUE(showResponse);
+   ASSERT_TRUE(showResponse);
    EXPECT_EQ(113, ID(showResponse));
    EXPECT_EQ(4u, showResponse->GetArgsCount());
    EXPECT_STREQ("D6", showResponse->GetArgAt(0).data());
@@ -1103,14 +1103,14 @@ TEST_F(P2R13, remote_generator_is_respected)
    // starting negotiation
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
    negotiationStart->Respond(0);
 
    std::string offer = R"(<Offer round="14"><Mac>)" + localMac + "</Mac></Offer>";
    for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
       auto sendOffer = proxy->PopNextCommand();
-      EXPECT_TRUE(sendOffer);
+      ASSERT_TRUE(sendOffer);
       EXPECT_EQ(108, ID(sendOffer));
       EXPECT_EQ(2U, sendOffer->GetArgsCount());
       EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
@@ -1126,7 +1126,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
 {
    ctrl->OnEvent(15, {"D4", "1", "3"});
    auto showRequest = proxy->PopNextCommand();
-   EXPECT_TRUE(showRequest);
+   ASSERT_TRUE(showRequest);
    EXPECT_EQ(112, ID(showRequest));
    showRequest->Respond(0);
 
@@ -1134,7 +1134,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
    const char * expectedRequest = R"(<Request successFrom="3" size="1" type="D4" />)";
    for (const auto & peer : Peers()) {
       auto sendRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(sendRequest);
+      ASSERT_TRUE(sendRequest);
       EXPECT_EQ(108, ID(sendRequest));
       EXPECT_EQ(2U, sendRequest->GetArgsCount());
       EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
@@ -1149,7 +1149,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
                   Peers()[0].mac,
                   ""});
    auto showResponse = proxy->PopNextCommand();
-   EXPECT_TRUE(showResponse);
+   ASSERT_TRUE(showResponse);
    EXPECT_EQ(113, ID(showResponse));
    showResponse->Respond(0);
 
@@ -1157,7 +1157,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
    for (int i = 0; i < 2; ++i) {
       timer->FastForwardTime(1s);
       auto sendRequest = proxy->PopNextCommand();
-      EXPECT_TRUE(sendRequest);
+      ASSERT_TRUE(sendRequest);
       EXPECT_EQ(108, ID(sendRequest));
       EXPECT_EQ(2U, sendRequest->GetArgsCount());
       EXPECT_STREQ(Peers()[0].mac.c_str(), sendRequest->GetArgAt(0).data());
@@ -1170,14 +1170,14 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
    timer->FastForwardTime(1s);
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
    negotiationStart->Respond(0);
 
    std::string offer = R"(<Offer round="16"><Mac>)" + Peers()[1].mac + "</Mac></Offer>";
    for (auto it = std::crbegin(Peers()); it != std::crend(Peers()); ++it) {
       auto sendOffer = proxy->PopNextCommand();
-      EXPECT_TRUE(sendOffer);
+      ASSERT_TRUE(sendOffer);
       EXPECT_EQ(108, ID(sendOffer));
       EXPECT_EQ(2U, sendOffer->GetArgsCount());
       EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
@@ -1207,14 +1207,14 @@ TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
 
    // so we should disconnect peer 1 and start negotiation...
    auto disconnect = proxy->PopNextCommand();
-   EXPECT_TRUE(disconnect);
+   ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
    EXPECT_STREQ(Peers()[1].mac.c_str(), disconnect->GetArgAt(0).data());
 
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
    auto negotiationStart = proxy->PopNextCommand();
-   EXPECT_TRUE(negotiationStart);
+   ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(106, ID(negotiationStart));
 
    EXPECT_TRUE(proxy->NoCommands());
@@ -1224,7 +1224,7 @@ TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
    // ...with only one remote peer
    std::string expectedOffer = R"(<Offer round="19"><Mac>)" + localMac + "</Mac></Offer>";
    auto sendOffer = proxy->PopNextCommand();
-   EXPECT_TRUE(sendOffer);
+   ASSERT_TRUE(sendOffer);
    EXPECT_EQ(108, ID(sendOffer));
    EXPECT_EQ(2U, sendOffer->GetArgsCount());
    EXPECT_STREQ(Peers()[0].mac.c_str(), sendOffer->GetArgAt(0).data());
@@ -1241,14 +1241,14 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
    ctrl->OnEvent(16, {}); // game stopped
 
    auto reset = proxy->PopNextCommand();
-   EXPECT_TRUE(reset);
+   ASSERT_TRUE(reset);
    EXPECT_EQ(114, ID(reset));
    EXPECT_EQ(0U, reset->GetArgsCount());
    reset->Respond(0);
 
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
    auto btOn = proxy->PopNextCommand();
-   EXPECT_TRUE(btOn);
+   ASSERT_TRUE(btOn);
    EXPECT_EQ(105, ID(btOn));
    EXPECT_EQ(0U, btOn->GetArgsCount());
    btOn->Respond(0);
