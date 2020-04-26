@@ -130,7 +130,7 @@ bool BluetoothOff::Handle(fsm::StateHolder & stateHolder, const std::vector<std:
 {
    StateInvoke(
       [](auto & s) {
-         s.OnBluetoothOn();
+         s.OnBluetoothOff();
       },
       stateHolder);
    return true;

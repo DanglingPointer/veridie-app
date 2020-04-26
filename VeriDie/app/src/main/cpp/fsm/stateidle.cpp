@@ -61,11 +61,12 @@ void StateIdle::RequestBluetoothOn()
                   RequestBluetoothOn();
                });
             },
-            [this](auto) {
+            [this](cmd::ResponseCode::NO_BT_ADAPTER) {
                m_ctx.proxy->Forward<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
                                                       "Cannot proceed due to a fatal failure.");
                m_ctx.state->emplace<std::monostate>();
-            });
+            },
+            [](cmd::ResponseCode::USER_DECLINED) {});
       },
       &m_enableBtCb));
 }

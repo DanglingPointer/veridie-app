@@ -27,23 +27,6 @@ StateConnecting::StateConnecting(const Context & ctx)
    : m_ctx(ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
-   m_ctx.proxy->Forward<cmd::StartListening>(MakeCb(
-      [this](cmd::StartListeningResponse result) {
-         result.Handle(
-            [this](cmd::ResponseCode::OK) {
-               m_listening = true;
-            },
-            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
-               OnBluetoothOff();
-            },
-            [this](auto) {
-               m_listening = false;
-               CheckStatus();
-            });
-      }),
-      APP_UUID,
-      APP_NAME,
-      DISCOVERABILITY_DURATION);
    const bool includePaired = true;
    m_ctx.proxy->Forward<cmd::StartDiscovery>(MakeCb(
       [this](cmd::StartDiscoveryResponse result) {
@@ -62,6 +45,23 @@ StateConnecting::StateConnecting(const Context & ctx)
       APP_UUID,
       APP_NAME,
       includePaired);
+   m_ctx.proxy->Forward<cmd::StartListening>(MakeCb(
+      [this](cmd::StartListeningResponse result) {
+         result.Handle(
+            [this](cmd::ResponseCode::OK) {
+               m_listening = true;
+            },
+            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
+               OnBluetoothOff();
+            },
+            [this](auto) {
+               m_listening = false;
+               CheckStatus();
+            });
+      }),
+      APP_UUID,
+      APP_NAME,
+      DISCOVERABILITY_DURATION);
 }
 
 StateConnecting::~StateConnecting()

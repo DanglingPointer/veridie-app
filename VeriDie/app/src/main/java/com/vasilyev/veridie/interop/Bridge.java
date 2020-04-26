@@ -9,11 +9,18 @@ public final class Bridge
     private static final String TAG = Bridge.class.getName();
 
     private static CommandHandler s_uiHandler;
+    public static synchronized  void setUiCmdHandler(CommandHandler handler) {
+        Log.d(TAG, "ui handler set");
+        s_uiHandler = handler;
+        if (s_uiHandler != null && s_btHandler!= null)
+            bridgeReady();
+    }
     private static CommandHandler s_btHandler;
-    public static void setCommandHandlers(CommandHandler uiHandler, CommandHandler btHandler) {
-        s_uiHandler = uiHandler;
-        s_btHandler = btHandler;
-        bridgeReady();
+    public static synchronized void setBtCmdHandler(CommandHandler handler) {
+        Log.d(TAG, "bt handler set");
+        s_btHandler = handler;
+        if (s_uiHandler != null && s_btHandler != null)
+            bridgeReady();
     }
 
     public static void send(Event e) {

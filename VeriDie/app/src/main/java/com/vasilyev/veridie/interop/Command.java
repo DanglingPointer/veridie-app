@@ -2,7 +2,7 @@ package com.vasilyev.veridie.interop;
 
 public interface Command
 {
-    // command IDs, must be in sync with core/commands.hpp but bitshifted by 8 to the right
+    // command IDs, must be in sync with sign/commands.hpp but bitshifted by 8 to the right
     int ID_START_LISTENING = 100;
     int ID_START_DISCOVERY = 101;
     int ID_STOP_LISTENING = 102;
@@ -19,7 +19,7 @@ public interface Command
     int ID_SHOW_RESPONSE = 113;
     int ID_RESET_GAME = 114;
 
-    // result codes, must be in sync with core/commands.hpp
+    // result codes, must be in sync with sign/commands.hpp
     long ERROR_NO_ERROR = 0;
     long ERROR_INVALID_STATE = 0xffffffffffffffffL;
     long ERROR_BLUETOOTH_OFF = 2;
@@ -29,8 +29,14 @@ public interface Command
     long ERROR_USER_DECLINED = 6;
     long ERROR_SOCKET_ERROR = 7;
 
+    interface Callback
+    {
+        void onCommand(Command cmd);
+    }
+
     int getId();
     int getNativeId();
     String[] getArgs();
     void respond(long result);
+
 }

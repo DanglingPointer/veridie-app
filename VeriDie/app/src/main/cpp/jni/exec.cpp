@@ -99,7 +99,8 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_bridgeReady(JNIE
    auto globalRef = static_cast<jclass>(env->NewGlobalRef(localRef));
    JniWorker().ScheduleTask([globalRef](void * arg) {
       auto * ctx = static_cast<Context *>(arg);
-      ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
+      if (!ctx->cmdMgr)
+         ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
    });
    core::Exec([](auto) {
       // Do nothing; this will create Controller and states

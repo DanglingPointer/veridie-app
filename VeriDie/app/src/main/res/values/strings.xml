@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">VeriDie</string>
+    <string name="idle_welcome_text">Press button below to start connecting to other players!</string>
+    <string name="idle_btn_start_connecting">New game</string>
 </resources>

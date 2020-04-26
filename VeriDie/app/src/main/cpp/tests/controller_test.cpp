@@ -169,10 +169,6 @@ TEST_F(IdlingFixture, state_idle_bluetooth_fatal_failure)
    // user declined
    c->Respond(6);
    EXPECT_TRUE(logger.Empty());
-   c = proxy->PopNextCommand();
-   ASSERT_TRUE(c);
-   EXPECT_EQ(109, ID(c)); // text message
-   EXPECT_EQ(1U, c->GetArgsCount());
    EXPECT_TRUE(proxy->NoCommands());
 
    // no retries
@@ -182,7 +178,10 @@ TEST_F(IdlingFixture, state_idle_bluetooth_fatal_failure)
 
    // new game requested
    ctrl->OnEvent(13, {});
-   EXPECT_TRUE(proxy->NoCommands());
+   c = proxy->PopNextCommand();
+   ASSERT_TRUE(c);
+   EXPECT_EQ(105, ID(c)); // enable bt
+   EXPECT_EQ(0U, c->GetArgsCount());
    EXPECT_TRUE(logger.Empty());
 }
 
@@ -225,6 +224,45 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
    EXPECT_TRUE(logger.Empty());
 }
 
+TEST_F(IdlingFixture, state_idle_retry_after_bluetooth_off_and_user_declined)
+{
+   auto ctrl = CreateController();
+   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   logger.Clear();
+   {
+      auto enableBt = proxy->PopNextCommand();
+      ASSERT_TRUE(enableBt);
+      EXPECT_EQ(105, ID(enableBt));
+      EXPECT_EQ(0U, enableBt->GetArgsCount());
+      enableBt->Respond(0);
+   }
+
+   // bluetooth off
+   ctrl->OnEvent(18, {});
+   {
+      auto enableBt = proxy->PopNextCommand();
+      ASSERT_TRUE(enableBt);
+      EXPECT_EQ(105, ID(enableBt));
+      EXPECT_EQ(0U, enableBt->GetArgsCount());
+      enableBt->Respond(6); // user declined
+   }
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(2s);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   // new game
+   ctrl->OnEvent(13, {});
+   {
+      auto enableBt = proxy->PopNextCommand();
+      ASSERT_TRUE(enableBt);
+      EXPECT_EQ(105, ID(enableBt));
+      EXPECT_EQ(0U, enableBt->GetArgsCount());
+      enableBt->Respond(0);
+   }
+   EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
+}
+
 class ConnectingFixture : public IdlingFixture
 {
 protected:
@@ -240,12 +278,12 @@ protected:
    }
    void StartDiscoveryAndListening()
    {
-      auto cmdListening = proxy->PopNextCommand();
-      ASSERT_TRUE(cmdListening);
-      EXPECT_EQ(100, ID(cmdListening));
       auto cmdDiscovering = proxy->PopNextCommand();
       ASSERT_TRUE(cmdDiscovering);
       EXPECT_EQ(101, ID(cmdDiscovering));
+      auto cmdListening = proxy->PopNextCommand();
+      ASSERT_TRUE(cmdListening);
+      EXPECT_EQ(100, ID(cmdListening));
       cmdDiscovering->Respond(0);
       cmdListening->Respond(0);
       EXPECT_TRUE(proxy->NoCommands());
@@ -256,17 +294,17 @@ protected:
 
 TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
 {
-   auto cmdListening = proxy->PopNextCommand();
-   ASSERT_TRUE(cmdListening);
-   EXPECT_EQ(100, ID(cmdListening));
-   EXPECT_EQ(3U, cmdListening->GetArgsCount());
-   EXPECT_EQ("60", cmdListening->GetArgAt(2));
-
    auto cmdDiscovering = proxy->PopNextCommand();
    ASSERT_TRUE(cmdDiscovering);
    EXPECT_EQ(101, ID(cmdDiscovering));
    EXPECT_EQ(3U, cmdDiscovering->GetArgsCount());
    EXPECT_STREQ("true", cmdDiscovering->GetArgAt(2).data());
+
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
+   EXPECT_EQ(3U, cmdListening->GetArgsCount());
+   EXPECT_EQ("60", cmdListening->GetArgAt(2));
 
    cmdListening->Respond(0);
    cmdDiscovering->Respond(0);
@@ -275,10 +313,12 @@ TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
 
 TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed)
 {
-   auto cmdListening = proxy->PopNextCommand();
-   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
    ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
 
    logger.Clear();
    cmdDiscovering->Respond(0xffffffffffffffff);
@@ -292,10 +332,12 @@ TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed
 
 TEST_F(ConnectingFixture, no_fatal_failure_when_only_listening_failed)
 {
-   auto cmdListening = proxy->PopNextCommand();
-   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
    ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
 
    cmdDiscovering->Respond(0);
    cmdListening->Respond(3);
@@ -304,10 +346,12 @@ TEST_F(ConnectingFixture, no_fatal_failure_when_only_listening_failed)
 
 TEST_F(ConnectingFixture, no_fatal_failure_when_only_discovery_failed)
 {
-   auto cmdListening = proxy->PopNextCommand();
-   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
    ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
 
    cmdDiscovering->Respond(0xffffffffffffffff);
    cmdListening->Respond(0);
@@ -316,10 +360,12 @@ TEST_F(ConnectingFixture, no_fatal_failure_when_only_discovery_failed)
 
 TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
 {
-   auto cmdListening = proxy->PopNextCommand();
-   ASSERT_TRUE(cmdListening);
    auto cmdDiscovering = proxy->PopNextCommand();
    ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
 
    cmdDiscovering->Respond(2);
    cmdListening->Respond(2);

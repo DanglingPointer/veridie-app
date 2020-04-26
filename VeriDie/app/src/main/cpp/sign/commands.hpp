@@ -134,6 +134,7 @@ private:
 using StartListeningResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
    ResponseCode::BLUETOOTH_OFF,
+   ResponseCode::USER_DECLINED,
    ResponseCode::LISTEN_FAILED>;
 
 using StartListening = CommonBase<
@@ -144,6 +145,7 @@ using StartListening = CommonBase<
 
 using StartDiscoveryResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
+   ResponseCode::NO_BT_ADAPTER,
    ResponseCode::BLUETOOTH_OFF>;
 
 using StartDiscovery = CommonBase<
@@ -276,6 +278,7 @@ using ResetGame = CommonBase<
 template <typename... T> struct List {};
 
 using BtDictionary = List<
+   EnableBluetooth,
    StartListening,
    StartDiscovery,
    StopListening,
@@ -284,7 +287,6 @@ using BtDictionary = List<
    SendMessage>;
 
 using UiDictionary = List<
-   EnableBluetooth,
    NegotiationStart,
    NegotiationStop,
    ShowAndExit,

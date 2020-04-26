@@ -67,7 +67,8 @@ public class InteropTest
    public void setupHandler() {
       cht = new CommandHandlerThread();
       cht.start();
-      Bridge.setCommandHandlers(cht.getHandler(), cht.getHandler());
+      Bridge.setUiCmdHandler(cht.getHandler());
+      Bridge.setBtCmdHandler(cht.getHandler());
    }
 
    @After
