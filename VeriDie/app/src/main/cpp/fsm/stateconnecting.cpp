@@ -2,7 +2,7 @@
 
 #include "bt/device.hpp"
 #include "fsm/states.hpp"
-#include "jni/proxy.hpp"
+#include "core/proxy.hpp"
 #include "dice/serializer.hpp"
 #include "sign/commands.hpp"
 #include "core/logging.hpp"

@@ -5,7 +5,7 @@
 #include "core/logging.hpp"
 #include "core/timerengine.hpp"
 #include "sign/commands.hpp"
-#include "jni/proxy.hpp"
+#include "core/proxy.hpp"
 #include "utils/canceller.hpp"
 
 namespace dice {
@@ -62,7 +62,7 @@ class EchoController
    , private async::Canceller<>
 {
 public:
-   EchoController(ILogger & logger, std::unique_ptr<jni::IProxy> proxy)
+   EchoController(ILogger & logger, std::unique_ptr<core::Proxy> proxy)
       : m_logger(logger)
       , m_proxy(std::move(proxy))
    {}
@@ -80,14 +80,14 @@ public:
 
 private:
    ILogger & m_logger;
-   std::unique_ptr<jni::IProxy> m_proxy;
+   std::unique_ptr<core::Proxy> m_proxy;
 };
 
 } // namespace
 
 namespace core {
 
-std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
+std::unique_ptr<IController> CreateController(std::unique_ptr<core::Proxy> proxy,
                                               std::unique_ptr<dice::IEngine> /*engine*/,
                                               std::unique_ptr<core::ITimerEngine> /*timer*/,
                                               std::unique_ptr<dice::ISerializer> /*serializer*/,

@@ -4,7 +4,7 @@
 #include "core/logging.hpp"
 #include "core/timerengine.hpp"
 #include "sign/commands.hpp"
-#include "jni/proxy.hpp"
+#include "core/proxy.hpp"
 
 namespace fsm {
 using namespace std::chrono_literals;

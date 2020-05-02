@@ -5,13 +5,11 @@
 
 namespace core {
 class ITimerEngine;
+class Proxy;
 }
 namespace dice {
 class IEngine;
 class ISerializer;
-}
-namespace jni {
-class IProxy;
 }
 
 class ILogger;
@@ -32,7 +30,7 @@ struct Context
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
    core::ITimerEngine * const timer;
-   jni::IProxy * const proxy;
+   core::Proxy * const proxy;
 
    StateHolder * const state;
 };

@@ -7,7 +7,7 @@
 #include "core/timerengine.hpp"
 #include "dice/serializer.hpp"
 #include "dice/engine.hpp"
-#include "jni/proxy.hpp"
+#include "core/proxy.hpp"
 #include "sign/commands.hpp"
 
 using namespace std::chrono_literals;
@@ -57,7 +57,7 @@ class StatePlaying::RemotePeerManager : private async::Canceller<32>
 {
 public:
    RemotePeerManager(const bt::Device & remote,
-                     jni::IProxy & proxy,
+                     core::Proxy & proxy,
                      core::ITimerEngine & timer,
                      bool isGenerator,
                      std::function<void()> renegotiate)
@@ -143,7 +143,7 @@ private:
    }
 
    bt::Device m_remote;
-   jni::IProxy & m_proxy;
+   core::Proxy & m_proxy;
    core::ITimerEngine & m_timer;
    std::function<void()> m_renegotiate;
    const bool m_isGenerator;

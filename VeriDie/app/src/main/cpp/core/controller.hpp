@@ -6,9 +6,6 @@
 
 class ILogger;
 
-namespace jni {
-class IProxy;
-}
 namespace dice {
 class IEngine;
 class ISerializer;
@@ -16,6 +13,7 @@ class ISerializer;
 
 namespace core {
 class ITimerEngine;
+class Proxy;
 
 class IController
 {
@@ -24,7 +22,7 @@ public:
    virtual void OnEvent(int32_t eventId, const std::vector<std::string> & args) = 0;
 };
 
-std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
+std::unique_ptr<IController> CreateController(std::unique_ptr<core::Proxy> proxy,
                                               std::unique_ptr<dice::IEngine> engine,
                                               std::unique_ptr<core::ITimerEngine> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,

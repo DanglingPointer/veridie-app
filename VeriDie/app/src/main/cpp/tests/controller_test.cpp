@@ -15,7 +15,7 @@
 namespace {
 using namespace std::chrono_literals;
 
-class MockProxy : public jni::IProxy
+class MockProxy : public core::Proxy
 {
 public:
    std::unique_ptr<cmd::ICommand> PopNextCommand()
@@ -31,7 +31,6 @@ public:
 private:
    void ForwardCommandToUi(std::unique_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
    void ForwardCommandToBt(std::unique_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
-   void ForwardCommand(std::unique_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
 
 private:
    std::queue<std::unique_ptr<cmd::ICommand>> m_q;
@@ -121,7 +120,7 @@ protected:
       proxy = new MockProxy;
       timer = new MockTimerEngine;
       generator = new StubGenerator;
-      return core::CreateController(std::unique_ptr<jni::IProxy>(proxy),
+      return core::CreateController(std::unique_ptr<core::Proxy>(proxy),
                                     std::unique_ptr<dice::IEngine>(generator),
                                     std::unique_ptr<core::ITimerEngine>(timer),
                                     dice::CreateXmlSerializer(),

@@ -2,7 +2,7 @@
 
 #include "core/controller.hpp"
 #include "core/logging.hpp"
-#include "jni/proxy.hpp"
+#include "core/proxy.hpp"
 #include "dice/engine.hpp"
 #include "core/timerengine.hpp"
 #include "dice/serializer.hpp"
@@ -15,7 +15,7 @@ class Controller : public core::IController
 {
 public:
    Controller(ILogger & logger,
-              std::unique_ptr<jni::IProxy> proxy,
+              std::unique_ptr<core::Proxy> proxy,
               std::unique_ptr<dice::IEngine> engine,
               std::unique_ptr<core::ITimerEngine> timer,
               std::unique_ptr<dice::ISerializer> serializer)
@@ -56,7 +56,7 @@ private:
    }
 
    ILogger & m_logger;
-   std::unique_ptr<jni::IProxy> m_proxy;
+   std::unique_ptr<core::Proxy> m_proxy;
    std::unique_ptr<dice::IEngine> m_generator;
    std::unique_ptr<core::ITimerEngine> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;
@@ -69,7 +69,7 @@ private:
 
 namespace core {
 
-std::unique_ptr<IController> CreateController(std::unique_ptr<jni::IProxy> proxy,
+std::unique_ptr<IController> CreateController(std::unique_ptr<core::Proxy> proxy,
                                               std::unique_ptr<dice::IEngine> engine,
                                               std::unique_ptr<core::ITimerEngine> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,
