@@ -37,7 +37,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         @Override
         public void onServiceConnected(ComponentName name, IBinder service)
         {
-            m_bluetooth = ((BluetoothService.BluetoothBinder)service).getService();
+            m_bluetooth = ((BluetoothService.BluetoothBinder) service).getService();
 
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             m_bluetooth.setCallbacks(MainActivity.this, mainHandler::post);
@@ -67,7 +67,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         {
             try {
                 m_handlers.get(cmd.getId()).onCommand(cmd);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 e.printStackTrace();
                 cmd.respond(Command.ERROR_INVALID_STATE);
             }

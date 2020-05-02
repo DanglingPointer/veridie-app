@@ -18,6 +18,7 @@ public interface Command
     int ID_SHOW_REQUEST = 112;
     int ID_SHOW_RESPONSE = 113;
     int ID_RESET_GAME = 114;
+    int ID_RESET_CONNECTIONS = 115;
 
     // result codes, must be in sync with sign/commands.hpp
     long ERROR_NO_ERROR = 0;

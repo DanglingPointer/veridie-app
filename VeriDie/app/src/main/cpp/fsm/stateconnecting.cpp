@@ -171,6 +171,7 @@ void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
 {
    if (retriesLeft == 0U) {
       m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+      m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
       fsm::Context ctx{m_ctx};
       m_ctx.state->emplace<StateIdle>(ctx);
       return;

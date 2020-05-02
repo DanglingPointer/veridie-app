@@ -1286,11 +1286,20 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
 {
    ctrl->OnEvent(16, {}); // game stopped
 
-   auto reset = proxy->PopNextCommand();
-   ASSERT_TRUE(reset);
-   EXPECT_EQ(114, ID(reset));
-   EXPECT_EQ(0U, reset->GetArgsCount());
-   reset->Respond(0);
+   {
+      auto reset = proxy->PopNextCommand();
+      ASSERT_TRUE(reset);
+      EXPECT_EQ(115, ID(reset));
+      EXPECT_EQ(0U, reset->GetArgsCount());
+      reset->Respond(0);
+   }
+   {
+      auto reset = proxy->PopNextCommand();
+      ASSERT_TRUE(reset);
+      EXPECT_EQ(114, ID(reset));
+      EXPECT_EQ(0U, reset->GetArgsCount());
+      reset->Respond(0);
+   }
 
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
    auto btOn = proxy->PopNextCommand();

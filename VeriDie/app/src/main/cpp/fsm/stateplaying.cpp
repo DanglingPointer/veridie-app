@@ -182,6 +182,7 @@ StatePlaying::~StatePlaying() = default;
 
 void StatePlaying::OnBluetoothOff()
 {
+   m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
    m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
    fsm::Context ctx{m_ctx};
    m_ctx.state->emplace<StateIdle>(ctx);
@@ -256,7 +257,7 @@ void StatePlaying::OnCastRequest(dice::Request && localRequest)
 
 void StatePlaying::OnGameStopped()
 {
-   // should we disconnect everybody explicitly?
+   m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
    m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
    fsm::Context ctx{m_ctx};
    m_ctx.state->emplace<StateIdle>(ctx);

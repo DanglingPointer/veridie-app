@@ -271,6 +271,14 @@ using ResetGame = CommonBase<
    ResetGameResponse>;
 
 
+using ResetConnectionsResponse = ResponseCodeSubset<
+   COMMON_RESPONSES>;
+
+using ResetConnections = CommonBase<
+   ID(115),
+   ResetConnectionsResponse>;
+
+
 #undef COMMON_RESPONSES
 #undef ID
 
@@ -284,7 +292,8 @@ using BtDictionary = List<
    StopListening,
    StopDiscovery,
    CloseConnection,
-   SendMessage>;
+   SendMessage,
+   ResetConnections>;
 
 using UiDictionary = List<
    NegotiationStart,

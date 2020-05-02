@@ -128,7 +128,7 @@ public class BluetoothService extends Service
         put(Command.ID_ENABLE_BLUETOOTH, BluetoothService.this::enableBluetooth);
         put(Command.ID_CLOSE_CONNECTION, BluetoothService.this::forwardToConnectionManager);
         put(Command.ID_SEND_MESSAGE, BluetoothService.this::forwardToConnectionManager);
-        put(Command.ID_RESET_GAME, BluetoothService.this::resetBluetooth);
+        put(Command.ID_RESET_CONNECTIONS, BluetoothService.this::resetBluetooth);
     }};
 
     private static final String TAG = BluetoothService.class.getName();

@@ -46,6 +46,7 @@ StateNegotiating::~StateNegotiating() = default;
 
 void StateNegotiating::OnBluetoothOff()
 {
+   m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
    m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
    fsm::Context ctx{m_ctx};
    ctx.state->emplace<StateIdle>(ctx);
