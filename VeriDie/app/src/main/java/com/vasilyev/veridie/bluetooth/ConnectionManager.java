@@ -106,18 +106,18 @@ public class ConnectionManager extends HandlerThread
             protected void onCommandReceived(Command cmd)
             {
                 switch (cmd.getId()) {
-                    case Command.ID_SEND_MESSAGE: {
-                        long error = sendData(cmd.getArgs()[0], cmd.getArgs()[1]);
-                        cmd.respond(error);
-                        break;
-                    }
-                    case Command.ID_CLOSE_CONNECTION: {
-                        long error = closeConnection(cmd.getArgs()[0]);
-                        cmd.respond(error);
-                        break;
-                    }
-                    default:
-                        Log.wtf(TAG, "Inappropriate command received: id=" + cmd.getId());
+                case Command.ID_SEND_MESSAGE: {
+                    long error = sendData(cmd.getArgs()[0], cmd.getArgs()[1]);
+                    cmd.respond(error);
+                    break;
+                }
+                case Command.ID_CLOSE_CONNECTION: {
+                    long error = closeConnection(cmd.getArgs()[0]);
+                    cmd.respond(error);
+                    break;
+                }
+                default:
+                    Log.wtf(TAG, "Inappropriate command received: id=" + cmd.getId());
                 }
             }
         };
@@ -133,7 +133,7 @@ public class ConnectionManager extends HandlerThread
                     continue;
                 final int length = stream.readShort();
                 int read = 0;
-                while(read < length) {
+                while (read < length) {
                     read += stream.read(m_buffer, read, length - read);
                 }
                 String message = new String(m_buffer, 0, read, StandardCharsets.UTF_8);

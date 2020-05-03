@@ -1,18 +1,24 @@
 package com.vasilyev.veridie;
 
+import android.Manifest;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.vasilyev.veridie.bluetooth.BluetoothService;
+import com.vasilyev.veridie.fragments.ConnectingFragment;
 import com.vasilyev.veridie.fragments.IdleFragment;
 import com.vasilyev.veridie.interop.Bridge;
 import com.vasilyev.veridie.interop.Command;
@@ -24,20 +30,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements BluetoothService.Callbacks, IdleFragment.Callbacks
+public class MainActivity extends AppCompatActivity implements BluetoothService.Callbacks, IdleFragment.Callbacks, ConnectingFragment.Callbacks
 {
     static {
         System.loadLibrary("veridie");
     }
 
     private static final String TAG = "MainActivity";
+    private static final String SAVED_FRAGMENT = "MainActivity.SAVED_FRAGMENT";
+    private static final int REQUEST_LOCATION_ACCESS = 10;
 
     private final ServiceConnection m_bluetoothConnection = new ServiceConnection()
     {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service)
         {
-            m_bluetooth = ((BluetoothService.BluetoothBinder) service).getService();
+            m_bluetooth = ((BluetoothService.BluetoothBinder)service).getService();
 
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             m_bluetooth.setCallbacks(MainActivity.this, mainHandler::post);
@@ -86,16 +94,30 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Fragment currentFragment;
+        if (savedInstanceState != null)
+            currentFragment = getSupportFragmentManager().getFragment(savedInstanceState, SAVED_FRAGMENT);
+        else
+            currentFragment = IdleFragment.newInstance();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, currentFragment)
+                .commit();
+
         Bridge.setUiCmdHandler(m_cmdHandler);
 
         Intent startBtIntent = new Intent(this, BluetoothService.class);
         startService(startBtIntent);
         Intent bindBtIntent = new Intent(this, BluetoothService.class);
         bindService(bindBtIntent, m_bluetoothConnection, BIND_AUTO_CREATE | BIND_IMPORTANT);
+    }
 
-        getSupportFragmentManager().beginTransaction()
-                .add(R.id.container, IdleFragment.newInstance())
-                .commit();
+    @Override
+    protected void onSaveInstanceState(Bundle outState)
+    {
+        super.onSaveInstanceState(outState);
+        Fragment currentState = getSupportFragmentManager().findFragmentById(R.id.container);
+        if (currentState != null)
+            getSupportFragmentManager().putFragment(outState, SAVED_FRAGMENT, currentState);
     }
 
     @Override
@@ -104,6 +126,23 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         unbindService(m_bluetoothConnection);
         Bridge.setUiCmdHandler(null);
         super.onDestroy();
+    }
+
+    @Override
+    public void onBackPressed()
+    {
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults)
+    {
+        switch (requestCode) {
+        case REQUEST_LOCATION_ACCESS:
+            onStartConnectingButtonPressed();
+            break;
+        default:
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 
     // ---------------Command-callbacks-------------------------------------------------------------
@@ -120,12 +159,16 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void showAndExit(Command cmd)
     {
-        Toast.makeText(this, cmd.getArgs()[0], Toast.LENGTH_LONG).show(); // temp
+        Toast.makeText(getApplicationContext(), cmd.getArgs()[0], Toast.LENGTH_LONG).show();
+        finishAndRemoveTask();
     }
 
     private void showToast(Command cmd)
     {
-
+        String message = cmd.getArgs()[0];
+        int lengthSec = Integer.parseInt(cmd.getArgs()[1]);
+        Toast.makeText(getApplicationContext(), message,
+                lengthSec >= 5 ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
     }
 
     private void showNotification(Command cmd)
@@ -145,7 +188,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void resetGame(Command cmd)
     {
-
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, IdleFragment.newInstance())
+                .commit();
     }
 
     // ---------------BluetoothService-callbacks----------------------------------------------------
@@ -153,22 +198,63 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     @Override
     public void deviceDiscovered(BluetoothDevice device)
     {
-
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.container);
+        if (current instanceof ConnectingFragment)
+            ((ConnectingFragment)current).addDiscoveredDevice(device);
     }
 
     @Override
     public void deviceConnected(BluetoothDevice device)
     {
-
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.container);
+        if (current instanceof ConnectingFragment) {
+            ((ConnectingFragment)current).removeDiscoveredDevice(device);
+            ((ConnectingFragment)current).addConnectedDevice(device);
+        }
     }
-
 
     // ---------------IdleFragment-callbacks--------------------------------------------------------
 
     @Override
     public void onStartConnectingButtonPressed()
     {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQUEST_LOCATION_ACCESS);
+            return;
+        }
+
         Bridge.send(Event.NEW_GAME_REQUESTED);
-        //TODO: change fragment
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, ConnectingFragment.newInstance())
+                .commit();
+    }
+
+    // ---------------ConnectingFragment-callbacks--------------------------------------------------
+
+    @Override
+    public void onConnectDevicePressed(BluetoothDevice device)
+    {
+        if (m_bluetooth != null)
+            m_bluetooth.connectDevice(device);
+    }
+
+    @Override
+    public void onDisconnectDevicePressed(BluetoothDevice device)
+    {
+        if (m_bluetooth != null) {
+            m_bluetooth.disconnectDevice(device);
+            Fragment current = getSupportFragmentManager().findFragmentById(R.id.container);
+            ((ConnectingFragment)current).removeConnectedDevice(device);
+        }
+    }
+
+    @Override
+    public void onFinishedConnecting()
+    {
+        Bridge.send(Event.CONNECTIVITY_ESTABLISHED);
     }
 }

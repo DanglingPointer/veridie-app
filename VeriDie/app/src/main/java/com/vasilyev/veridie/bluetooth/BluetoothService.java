@@ -61,18 +61,18 @@ public class BluetoothService extends Service
             Event e;
             long resultCode;
             switch (state) {
-                case BluetoothAdapter.STATE_ON:
-                case BluetoothAdapter.STATE_TURNING_ON:
-                    e = Event.BLUETOOTH_ON;
-                    resultCode = Command.ERROR_NO_ERROR;
-                    break;
-                case BluetoothAdapter.STATE_OFF:
-                case BluetoothAdapter.STATE_TURNING_OFF:
-                    e = Event.BLUETOOTH_OFF;
-                    resultCode = Command.ERROR_USER_DECLINED;
-                    break;
-                default:
-                    return;
+            case BluetoothAdapter.STATE_ON:
+            case BluetoothAdapter.STATE_TURNING_ON:
+                e = Event.BLUETOOTH_ON;
+                resultCode = Command.ERROR_NO_ERROR;
+                break;
+            case BluetoothAdapter.STATE_OFF:
+            case BluetoothAdapter.STATE_TURNING_OFF:
+                e = Event.BLUETOOTH_OFF;
+                resultCode = Command.ERROR_USER_DECLINED;
+                break;
+            default:
+                return;
             }
             for (Iterator<Command> it = m_pendingCmds.iterator(); it.hasNext(); ) {
                 Command cmd = it.next();
@@ -92,7 +92,7 @@ public class BluetoothService extends Service
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (m_callbacks != null)
+                if (device.getName() != null && m_callbacks != null)
                     m_callbacks.deviceDiscovered(device);
             }
         }
@@ -180,10 +180,6 @@ public class BluetoothService extends Service
             m_connectionCmdHandler = m_connectionMgr.getCommandHandler();
             registerReceiver(m_btStateReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
                     null, m_internalHandler);
-            registerReceiver(m_discoveryReceiver, new IntentFilter(BluetoothDevice.ACTION_FOUND),
-                    null, m_internalHandler);
-            registerReceiver(m_discoverabilityReceiver, new IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED),
-                    null, m_internalHandler);
             Bridge.setBtCmdHandler(myCmdHandler);
         });
     }
@@ -200,8 +196,6 @@ public class BluetoothService extends Service
     {
         m_internalHandler.postAtFrontOfQueue(() -> {
             unregisterReceiver(m_btStateReceiver);
-            unregisterReceiver(m_discoveryReceiver);
-            unregisterReceiver(m_discoverabilityReceiver);
             Bridge.setBtCmdHandler(null);
             m_acceptorThread.interrupt();
             m_connectionMgr.quitSafely();
@@ -231,6 +225,12 @@ public class BluetoothService extends Service
     @Override
     public void onTaskRemoved(Intent rootIntent)
     {
+        try {
+            unregisterReceiver(m_discoverabilityReceiver);
+            unregisterReceiver(m_discoveryReceiver);
+        }
+        catch (Exception e) {
+        }
         super.onTaskRemoved(rootIntent);
         stopSelf();
     }
@@ -265,7 +265,6 @@ public class BluetoothService extends Service
     }
 
     // Called when user wants to connect to a discovered device
-    @SuppressLint("StaticFieldLeak")
     public void connectDevice(BluetoothDevice device)
     {
         m_internalHandler.post(() -> {
@@ -274,6 +273,7 @@ public class BluetoothService extends Service
 
             BluetoothSocket socket = null;
             try {
+                Log.d(TAG, "BluetoothService: connecting to a device...");
                 socket = device.createRfcommSocketToServiceRecord(m_appUuid);
                 socket.connect();
             }
@@ -318,7 +318,7 @@ public class BluetoothService extends Service
             return;
         }
         Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        enableBtIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // ???
+        enableBtIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         m_pendingCmds.add(cmd);
         startActivity(enableBtIntent);
 
@@ -337,6 +337,8 @@ public class BluetoothService extends Service
 
     private void startListening(Command cmd)
     {
+        registerReceiver(m_discoverabilityReceiver, new IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED),
+                null, m_internalHandler);
         if (m_appUuid == null)
             m_appUuid = UUID.fromString(cmd.getArgs()[0]);
         if (m_appName == null)
@@ -345,7 +347,7 @@ public class BluetoothService extends Service
 
         Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
         discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, duration);
-        discoverableIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // ???
+        discoverableIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         m_pendingCmds.add(cmd);
         startActivity(discoverableIntent);
 
@@ -370,10 +372,13 @@ public class BluetoothService extends Service
         } else {
             cmd.respond(Command.ERROR_NO_ERROR);
         }
+        unregisterReceiver(m_discoverabilityReceiver);
     }
 
     private void startDiscovering(Command cmd)
     {
+        registerReceiver(m_discoveryReceiver, new IntentFilter(BluetoothDevice.ACTION_FOUND),
+                null, m_internalHandler);
         if (m_appUuid == null)
             m_appUuid = UUID.fromString(cmd.getArgs()[0]);
         if (m_appName == null)
@@ -396,6 +401,7 @@ public class BluetoothService extends Service
 
     private void stopDiscovering(Command cmd)
     {
+        unregisterReceiver(m_discoveryReceiver);
         cmd.respond(Command.ERROR_NO_ERROR);
     }
 
@@ -420,7 +426,6 @@ public class BluetoothService extends Service
 
     // ---------------Misc--------------------------------------------------------------------------
 
-    @SuppressLint("StaticFieldLeak")
     private boolean listenAndAccept()
     {
         if (m_acceptorThread != null && m_acceptorThread.isAlive() && !m_acceptorThread.isInterrupted())

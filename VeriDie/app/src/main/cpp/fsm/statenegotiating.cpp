@@ -64,9 +64,11 @@ void StateNegotiating::OnMessageReceived(const bt::Device & sender, const std::s
 
 void StateNegotiating::OnSocketReadFailure(const bt::Device & from)
 {
-   DisconnectDevice(from.mac);
-   m_peers.erase(from);
-   m_offers.erase(from.mac);
+   if (m_peers.count(from)) {
+      DisconnectDevice(from.mac);
+      m_peers.erase(from);
+      m_offers.erase(from.mac);
+   }
 }
 
 const std::string & StateNegotiating::GetLocalOfferMac()

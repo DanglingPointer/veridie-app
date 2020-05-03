@@ -2,4 +2,10 @@
     <string name="app_name">VeriDie</string>
     <string name="idle_welcome_text">Press button below to start connecting to other players!</string>
     <string name="idle_btn_start_connecting">New game</string>
+    <string name="conn_txt_discovered">Discovered devices:</string>
+    <string name="conn_txt_connected">Connected devices:</string>
+    <string name="conn_btn_ready">Ready</string>
+    <string name="conn_txt_title">Connect to other players, then press "Ready"</string>
+    <string name="conn_btn_connect">Connect</string>
+    <string name="conn_btn_disconnect">Disconnect</string>
 </resources>

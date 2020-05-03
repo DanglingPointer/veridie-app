@@ -16,7 +16,7 @@ constexpr auto APP_UUID = "76445157-4f39-42e9-a62e-877390cbb4bb";
 constexpr auto APP_NAME = "VeriDie";
 constexpr uint32_t MAX_SEND_RETRY_COUNT = 10U;
 constexpr uint32_t MAX_GAME_START_RETRY_COUNT = 30U;
-constexpr auto DISCOVERABILITY_DURATION = 60s;
+constexpr auto DISCOVERABILITY_DURATION = 120s;
 
 } // namespace
 
@@ -27,7 +27,7 @@ StateConnecting::StateConnecting(const Context & ctx)
    : m_ctx(ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
-   const bool includePaired = true;
+   const bool includePaired = false;
    m_ctx.proxy->Forward<cmd::StartDiscovery>(MakeCb(
       [this](cmd::StartDiscoveryResponse result) {
          result.Handle(
@@ -106,8 +106,10 @@ void StateConnecting::OnMessageReceived(const bt::Device & sender, const std::st
 
 void StateConnecting::OnSocketReadFailure(const bt::Device & from)
 {
-   m_peers.erase(from);
-   DisconnectDevice(from.mac);
+   if (m_peers.count(from)) {
+      m_peers.erase(from);
+      DisconnectDevice(from.mac);
+   }
 }
 
 void StateConnecting::OnConnectivityEstablished()
