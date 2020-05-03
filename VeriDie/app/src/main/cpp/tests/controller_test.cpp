@@ -8,7 +8,7 @@
 #include "core/controller.hpp"
 #include "sign/commands.hpp"
 #include "core/timerengine.hpp"
-#include "jni/proxy.hpp"
+#include "core/proxy.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
 

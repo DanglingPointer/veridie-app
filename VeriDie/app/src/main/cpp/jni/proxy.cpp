@@ -17,13 +17,13 @@ public:
 
    void ForwardCommandToUi(std::unique_ptr<cmd::ICommand> c) override
    {
-      jni::Exec([cmd = std::move(c)] (jni::ICmdManager * mgr) mutable {
+      jni::Exec([cmd = std::move(c)](jni::ICmdManager * mgr) mutable {
          mgr->IssueUiCommand(std::move(cmd));
       });
    }
    void ForwardCommandToBt(std::unique_ptr<cmd::ICommand> c) override
    {
-      jni::Exec([cmd = std::move(c)] (jni::ICmdManager * mgr) mutable {
+      jni::Exec([cmd = std::move(c)](jni::ICmdManager * mgr) mutable {
          mgr->IssueBtCommand(std::move(cmd));
       });
    }

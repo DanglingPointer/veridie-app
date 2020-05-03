@@ -1,6 +1,7 @@
 #ifndef CORE_PROXY_HPP
 #define CORE_PROXY_HPP
 
+#include <cassert>
 #include <memory>
 #include "sign/commands.hpp"
 
@@ -22,6 +23,7 @@ public:
          ForwardCommandToBt(std::move(c));
          return;
       }
+      assert(false);
    }
 
    template <typename TCmd, typename... TArgs>
