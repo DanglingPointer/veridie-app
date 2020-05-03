@@ -1,4 +1,4 @@
-package com.vasilyev.veridie;
+package com.vasilyev.veridie.utils;
 
 public class CastRequest
 {

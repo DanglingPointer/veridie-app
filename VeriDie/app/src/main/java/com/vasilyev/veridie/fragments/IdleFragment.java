@@ -12,7 +12,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.vasilyev.veridie.R;
-import com.vasilyev.veridie.Utils;
+import com.vasilyev.veridie.utils.Fonts;
 
 public class IdleFragment extends Fragment
 {
@@ -34,13 +34,13 @@ public class IdleFragment extends Fragment
     {
         View root = inflater.inflate(R.layout.fragment_idle, container, false);
         Button btn = root.findViewById(R.id.btn_start_connecting);
-        btn.setTypeface(Utils.getTextFont(getContext()));
+        btn.setTypeface(Fonts.forText(getContext()));
         btn.setOnClickListener(v -> {
             if (m_callbacks != null)
                 m_callbacks.onStartConnectingButtonPressed();
         });
         TextView welcomeTxt = root.findViewById(R.id.txt_welcome_msg);
-        welcomeTxt.setTypeface(Utils.getTextFont(getContext()));
+        welcomeTxt.setTypeface(Fonts.forText(getContext()));
         return root;
     }
 

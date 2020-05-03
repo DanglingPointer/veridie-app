@@ -1,16 +1,16 @@
-package com.vasilyev.veridie;
+package com.vasilyev.veridie.utils;
 
 import android.content.Context;
 import android.graphics.Typeface;
 
-public final class Utils
+public final class Fonts
 {
-    public static Typeface getTextFont(Context c)
+    public static Typeface forText(Context c)
     {
         return Typeface.createFromAsset(c.getAssets(), "kirsty_rg.ttf");
     }
 
-    public static Typeface getTitleFont(Context c)
+    public static Typeface forTitle(Context c)
     {
         return Typeface.createFromAsset(c.getAssets(), "RioGrande.ttf");
     }
