@@ -1,4 +1,6 @@
+#include <sstream>
 #include <unordered_map>
+#include <utility>
 
 #include "core/controller.hpp"
 #include "core/logging.hpp"
@@ -10,6 +12,14 @@
 #include "fsm/states.hpp"
 
 namespace {
+
+using EventHandlerMap = std::unordered_map<int32_t, std::pair<std::string_view, event::Handler>>;
+
+template <typename... Events>
+EventHandlerMap CreateEventHandlers(event::List<Events...>)
+{
+   return EventHandlerMap{{Events::ID, {Events::NAME, &Events::Handle}}...};
+}
 
 class Controller : public core::IController
 {
@@ -24,8 +34,8 @@ public:
       , m_generator(std::move(engine))
       , m_timer(std::move(timer))
       , m_serializer(std::move(serializer))
+      , m_eventHandlers(CreateEventHandlers(event::Dictionary{}))
    {
-      InitializeEventHandlers(event::Dictionary{});
       m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger,
                                                    m_generator.get(),
                                                    m_serializer.get(),
@@ -42,17 +52,19 @@ private:
          m_logger.Write<LogPriority::FATAL>("Event handler not found, id=", eventId);
          return;
       }
-      bool success = (*it->second)(m_state, args);
-      if (!success) {
-         m_logger.Write<LogPriority::ERROR>("Could not parse event args, id=", eventId);
-      }
-   }
+      std::string_view name = it->second.first;
+      event::Handler handler = it->second.second;
 
-   template <typename... Event>
-   void InitializeEventHandlers(event::List<Event...>)
-   {
-      (..., m_eventHandlers.insert({Event::ID, &Event::Handle}));
-      assert(m_eventHandlers.size() == sizeof...(Event));
+      std::ostringstream ss;
+      ss << "<<<<< " << name;
+      for (const auto & s : args)
+         ss << " [" << s << "]";
+      m_logger.Write(LogPriority::INFO, ss.str());
+
+      bool success = (*handler)(m_state, args);
+      if (!success) {
+         m_logger.Write<LogPriority::ERROR>("Could not parse event args");
+      }
    }
 
    ILogger & m_logger;
@@ -61,7 +73,7 @@ private:
    std::unique_ptr<core::ITimerEngine> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;
 
-   std::unordered_map<int32_t, event::Handler> m_eventHandlers;
+   EventHandlerMap m_eventHandlers;
    fsm::StateHolder m_state;
 };
 

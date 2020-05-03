@@ -21,7 +21,7 @@ import java.util.Map;
 
 public class ConnectionManager extends HandlerThread
 {
-    private static final String TAG = ConnectionManager.class.getName();
+    private static final String TAG = "ConnectionManager";
     private static final long INITIAL_READ_INTERVAL_MS = 500;
 
     private static class Connection

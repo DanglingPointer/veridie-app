@@ -62,7 +62,7 @@ public:
 template <int32_t Id, typename Response, typename... Params>
 class CommonBase : public ICommand
 {
-   static_assert(Id >= 100);
+   static_assert(Id >= (100 << 8));
 
 public:
    static constexpr int32_t ID = Id;
@@ -120,6 +120,9 @@ public:
 private:
    std::variant<Cs...> m_code;
 };
+
+template <typename CmdType>
+std::string_view NameOf() noexcept;
 
 
 // command IDs must be in sync with interop/Command.java

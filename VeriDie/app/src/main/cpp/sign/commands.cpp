@@ -41,3 +41,31 @@ std::string ToString(std::chrono::seconds sec)
 }
 
 } // namespace cmd::internal
+
+namespace cmd {
+
+#define DEFINE_NAMEOF(command)                 \
+   template <>                                 \
+   std::string_view NameOf<command>() noexcept \
+   {                                           \
+      return #command;                         \
+   }
+
+DEFINE_NAMEOF(EnableBluetooth)
+DEFINE_NAMEOF(StartListening)
+DEFINE_NAMEOF(StartDiscovery)
+DEFINE_NAMEOF(StopListening)
+DEFINE_NAMEOF(StopDiscovery)
+DEFINE_NAMEOF(CloseConnection)
+DEFINE_NAMEOF(SendMessage)
+DEFINE_NAMEOF(ResetConnections)
+DEFINE_NAMEOF(NegotiationStart)
+DEFINE_NAMEOF(NegotiationStop)
+DEFINE_NAMEOF(ShowAndExit)
+DEFINE_NAMEOF(ShowToast)
+DEFINE_NAMEOF(ShowNotification)
+DEFINE_NAMEOF(ShowRequest)
+DEFINE_NAMEOF(ShowResponse)
+DEFINE_NAMEOF(ResetGame)
+
+} // namespace cmd

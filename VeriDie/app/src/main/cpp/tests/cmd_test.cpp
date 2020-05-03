@@ -17,7 +17,7 @@ protected:
 using TestResponse =
    ResponseCodeSubset<ResponseCode::OK, ResponseCode::INVALID_STATE, ResponseCode::BLUETOOTH_OFF>;
 
-using TestCommand = CommonBase<199, TestResponse, int, dice::Cast, std::string>;
+using TestCommand = CommonBase<(199 << 8), TestResponse, int, dice::Cast, std::string>;
 
 
 TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
@@ -85,7 +85,7 @@ TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
                    cast,
                    "<Wow>No comments</Wow>");
 
-   EXPECT_EQ(199, cmd.GetId());
+   EXPECT_EQ((199 << 8), cmd.GetId());
    EXPECT_EQ(3U, cmd.GetArgsCount());
    EXPECT_EQ("42", cmd.GetArgAt(0));
    EXPECT_EQ("0;0;0;0;", cmd.GetArgAt(1));
@@ -107,6 +107,16 @@ TEST_F(CmdFixture, invalid_response_throws_exception)
                    "<Wow>No comments</Wow>");
 
    EXPECT_THROW(cmd.Respond(123456789), std::invalid_argument);
+}
+
+TEST_F(CmdFixture, command_names_printed_correctly)
+{
+   EXPECT_STREQ("StartListening", cmd::NameOf<cmd::StartListening>().data());
+   EXPECT_STREQ("CloseConnection", cmd::NameOf<cmd::CloseConnection>().data());
+   EXPECT_STREQ("SendMessage", cmd::NameOf<cmd::SendMessage>().data());
+   EXPECT_STREQ("ShowAndExit", cmd::NameOf<cmd::ShowAndExit>().data());
+   EXPECT_STREQ("ShowRequest", cmd::NameOf<cmd::ShowRequest>().data());
+   EXPECT_STREQ("ShowResponse", cmd::NameOf<cmd::ShowResponse>().data());
 }
 
 

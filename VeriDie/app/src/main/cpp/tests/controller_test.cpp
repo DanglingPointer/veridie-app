@@ -150,7 +150,7 @@ TEST_F(IdlingFixture, state_idle_bluetooth_turned_on_successfully)
    c->Respond(0);
    ctrl->OnEvent(17, {});
    EXPECT_TRUE(proxy->NoCommands());
-   EXPECT_TRUE(logger.Empty());
+   logger.Clear();
 
    // new game requested
    ctrl->OnEvent(13, {});
@@ -181,7 +181,6 @@ TEST_F(IdlingFixture, state_idle_bluetooth_fatal_failure)
    ASSERT_TRUE(c);
    EXPECT_EQ(105, ID(c)); // enable bt
    EXPECT_EQ(0U, c->GetArgsCount());
-   EXPECT_TRUE(logger.Empty());
 }
 
 TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
@@ -220,7 +219,6 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
    // new game requested
    ctrl->OnEvent(13, {});
    EXPECT_TRUE(proxy->NoCommands());
-   EXPECT_TRUE(logger.Empty());
 }
 
 TEST_F(IdlingFixture, state_idle_retry_after_bluetooth_off_and_user_declined)
@@ -461,7 +459,8 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    EXPECT_EQ(110, ID(toast));
    EXPECT_EQ(2U, toast->GetArgsCount());
    EXPECT_STREQ("3", toast->GetArgAt(1).data());
-   EXPECT_TRUE(logger.Empty());
+   EXPECT_NE("New state: StateNegotiating ", logger.GetLastLine());
+   logger.Clear();
 
    timer->FastForwardTime(1s);
    EXPECT_TRUE(proxy->NoCommands());
@@ -469,7 +468,7 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
 
    ctrl->OnEvent(14, {R"(<Hello><Mac>f4:06:69:7b:4b:e7</Mac></Hello>)", "5c:b9:01:f8:b6:49", ""});
    EXPECT_TRUE(proxy->NoCommands());
-   EXPECT_TRUE(logger.Empty());
+   logger.Clear();
 
    timer->FastForwardTime(1s);
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
@@ -520,7 +519,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    disconnect->Respond(0);
 
    EXPECT_TRUE(proxy->NoCommands());
-   EXPECT_TRUE(logger.Empty());
+   logger.Clear();
 
    // game start
    ctrl->OnEvent(12, {});
