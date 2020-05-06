@@ -151,8 +151,8 @@ void StateConnecting::SendHelloTo(const std::string & mac, uint32_t retriesLeft)
             },
             [](cmd::ResponseCode::OK) { /*enjoy*/ });
       }),
-      mac,
-      std::move(hello));
+      std::move(hello),
+      mac);
 }
 
 void StateConnecting::DisconnectDevice(const std::string & mac)
@@ -165,8 +165,8 @@ void StateConnecting::DisconnectDevice(const std::string & mac)
             },
             [&](auto) {});
       }),
-      mac,
-      "");
+      "",
+      mac);
 }
 
 void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)

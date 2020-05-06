@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.4.1)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-sign-compare -Werror -Wno-error=c++11-narrowing")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wpedantic -Wimplicit-fallthrough -Wno-sign-compare -Wno-error=c++11-narrowing")
 
 include_directories(${PROJECT_SOURCE_DIR})
 

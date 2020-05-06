@@ -385,8 +385,8 @@ TEST_F(ConnectingFixture, sends_hello_to_connected_device)
    ASSERT_TRUE(cmdHello);
    EXPECT_EQ(108, ID(cmdHello));
    EXPECT_EQ(2U, cmdHello->GetArgsCount());
-   EXPECT_STREQ("5c:b9:01:f8:b6:49", cmdHello->GetArgAt(0).data());
-   EXPECT_STREQ(R"(<Hello><Mac>5c:b9:01:f8:b6:49</Mac></Hello>)", cmdHello->GetArgAt(1).data());
+   EXPECT_STREQ(R"(<Hello><Mac>5c:b9:01:f8:b6:49</Mac></Hello>)", cmdHello->GetArgAt(0).data());
+   EXPECT_STREQ("5c:b9:01:f8:b6:49", cmdHello->GetArgAt(1).data());
    cmdHello->Respond(0);
 
    EXPECT_TRUE(proxy->NoCommands());
@@ -412,7 +412,7 @@ TEST_F(ConnectingFixture, retries_hello_on_invalid_state_and_disconnects_on_sock
    ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
-   EXPECT_STREQ("5c:b9:01:f8:b6:49", disconnect->GetArgAt(0).data());
+   EXPECT_STREQ("5c:b9:01:f8:b6:49", disconnect->GetArgAt(1).data());
    disconnect->Respond(0);
 
    EXPECT_TRUE(proxy->NoCommands());
@@ -434,7 +434,7 @@ TEST_F(ConnectingFixture, disconnects_on_read_error_and_does_not_retry_hello)
    ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
-   EXPECT_STREQ("5c:b9:01:f8:b6:49", disconnect->GetArgAt(0).data());
+   EXPECT_STREQ("5c:b9:01:f8:b6:49", disconnect->GetArgAt(1).data());
    disconnect->Respond(0);
 
    hello->Respond(0xffffffffffffffff);
@@ -505,8 +505,8 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    ASSERT_TRUE(cmdHello);
    EXPECT_EQ(108, ID(cmdHello));
    EXPECT_EQ(2U, cmdHello->GetArgsCount());
-   EXPECT_STREQ("5c:b9:01:f8:b6:44", cmdHello->GetArgAt(0).data());
-   EXPECT_STREQ(R"(<Hello><Mac>5c:b9:01:f8:b6:44</Mac></Hello>)", cmdHello->GetArgAt(1).data());
+   EXPECT_STREQ(R"(<Hello><Mac>5c:b9:01:f8:b6:44</Mac></Hello>)", cmdHello->GetArgAt(0).data());
+   EXPECT_STREQ("5c:b9:01:f8:b6:44", cmdHello->GetArgAt(1).data());
    cmdHello->Respond(0);
 
    // 1 disconnects
@@ -515,7 +515,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
-   EXPECT_STREQ("5c:b9:01:f8:b6:42", disconnect->GetArgAt(0).data());
+   EXPECT_STREQ("5c:b9:01:f8:b6:42", disconnect->GetArgAt(1).data());
    disconnect->Respond(0);
 
    EXPECT_TRUE(proxy->NoCommands());
@@ -548,8 +548,8 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
       ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
-      EXPECT_STREQ("5c:b9:01:f8:b6:44", offer->GetArgAt(0).data());
-      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
+      EXPECT_STREQ("5c:b9:01:f8:b6:44", offer->GetArgAt(1).data());
       offer->Respond(0);
    }
    {
@@ -557,8 +557,8 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
       ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
-      EXPECT_STREQ("5c:b9:01:f8:b6:43", offer->GetArgAt(0).data());
-      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
+      EXPECT_STREQ("5c:b9:01:f8:b6:43", offer->GetArgAt(1).data());
       offer->Respond(0);
    }
    {
@@ -566,8 +566,8 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
       ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
-      EXPECT_STREQ("5c:b9:01:f8:b6:41", offer->GetArgAt(0).data());
-      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
+      EXPECT_STREQ("5c:b9:01:f8:b6:41", offer->GetArgAt(1).data());
       offer->Respond(0);
    }
    EXPECT_TRUE(proxy->NoCommands());
@@ -620,8 +620,8 @@ protected:
          ASSERT_TRUE(offer);
          EXPECT_EQ(108, ID(offer));
          EXPECT_EQ(2U, offer->GetArgsCount());
-         EXPECT_STREQ(it->mac.c_str(), offer->GetArgAt(0).data());
-         EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+         EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
+         EXPECT_STREQ(it->mac.c_str(), offer->GetArgAt(1).data());
          offer->Respond(0);
       }
    }
@@ -748,7 +748,7 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
-   EXPECT_STREQ("5c:b9:01:f8:b6:41", disconnect->GetArgAt(0).data());
+   EXPECT_STREQ("5c:b9:01:f8:b6:41", disconnect->GetArgAt(1).data());
    disconnect->Respond(0);
    EXPECT_TRUE(proxy->NoCommands());
 
@@ -759,8 +759,8 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
       ASSERT_TRUE(offer);
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
-      EXPECT_STREQ("5c:b9:01:f8:b6:40", offer->GetArgAt(0).data());
-      EXPECT_STREQ(expectedOffer, offer->GetArgAt(1).data());
+      EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
+      EXPECT_STREQ("5c:b9:01:f8:b6:40", offer->GetArgAt(1).data());
       offer->Respond(0);
    }
    EXPECT_TRUE(proxy->NoCommands());
@@ -848,8 +848,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          ASSERT_TRUE(sendResponse);
          EXPECT_EQ(108, ID(sendResponse));
          EXPECT_EQ(2U, sendResponse->GetArgsCount());
-         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
-         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(1).data());
+         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(1).data());
          sendResponse->Respond(0);
       }
 
@@ -857,8 +857,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
-      EXPECT_STREQ("D6", showResponse->GetArgAt(0).data());
-      EXPECT_STREQ("3;3;3;3;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("3;3;3;3;", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D6", showResponse->GetArgAt(1).data());
       EXPECT_STREQ("4", showResponse->GetArgAt(2).data());
       EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
       showResponse->Respond(0);
@@ -886,8 +886,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          ASSERT_TRUE(sendRequest);
          EXPECT_EQ(108, ID(sendRequest));
          EXPECT_EQ(2U, sendRequest->GetArgsCount());
-         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
-         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(1).data());
          sendRequest->Respond(0);
       }
 
@@ -898,8 +898,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          ASSERT_TRUE(sendResponse);
          EXPECT_EQ(108, ID(sendResponse));
          EXPECT_EQ(2U, sendResponse->GetArgsCount());
-         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
-         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(1).data());
+         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(1).data());
          sendResponse->Respond(0);
       }
 
@@ -907,8 +907,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
-      EXPECT_STREQ("D100", showResponse->GetArgAt(0).data());
-      EXPECT_STREQ("42;42;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("42;42;", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D100", showResponse->GetArgAt(1).data());
       EXPECT_STREQ("0", showResponse->GetArgAt(2).data());
       EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
       showResponse->Respond(0);
@@ -936,8 +936,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          ASSERT_TRUE(sendRequest);
          EXPECT_EQ(108, ID(sendRequest));
          EXPECT_EQ(2U, sendRequest->GetArgsCount());
-         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
-         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(1).data());
          sendRequest->Respond(0);
       }
 
@@ -948,8 +948,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
          ASSERT_TRUE(sendResponse);
          EXPECT_EQ(108, ID(sendResponse));
          EXPECT_EQ(2U, sendResponse->GetArgsCount());
-         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(0).data());
-         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(1).data());
+         EXPECT_STREQ(expectedResponse, sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(1).data());
          sendResponse->Respond(0);
       }
 
@@ -957,8 +957,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
-      EXPECT_STREQ("D100", showResponse->GetArgAt(0).data());
-      EXPECT_STREQ("42;42;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("42;42;", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D100", showResponse->GetArgAt(1).data());
       EXPECT_STREQ("-1", showResponse->GetArgAt(2).data());
       EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
       showResponse->Respond(0);
@@ -986,8 +986,8 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       ASSERT_TRUE(sendOffer);
       EXPECT_EQ(108, ID(sendOffer));
       EXPECT_EQ(2U, sendOffer->GetArgsCount());
-      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
-      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
+      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(0).data());
+      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(1).data());
       sendOffer->Respond(0);
    }
    EXPECT_TRUE(proxy->NoCommands());
@@ -1029,8 +1029,8 @@ TEST_F(P2R13, remote_generator_is_respected)
       ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
-      EXPECT_STREQ("D8", showResponse->GetArgAt(0).data());
-      EXPECT_STREQ("1;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("1;", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D8", showResponse->GetArgAt(1).data());
       EXPECT_STREQ("-1", showResponse->GetArgAt(2).data());
       EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
       showResponse->Respond(0);
@@ -1056,8 +1056,8 @@ TEST_F(P2R13, remote_generator_is_respected)
          ASSERT_TRUE(sendRequest);
          EXPECT_EQ(108, ID(sendRequest));
          EXPECT_EQ(2U, sendRequest->GetArgsCount());
-         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
-         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(1).data());
          sendRequest->Respond(0);
       }
       EXPECT_TRUE(proxy->NoCommands());
@@ -1068,8 +1068,8 @@ TEST_F(P2R13, remote_generator_is_respected)
       ASSERT_TRUE(sendRequest);
       EXPECT_EQ(108, ID(sendRequest));
       EXPECT_EQ(2U, sendRequest->GetArgsCount());
-      EXPECT_STREQ(Peers()[1].mac.c_str(), sendRequest->GetArgAt(0).data());
-      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+      EXPECT_STREQ(Peers()[1].mac.c_str(), sendRequest->GetArgAt(1).data());
       sendRequest->Respond(0);
       EXPECT_TRUE(proxy->NoCommands());
 
@@ -1081,8 +1081,8 @@ TEST_F(P2R13, remote_generator_is_respected)
       ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
-      EXPECT_STREQ("D4", showResponse->GetArgAt(0).data());
-      EXPECT_STREQ("4;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("4;", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D4", showResponse->GetArgAt(1).data());
       EXPECT_STREQ("1", showResponse->GetArgAt(2).data());
       EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
       showResponse->Respond(0);
@@ -1114,8 +1114,8 @@ TEST_F(P2R13, remote_generator_is_respected)
       ASSERT_TRUE(showResponse);
       EXPECT_EQ(113, ID(showResponse));
       EXPECT_EQ(4u, showResponse->GetArgsCount());
-      EXPECT_STREQ("D4", showResponse->GetArgAt(0).data());
-      EXPECT_STREQ("2;", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("2;", showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D4", showResponse->GetArgAt(1).data());
       EXPECT_STREQ("0", showResponse->GetArgAt(2).data());
       EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
       showResponse->Respond(0);
@@ -1138,8 +1138,8 @@ TEST_F(P2R13, remote_generator_is_respected)
    ASSERT_TRUE(showResponse);
    EXPECT_EQ(113, ID(showResponse));
    EXPECT_EQ(4u, showResponse->GetArgsCount());
-   EXPECT_STREQ("D6", showResponse->GetArgAt(0).data());
-   EXPECT_STREQ("5;", showResponse->GetArgAt(1).data());
+   EXPECT_STREQ("5;", showResponse->GetArgAt(0).data());
+   EXPECT_STREQ("D6", showResponse->GetArgAt(1).data());
    EXPECT_STREQ("1", showResponse->GetArgAt(2).data());
    EXPECT_STREQ(Peers()[1].name.c_str(), showResponse->GetArgAt(3).data());
    showResponse->Respond(0);
@@ -1157,8 +1157,8 @@ TEST_F(P2R13, remote_generator_is_respected)
       ASSERT_TRUE(sendOffer);
       EXPECT_EQ(108, ID(sendOffer));
       EXPECT_EQ(2U, sendOffer->GetArgsCount());
-      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
-      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
+      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(0).data());
+      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(1).data());
       sendOffer->Respond(0);
    }
    EXPECT_TRUE(proxy->NoCommands());
@@ -1181,8 +1181,8 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
       ASSERT_TRUE(sendRequest);
       EXPECT_EQ(108, ID(sendRequest));
       EXPECT_EQ(2U, sendRequest->GetArgsCount());
-      EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(0).data());
-      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+      EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(1).data());
       sendRequest->Respond(0);
    }
    EXPECT_TRUE(proxy->NoCommands());
@@ -1204,8 +1204,8 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
       ASSERT_TRUE(sendRequest);
       EXPECT_EQ(108, ID(sendRequest));
       EXPECT_EQ(2U, sendRequest->GetArgsCount());
-      EXPECT_STREQ(Peers()[0].mac.c_str(), sendRequest->GetArgAt(0).data());
-      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(1).data());
+      EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+      EXPECT_STREQ(Peers()[0].mac.c_str(), sendRequest->GetArgAt(1).data());
       sendRequest->Respond(0);
       EXPECT_TRUE(proxy->NoCommands());
    }
@@ -1224,8 +1224,8 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
       ASSERT_TRUE(sendOffer);
       EXPECT_EQ(108, ID(sendOffer));
       EXPECT_EQ(2U, sendOffer->GetArgsCount());
-      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(0).data());
-      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(1).data());
+      EXPECT_STREQ(offer.c_str(), sendOffer->GetArgAt(0).data());
+      EXPECT_STREQ(it->mac.c_str(), sendOffer->GetArgAt(1).data());
       sendOffer->Respond(0);
    }
    EXPECT_TRUE(proxy->NoCommands());
@@ -1254,7 +1254,7 @@ TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
    ASSERT_TRUE(disconnect);
    EXPECT_EQ(104, ID(disconnect));
    EXPECT_EQ(2U, disconnect->GetArgsCount());
-   EXPECT_STREQ(Peers()[1].mac.c_str(), disconnect->GetArgAt(0).data());
+   EXPECT_STREQ(Peers()[1].mac.c_str(), disconnect->GetArgAt(1).data());
 
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
    auto negotiationStart = proxy->PopNextCommand();
@@ -1271,8 +1271,8 @@ TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
    ASSERT_TRUE(sendOffer);
    EXPECT_EQ(108, ID(sendOffer));
    EXPECT_EQ(2U, sendOffer->GetArgsCount());
-   EXPECT_STREQ(Peers()[0].mac.c_str(), sendOffer->GetArgAt(0).data());
-   EXPECT_STREQ(expectedOffer.c_str(), sendOffer->GetArgAt(1).data());
+   EXPECT_STREQ(expectedOffer.c_str(), sendOffer->GetArgAt(0).data());
+   EXPECT_STREQ(Peers()[0].mac.c_str(), sendOffer->GetArgAt(1).data());
    sendOffer->Respond(0);
 
    EXPECT_TRUE(proxy->NoCommands());

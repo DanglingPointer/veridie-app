@@ -14,61 +14,30 @@ protected:
    CmdFixture() = default;
 };
 
-using TestResponse =
-   ResponseCodeSubset<ResponseCode::OK, ResponseCode::INVALID_STATE, ResponseCode::BLUETOOTH_OFF>;
-
-using TestCommand = CommonBase<(199 << 8), TestResponse, int, dice::Cast, std::string>;
-
 
 TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
 {
-   TestResponse r1(ResponseCode::OK::value);
+   StopListeningResponse r1(ResponseCode::OK::value);
    r1.Handle(
       [](ResponseCode::OK) {
          // OK
       },
       [](ResponseCode::INVALID_STATE) {
          ADD_FAILURE();
-      },
-      [](ResponseCode::BLUETOOTH_OFF) {
-         ADD_FAILURE();
       });
    EXPECT_EQ(ResponseCode::OK::value, r1.Value());
 
-   TestResponse r2(ResponseCode::INVALID_STATE::value);
+   StopListeningResponse r2(ResponseCode::INVALID_STATE::value);
    r2.Handle(
       [](ResponseCode::OK) {
          ADD_FAILURE();
       },
       [](ResponseCode::INVALID_STATE) {
          // OK
-      },
-      [](ResponseCode::BLUETOOTH_OFF) {
-         ADD_FAILURE();
       });
    EXPECT_EQ(ResponseCode::INVALID_STATE::value, r2.Value());
 
-   TestResponse r3(ResponseCode::BLUETOOTH_OFF::value);
-   r3.Handle(
-      [](ResponseCode::OK) {
-         ADD_FAILURE();
-      },
-      [](ResponseCode::INVALID_STATE) {
-         ADD_FAILURE();
-      },
-      [](ResponseCode::BLUETOOTH_OFF) {
-         // OK
-      });
-   r3.Handle(
-      [](ResponseCode::BLUETOOTH_OFF) {
-         // OK
-      },
-      [](auto) {
-         ADD_FAILURE();
-      });
-   EXPECT_EQ(ResponseCode::BLUETOOTH_OFF::value, r3.Value());
-
-   EXPECT_THROW({ TestResponse r4(42); }, std::invalid_argument);
+   EXPECT_THROW({ StopListeningResponse r4(42); }, std::invalid_argument);
 }
 
 TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
@@ -77,19 +46,23 @@ TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
 
    const int64_t expectedResponse = 0LL;
    std::optional<int64_t> responseValue;
+   const std::string player1 = "Player 1";
 
-   TestCommand cmd(MakeCb([&](TestResponse r) {
-                      responseValue = r.Value();
-                   }),
-                   42,
-                   cast,
-                   "<Wow>No comments</Wow>");
+   ShowResponse cmd(MakeCb([&](ShowResponseResponse r) {
+                       responseValue = r.Value();
+                    }),
+                    cast,
+                    "D100",
+                    2,
+                    player1);
 
-   EXPECT_EQ((199 << 8), cmd.GetId());
-   EXPECT_EQ(3U, cmd.GetArgsCount());
-   EXPECT_EQ("42", cmd.GetArgAt(0));
-   EXPECT_EQ("0;0;0;0;", cmd.GetArgAt(1));
-   EXPECT_EQ("<Wow>No comments</Wow>", cmd.GetArgAt(2));
+   EXPECT_EQ(ShowResponse::ID, cmd.GetId());
+   EXPECT_STREQ("ShowResponse", cmd.GetName().data());
+   EXPECT_EQ(4U, cmd.GetArgsCount());
+   EXPECT_STREQ("0;0;0;0;", cmd.GetArgAt(0).data());
+   EXPECT_STREQ("D100", cmd.GetArgAt(1).data());
+   EXPECT_STREQ("2", cmd.GetArgAt(2).data());
+   EXPECT_STREQ("Player 1", cmd.GetArgAt(3).data());
 
    cmd.Respond(expectedResponse);
    EXPECT_TRUE(responseValue);
@@ -98,26 +71,14 @@ TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
 
 TEST_F(CmdFixture, invalid_response_throws_exception)
 {
-   auto cast = dice::MakeCast("D6", 4);
-   TestCommand cmd(MakeCb([&](TestResponse r) {
-                      ADD_FAILURE() << "Responded to: " << r.Value();
-                   }),
-                   42,
-                   cast,
-                   "<Wow>No comments</Wow>");
+   NegotiationStart cmd(MakeCb([&](NegotiationStartResponse r) {
+      ADD_FAILURE() << "Responded to: " << r.Value();
+   }));
+   EXPECT_EQ(NegotiationStart::ID, cmd.GetId());
+   EXPECT_STREQ("NegotiationStart", cmd.GetName().data());
+   EXPECT_EQ(0U, cmd.GetArgsCount());
 
    EXPECT_THROW(cmd.Respond(123456789), std::invalid_argument);
 }
-
-TEST_F(CmdFixture, command_names_printed_correctly)
-{
-   EXPECT_STREQ("StartListening", cmd::NameOf<cmd::StartListening>().data());
-   EXPECT_STREQ("CloseConnection", cmd::NameOf<cmd::CloseConnection>().data());
-   EXPECT_STREQ("SendMessage", cmd::NameOf<cmd::SendMessage>().data());
-   EXPECT_STREQ("ShowAndExit", cmd::NameOf<cmd::ShowAndExit>().data());
-   EXPECT_STREQ("ShowRequest", cmd::NameOf<cmd::ShowRequest>().data());
-   EXPECT_STREQ("ShowResponse", cmd::NameOf<cmd::ShowResponse>().data());
-}
-
 
 } // namespace

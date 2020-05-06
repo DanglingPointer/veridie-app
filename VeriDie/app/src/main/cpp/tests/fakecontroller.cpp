@@ -44,6 +44,7 @@ struct TestCommand : public cmd::ICommand
    {}
    ~TestCommand() { ASSERT(responded); }
    int32_t GetId() const override { return id; }
+   std::string_view GetName() const override { return "TestCommand"; }
    size_t GetArgsCount() const override { return args.size(); }
    std::string_view GetArgAt(size_t index) const override { return args[index]; }
    void Respond(int64_t response) override

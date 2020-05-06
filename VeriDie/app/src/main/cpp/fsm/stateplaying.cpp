@@ -73,8 +73,8 @@ public:
    {
       if (!m_connected)
          m_proxy.Forward<cmd::CloseConnection>(DetachedCb<cmd::CloseConnectionResponse>(),
-                                               m_remote.mac,
-                                               "Connection has been lost");
+                                               "Connection has been lost",
+                                               m_remote.mac);
    }
    const bt::Device & GetDevice() const { return m_remote; }
    bool IsConnected() const { return m_connected; }
@@ -138,8 +138,8 @@ private:
                      m_renegotiate();
                });
          }),
-         m_remote.mac,
-         message);
+         message,
+         m_remote.mac);
    }
 
    bt::Device m_remote;
@@ -311,8 +311,8 @@ void StatePlaying::ShowResponse(const dice::Response & response, const std::stri
                ShowResponse(response, from);
             });
       }),
-      dice::TypeToString(response.cast),
       response.cast,
+      dice::TypeToString(response.cast),
       response.successCount.value_or(-1),
       from);
 }

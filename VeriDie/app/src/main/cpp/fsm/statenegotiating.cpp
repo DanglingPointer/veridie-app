@@ -89,7 +89,7 @@ void StateNegotiating::UpdateAndBroadcastOffer()
       });
 
    if (allOffersEqual) {
-      std::string nomineeName("You");
+      std::string_view nomineeName("You");
       if (auto it = m_peers.find(bt::Device{"", localOffer->second.mac}); it != std::cend(m_peers))
          nomineeName = it->name;
       m_ctx.proxy->Forward<cmd::NegotiationStop>(DetachedCb<cmd::NegotiationStopResponse>(),
@@ -132,8 +132,8 @@ void StateNegotiating::UpdateAndBroadcastOffer()
                },
                [](auto) {});
          }),
-         remote.mac,
-         message);
+         message,
+         remote.mac);
    }
 
    m_retrySendOffer = m_ctx.timer->ScheduleTimer(1s).Then([this](auto) {
@@ -151,8 +151,8 @@ void StateNegotiating::DisconnectDevice(const std::string & mac)
             },
             [](auto) {});
       }),
-      mac,
-      "");
+      "",
+      mac);
 }
 
 } // namespace fsm

@@ -107,12 +107,12 @@ public class ConnectionManager extends HandlerThread
             {
                 switch (cmd.getId()) {
                 case Command.ID_SEND_MESSAGE: {
-                    long error = sendData(cmd.getArgs()[0], cmd.getArgs()[1]);
+                    long error = sendData(cmd.getArgs()[1], cmd.getArgs()[0]);
                     cmd.respond(error);
                     break;
                 }
                 case Command.ID_CLOSE_CONNECTION: {
-                    long error = closeConnection(cmd.getArgs()[0]);
+                    long error = closeConnection(cmd.getArgs()[1]);
                     cmd.respond(error);
                     break;
                 }

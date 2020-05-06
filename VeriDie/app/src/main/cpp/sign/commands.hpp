@@ -3,8 +3,8 @@
 
 #include <array>
 #include <chrono>
-#include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <variant>
 #include "dice/cast.hpp"
@@ -13,37 +13,22 @@
 namespace cmd {
 namespace internal {
 
-std::string ToString(const std::string & s);
-std::string ToString(const char * s);
-std::string ToString(bool b);
-std::string ToString(std::string_view s);
-std::string ToString(const dice::Cast & cast);
-std::string ToString(std::chrono::seconds sec);
-template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>>>
-std::string ToString(T s)
-{
-   return std::to_string(s);
-}
-
-template<typename... Ts>
+template <typename... Ts>
 struct CreateVariant
 {
-   template<typename T, typename... TArgs>
+   template <typename T, typename... TArgs>
    static std::variant<Ts...> Match(int64_t value, T /*first*/, TArgs... args)
    {
       if (value == T::value)
          return T{};
       return Match(value, args...);
    }
-   static std::variant<Ts...> Match(int64_t value)
+   static std::variant<Ts...> Match(int64_t /*value*/)
    {
-      throw std::invalid_argument(std::to_string(value));
+      throw std::invalid_argument("Invalid command response");
    }
 
-   static std::variant<Ts...> FromValue(int64_t value)
-   {
-      return Match(value, Ts{}...);
-   }
+   static std::variant<Ts...> FromValue(int64_t value) { return Match(value, Ts{}...); }
 };
 
 } // namespace internal
@@ -54,31 +39,68 @@ class ICommand
 public:
    virtual ~ICommand() = default;
    virtual int32_t GetId() const = 0;
+   virtual std::string_view GetName() const = 0;
    virtual size_t GetArgsCount() const = 0;
    virtual std::string_view GetArgAt(size_t index) const = 0;
    virtual void Respond(int64_t response) = 0;
 };
 
-template <int32_t Id, typename Response, typename... Params>
-class CommonBase : public ICommand
+
+template <typename TTraits>
+class Base : public ICommand
 {
-   static_assert(Id >= (100 << 8));
+   static_assert(TTraits::ID >= (100 << 8));
+   static_assert(TTraits::LONG_BUFFER_SIZE >= TTraits::SHORT_BUFFER_SIZE);
+   using LongBuffer = std::array<char, TTraits::LONG_BUFFER_SIZE>;
+   using ShortBuffer = std::array<char, TTraits::SHORT_BUFFER_SIZE>;
 
 public:
-   static constexpr int32_t ID = Id;
+   using Response = typename TTraits::Response;
+   using ParamTuple = typename TTraits::ParamTuple;
 
-   CommonBase(async::Callback<Response> && cb, Params... params)
-      : m_cb(std::move(cb))
-      , m_args({internal::ToString(params)...})
+   static constexpr int32_t ID = TTraits::ID;
+   static constexpr size_t ARG_SIZE = std::tuple_size_v<ParamTuple>;
+
+
+   template <typename... Ts>
+   Base(async::Callback<Response> && cb, Ts &&... params)
+      : Base(std::move(cb), ParamTuple(std::forward<Ts>(params)...))
    {}
-   int32_t GetId() const override { return ID; }
-   size_t GetArgsCount() const override { return m_args.size(); }
-   std::string_view GetArgAt(size_t index) const override { return m_args[index]; }
-   void Respond(int64_t response) override { m_cb.InvokeOneShot(Response(response)); }
+
+   Base(async::Callback<Response> && cb, ParamTuple params);
+   int32_t GetId() const noexcept override;
+   std::string_view GetName() const noexcept override;
+   size_t GetArgsCount() const noexcept override;
+   std::string_view GetArgAt(size_t index) const noexcept override;
+   void Respond(int64_t response) override;
 
 private:
    async::Callback<Response> m_cb;
-   std::array<std::string, sizeof...(Params)> m_args;
+   std::array<LongBuffer, (ARG_SIZE != 0)> m_longArgs{};
+   std::array<ShortBuffer, (ARG_SIZE > 1) ? (ARG_SIZE - 1) : 0U> m_shortArgs{};
+};
+
+
+template <int32_t Id, typename TResponse, typename... TParams>
+struct Traits
+{
+   static constexpr int32_t ID = Id;
+   using Command = Base<Traits<Id, TResponse, TParams...>>;
+   using Response = TResponse;
+   using ParamTuple = std::tuple<
+      std::conditional_t<(!std::is_trivially_copyable_v<TParams> || sizeof(TParams) > 16U),
+                         const TParams &,
+                         TParams>...>;
+
+   static constexpr size_t LONG_BUFFER_SIZE = 32U;
+   static constexpr size_t SHORT_BUFFER_SIZE = 24U;
+};
+
+template <int32_t Id, typename TResponse, typename... TParams>
+struct LongTraits : Traits<Id, TResponse, TParams...>
+{
+   static constexpr size_t LONG_BUFFER_SIZE = 256U;
+   static constexpr size_t SHORT_BUFFER_SIZE = 32U;
 };
 
 
@@ -98,6 +120,8 @@ struct ResponseCode final
    using USER_DECLINED = Code<6>;
    using SOCKET_ERROR = Code<7>;
 };
+
+// clang-format off
 
 template <typename... Cs>
 class ResponseCodeSubset
@@ -121,11 +145,8 @@ private:
    std::variant<Cs...> m_code;
 };
 
-template <typename CmdType>
-std::string_view NameOf() noexcept;
-
-
 // command IDs must be in sync with interop/Command.java
+// the largest parameter type must be first
 
 #define COMMON_RESPONSES \
    ResponseCode::OK, ResponseCode::INVALID_STATE
@@ -139,147 +160,147 @@ using StartListeningResponse = ResponseCodeSubset<
    ResponseCode::BLUETOOTH_OFF,
    ResponseCode::USER_DECLINED,
    ResponseCode::LISTEN_FAILED>;
-
-using StartListening = CommonBase<
+using StartListeningTraits = LongTraits<
    ID(100),
    StartListeningResponse,
-   std::string /*uuid*/, std::string /*name*/, std::chrono::seconds /*discoverability duration*/>;
+   std::string_view /*uuid*/, std::string_view /*name*/, std::chrono::seconds /*discoverability duration*/>;
+using StartListening = Base<StartListeningTraits>;
 
 
 using StartDiscoveryResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
    ResponseCode::NO_BT_ADAPTER,
    ResponseCode::BLUETOOTH_OFF>;
-
-using StartDiscovery = CommonBase<
+using StartDiscoveryTraits = LongTraits<
    ID(101),
    StartDiscoveryResponse,
-   std::string /*uuid*/, std::string /*name*/, bool /*include paired*/>;
+   std::string_view /*uuid*/, std::string_view /*name*/, bool /*include paired*/>;
+using StartDiscovery = Base<StartDiscoveryTraits>;
 
 
 using StopListeningResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using StopListening = CommonBase<
+using StopListeningTraits = Traits<
    ID(102),
    StopListeningResponse>;
+using StopListening = Base<StopListeningTraits>;
 
 
 using StopDiscoveryResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using StopDiscovery = CommonBase<
+using StopDiscoveryTraits = Traits<
    ID(103),
    StopDiscoveryResponse>;
+using StopDiscovery = Base<StopDiscoveryTraits>;
 
 
 using CloseConnectionResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
    ResponseCode::CONNECTION_NOT_FOUND>;
-
-using CloseConnection = CommonBase<
+using CloseConnectionTraits = Traits<
    ID(104),
    CloseConnectionResponse,
-   std::string/*remote mac addr*/, std::string/*error msg*/>;
+   std::string_view/*error msg*/, std::string_view/*remote mac addr*/>;
+using CloseConnection = Base<CloseConnectionTraits>;
 
 
 using EnableBluetoothResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
    ResponseCode::NO_BT_ADAPTER,
    ResponseCode::USER_DECLINED>;
-
-using EnableBluetooth = CommonBase<
+using EnableBluetoothTraits = Traits<
    ID(105),
    EnableBluetoothResponse>;
+using EnableBluetooth = Base<EnableBluetoothTraits>;
 
 
 using NegotiationStartResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using NegotiationStart = CommonBase<
+using NegotiationStartTraits = Traits<
    ID(106),
    NegotiationStartResponse>;
+using NegotiationStart = Base<NegotiationStartTraits>;
 
 
 using NegotiationStopResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using NegotiationStop = CommonBase<
+using NegotiationStopTraits = Traits<
    ID(107),
    NegotiationStopResponse,
-   std::string/*nominee name*/>;
+   std::string_view/*nominee name*/>;
+using NegotiationStop = Base<NegotiationStopTraits>;
 
 
 using SendMessageResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
    ResponseCode::CONNECTION_NOT_FOUND,
    ResponseCode::SOCKET_ERROR>;
-
-using SendMessage = CommonBase<
+using SendMessageTraits = LongTraits<
    ID(108),
    SendMessageResponse,
-   std::string/*remote mac addr*/, std::string/*message*/>;
+   std::string_view/*message*/, std::string_view/*remote mac addr*/>;
+using SendMessage = Base<SendMessageTraits>;
 
 
 using ShowAndExitResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ShowAndExit = CommonBase<
+using ShowAndExitTraits = LongTraits<
    ID(109),
    ShowAndExitResponse,
-   std::string>;
+   std::string_view>;
+using ShowAndExit = Base<ShowAndExitTraits>;
 
 
 using ShowToastResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ShowToast = CommonBase<
+using ShowToastTraits = Traits<
    ID(110),
    ShowToastResponse,
-   std::string, std::chrono::seconds>;
+   std::string_view, std::chrono::seconds>;
+using ShowToast = Base<ShowToastTraits>;
 
 
 using ShowNotificationResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ShowNotification = CommonBase<
+using ShowNotificationTraits = Traits<
    ID(111),
    ShowNotificationResponse,
-   std::string>;
+   std::string_view>;
+using ShowNotification = Base<ShowNotificationTraits>;
 
 
 using ShowRequestResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ShowRequest = CommonBase<
+using ShowRequestTraits = Traits<
    ID(112),
    ShowRequestResponse,
-   std::string/*type*/, size_t/*size*/, uint32_t/*threshold, 0=not set*/, std::string/*name*/>;
+   std::string_view/*type*/, size_t/*size*/, uint32_t/*threshold, 0=not set*/, std::string_view/*name*/>;
+using ShowRequest = Base<ShowRequestTraits>;
 
 
 using ShowResponseResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ShowResponse = CommonBase<
+using ShowResponseTraits = Traits<
    ID(113),
    ShowResponseResponse,
-   std::string/*type*/, dice::Cast/*numbers*/, int32_t/*success count, -1=not set*/, std::string/*name*/>;
+   dice::Cast/*numbers*/, std::string_view/*type*/, int32_t/*success count, -1=not set*/, std::string_view/*name*/>;
+using ShowResponse = Base<ShowResponseTraits>;
 
 
 using ResetGameResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ResetGame = CommonBase<
+using ResetGameTraits = Traits<
    ID(114),
    ResetGameResponse>;
+using ResetGame = Base<ResetGameTraits>;
 
 
 using ResetConnectionsResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-
-using ResetConnections = CommonBase<
+using ResetConnectionsTraits = Traits<
    ID(115),
    ResetConnectionsResponse>;
+using ResetConnections = Base<ResetConnectionsTraits>;
 
 
 #undef COMMON_RESPONSES
