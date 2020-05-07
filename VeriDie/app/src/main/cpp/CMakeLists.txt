@@ -85,7 +85,8 @@ add_executable(tests
         tests/async_test.cpp
         tests/threading_test.cpp
         tests/cmd_test.cpp
-        tests/controller_test.cpp)
+        tests/controller_test.cpp
+        tests/pool_test.cpp)
 target_link_libraries(tests
         gtest
         veridie)
