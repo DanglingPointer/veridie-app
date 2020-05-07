@@ -131,7 +131,6 @@ using PoolFromSeq_t = typename PoolFromSeq<IntegerSeq>::Result;
 template <typename... TArgs>
 class PoolBuilder
 {
-   static_assert((... && std::is_standard_layout_v<TArgs>), "All types must have standard layout");
    using RawSequence = internal::Sequence<sizeof(TArgs)...>;
    using FilteredSequence = internal::EliminateDuplicates_t<RawSequence>;
    using SortedSequence = internal::Sorted_t<FilteredSequence>;

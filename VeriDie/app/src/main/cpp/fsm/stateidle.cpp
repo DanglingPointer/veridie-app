@@ -1,5 +1,6 @@
 #include <chrono>
 
+#include "sign/commandpool.hpp"
 #include "fsm/states.hpp"
 #include "core/logging.hpp"
 #include "core/timerengine.hpp"
@@ -8,6 +9,7 @@
 
 namespace fsm {
 using namespace std::chrono_literals;
+using cmd::Make;
 
 StateIdle::StateIdle(const Context & ctx)
    : m_ctx(ctx)
@@ -16,6 +18,7 @@ StateIdle::StateIdle(const Context & ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
    RequestBluetoothOn();
+   cmd::pool.ShrinkToFit();
 }
 
 void StateIdle::OnBluetoothOn()
@@ -50,7 +53,7 @@ void StateIdle::OnNewGame()
 
 void StateIdle::RequestBluetoothOn()
 {
-   m_ctx.proxy->Forward<cmd::EnableBluetooth>(MakeCb(
+   *m_ctx.proxy << Make<cmd::EnableBluetooth>(MakeCb(
       [this](cmd::EnableBluetoothResponse result) {
          result.Handle(
             [this](cmd::ResponseCode::OK) {
@@ -62,7 +65,7 @@ void StateIdle::RequestBluetoothOn()
                });
             },
             [this](cmd::ResponseCode::NO_BT_ADAPTER) {
-               m_ctx.proxy->Forward<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
+               *m_ctx.proxy << Make<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
                                                       "Cannot proceed due to a fatal failure.");
                m_ctx.state->emplace<std::monostate>();
             },

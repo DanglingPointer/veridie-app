@@ -3,6 +3,7 @@
 #include <cassert>
 #include <charconv>
 #include <cstring>
+#include <climits>
 
 namespace {
 
@@ -105,15 +106,19 @@ std::string_view Base<TTraits>::GetArgAt(size_t index) const noexcept
       case 0:
          assert(index < m_longArgs.size());
          buffer = m_longArgs[index].data();
-         assert(static_cast<size_t>(*buffer) <= m_longArgs[index].size());
-         break;
+         if constexpr (MAX_BUFFER_SIZE <= UCHAR_MAX) {
+            assert(static_cast<size_t>(*buffer) <= m_longArgs[index].size());
+            return std::string_view(buffer + 1, static_cast<size_t>(*buffer));
+         } else {
+            assert(std::string_view(buffer + 1).size() <= m_longArgs[index].size());
+            return std::string_view(buffer + 1);
+         }
       default:
          assert(index - 1 < m_shortArgs.size());
          buffer = m_shortArgs[index - 1].data();
          assert(static_cast<size_t>(*buffer) <= m_shortArgs[index - 1].size());
-         break;
+         return std::string_view(buffer + 1, static_cast<size_t>(*buffer));
    }
-   return std::string_view(buffer + 1, static_cast<size_t>(*buffer));
 }
 
 template <typename TTraits>
@@ -139,11 +144,13 @@ INSTANTIATE(EnableBluetooth);
 INSTANTIATE(NegotiationStart);
 INSTANTIATE(NegotiationStop);
 INSTANTIATE(SendMessage);
+INSTANTIATE(SendLongMessage);
 INSTANTIATE(ShowAndExit);
 INSTANTIATE(ShowToast);
 INSTANTIATE(ShowNotification);
 INSTANTIATE(ShowRequest);
 INSTANTIATE(ShowResponse);
+INSTANTIATE(ShowLongResponse);
 INSTANTIATE(ResetGame);
 INSTANTIATE(ResetConnections);
 

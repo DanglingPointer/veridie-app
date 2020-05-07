@@ -5,10 +5,12 @@
 #include "core/proxy.hpp"
 #include "dice/serializer.hpp"
 #include "sign/commands.hpp"
+#include "sign/commandpool.hpp"
 #include "core/logging.hpp"
 #include "core/timerengine.hpp"
 
 using namespace std::chrono_literals;
+using cmd::Make;
 
 namespace {
 
@@ -28,7 +30,7 @@ StateConnecting::StateConnecting(const Context & ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
    const bool includePaired = false;
-   m_ctx.proxy->Forward<cmd::StartDiscovery>(MakeCb(
+   *m_ctx.proxy << Make<cmd::StartDiscovery>(MakeCb(
       [this](cmd::StartDiscoveryResponse result) {
          result.Handle(
             [this](cmd::ResponseCode::OK) {
@@ -45,7 +47,7 @@ StateConnecting::StateConnecting(const Context & ctx)
       APP_UUID,
       APP_NAME,
       includePaired);
-   m_ctx.proxy->Forward<cmd::StartListening>(MakeCb(
+   *m_ctx.proxy << Make<cmd::StartListening>(MakeCb(
       [this](cmd::StartListeningResponse result) {
          result.Handle(
             [this](cmd::ResponseCode::OK) {
@@ -67,9 +69,9 @@ StateConnecting::StateConnecting(const Context & ctx)
 StateConnecting::~StateConnecting()
 {
    if (m_discovering.value_or(false))
-      m_ctx.proxy->Forward<cmd::StopDiscovery>(DetachedCb<cmd::StopDiscoveryResponse>());
+      *m_ctx.proxy << Make<cmd::StopDiscovery>(DetachedCb<cmd::StopDiscoveryResponse>());
    if (m_listening.value_or(false))
-      m_ctx.proxy->Forward<cmd::StopListening>(DetachedCb<cmd::StopListeningResponse>());
+      *m_ctx.proxy << Make<cmd::StopListening>(DetachedCb<cmd::StopListeningResponse>());
 }
 
 void StateConnecting::OnBluetoothOff()
@@ -122,7 +124,7 @@ void StateConnecting::OnConnectivityEstablished()
 void StateConnecting::CheckStatus()
 {
    if (m_listening.has_value() && !*m_listening && m_discovering.has_value() && !*m_discovering) {
-      m_ctx.proxy->Forward<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
+      *m_ctx.proxy << Make<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
                                              "Cannot proceed due to a fatal failure.");
       m_ctx.state->emplace<std::monostate>();
    }
@@ -136,7 +138,7 @@ void StateConnecting::SendHelloTo(const std::string & mac, uint32_t retriesLeft)
       return;
 
    std::string hello = m_ctx.serializer->Serialize(dice::Hello{ mac });
-   m_ctx.proxy->Forward<cmd::SendMessage>(MakeCb(
+   *m_ctx.proxy << Make<cmd::SendMessage>(MakeCb(
       [=](cmd::SendMessageResponse result) {
          result.Handle(
             [&](cmd::ResponseCode::CONNECTION_NOT_FOUND) {
@@ -157,7 +159,7 @@ void StateConnecting::SendHelloTo(const std::string & mac, uint32_t retriesLeft)
 
 void StateConnecting::DisconnectDevice(const std::string & mac)
 {
-   m_ctx.proxy->Forward<cmd::CloseConnection>(MakeCb(
+   *m_ctx.proxy << Make<cmd::CloseConnection>(MakeCb(
       [this, mac](cmd::CloseConnectionResponse result) {
          result.Handle(
             [&](cmd::ResponseCode::INVALID_STATE) {
@@ -172,21 +174,22 @@ void StateConnecting::DisconnectDevice(const std::string & mac)
 void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
 {
    if (retriesLeft == 0U) {
-      m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
-      m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+      *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+      *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
       fsm::Context ctx{m_ctx};
       m_ctx.state->emplace<StateIdle>(ctx);
       return;
    }
    if (!m_localMac.has_value()) {
       if (retriesLeft % 3 == 0) {
-         m_ctx.proxy->Forward<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
+         *m_ctx.proxy << Make<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
                                               "Getting ready...", 3s);
       }
       m_retryStartHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
          AttemptNegotiationStart(retriesLeft - 1);
       });
    } else {
+      cmd::pool.Resize(m_peers.size());
       fsm::Context ctx{m_ctx};
       std::string localMac(*std::move(m_localMac));
       std::unordered_set<bt::Device> peers(std::move(m_peers));

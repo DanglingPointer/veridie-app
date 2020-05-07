@@ -6,11 +6,13 @@
 #include "core/proxy.hpp"
 #include "fsm/states.hpp"
 #include "sign/commands.hpp"
+#include "sign/commandpool.hpp"
 #include "core/logging.hpp"
 #include "core/timerengine.hpp"
 
 namespace fsm {
 using namespace std::chrono_literals;
+using cmd::Make;
 
 uint32_t StateNegotiating::s_round = 0U;
 
@@ -31,7 +33,7 @@ StateNegotiating::StateNegotiating(const fsm::Context & ctx,
    auto [localOffer, _] = m_offers.insert_or_assign(m_localMac, dice::Offer{"", ++s_round});
    localOffer->second.mac = GetLocalOfferMac();
 
-   m_ctx.proxy->Forward<cmd::NegotiationStart>(MakeCb([this](cmd::NegotiationStartResponse result) {
+   *m_ctx.proxy << Make<cmd::NegotiationStart>(MakeCb([this](cmd::NegotiationStartResponse result) {
       result.Handle(
          [this](cmd::ResponseCode::INVALID_STATE) {
             m_ctx.logger->Write<LogPriority::FATAL>("Cannot start negotiation in invalid state");
@@ -46,8 +48,8 @@ StateNegotiating::~StateNegotiating() = default;
 
 void StateNegotiating::OnBluetoothOff()
 {
-   m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
-   m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
    fsm::Context ctx{m_ctx};
    ctx.state->emplace<StateIdle>(ctx);
 }
@@ -92,7 +94,7 @@ void StateNegotiating::UpdateAndBroadcastOffer()
       std::string_view nomineeName("You");
       if (auto it = m_peers.find(bt::Device{"", localOffer->second.mac}); it != std::cend(m_peers))
          nomineeName = it->name;
-      m_ctx.proxy->Forward<cmd::NegotiationStop>(DetachedCb<cmd::NegotiationStopResponse>(),
+      *m_ctx.proxy << Make<cmd::NegotiationStop>(DetachedCb<cmd::NegotiationStopResponse>(),
                                                  nomineeName);
       fsm::Context ctx{m_ctx};
       std::unordered_set<bt::Device> peers(std::move(m_peers));
@@ -120,7 +122,7 @@ void StateNegotiating::UpdateAndBroadcastOffer()
    // broadcast local offer
    std::string message = m_ctx.serializer->Serialize(localOffer->second);
    for (const auto & remote : m_peers) {
-      m_ctx.proxy->Forward<cmd::SendMessage>(
+      *m_ctx.proxy << Make<cmd::SendMessage>(
          MakeCb([this, remote](cmd::SendMessageResponse result) {
             result.Handle(
                [&](cmd::ResponseCode::CONNECTION_NOT_FOUND) {
@@ -143,7 +145,7 @@ void StateNegotiating::UpdateAndBroadcastOffer()
 
 void StateNegotiating::DisconnectDevice(const std::string & mac)
 {
-   m_ctx.proxy->Forward<cmd::CloseConnection>(
+   *m_ctx.proxy << Make<cmd::CloseConnection>(
       MakeCb([this, mac](cmd::CloseConnectionResponse result) {
          result.Handle(
             [&](cmd::ResponseCode::INVALID_STATE) {

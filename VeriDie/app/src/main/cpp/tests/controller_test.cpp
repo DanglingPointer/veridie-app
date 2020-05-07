@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 #include <queue>
 #include <list>
+#include <sstream>
 #include <vector>
 
 #include "tests/fakelogger.hpp"
 #include "bt/device.hpp"
 #include "core/controller.hpp"
 #include "sign/commands.hpp"
+#include "sign/commandpool.hpp"
 #include "core/timerengine.hpp"
 #include "core/proxy.hpp"
 #include "dice/engine.hpp"
@@ -18,7 +20,7 @@ using namespace std::chrono_literals;
 class MockProxy : public core::Proxy
 {
 public:
-   std::unique_ptr<cmd::ICommand> PopNextCommand()
+   mem::pool_ptr<cmd::ICommand> PopNextCommand()
    {
       if (m_q.empty())
          return nullptr;
@@ -29,11 +31,11 @@ public:
    bool NoCommands() const { return m_q.empty(); }
 
 private:
-   void ForwardCommandToUi(std::unique_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
-   void ForwardCommandToBt(std::unique_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
+   void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
+   void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
 
 private:
-   std::queue<std::unique_ptr<cmd::ICommand>> m_q;
+   std::queue<mem::pool_ptr<cmd::ICommand>> m_q;
 };
 
 class MockTimerEngine : public core::ITimerEngine
@@ -115,6 +117,11 @@ private:
 class IdlingFixture : public ::testing::Test
 {
 protected:
+   ~IdlingFixture()
+   {
+      cmd::pool.ShrinkToFit();
+      EXPECT_EQ(0U, cmd::pool.GetBlockCount());
+   }
    std::unique_ptr<core::IController> CreateController()
    {
       proxy = new MockProxy;
@@ -364,9 +371,11 @@ TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
    ASSERT_TRUE(cmdListening);
    EXPECT_EQ(100, ID(cmdListening));
 
+   size_t prevBlockCount = cmd::pool.GetBlockCount();
    cmdDiscovering->Respond(2);
    cmdListening->Respond(2);
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_TRUE(cmd::pool.GetBlockCount() <= prevBlockCount);
    auto enableBt = proxy->PopNextCommand();
    ASSERT_TRUE(enableBt);
    EXPECT_EQ(105, ID(enableBt));
@@ -965,6 +974,64 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
       EXPECT_TRUE(proxy->NoCommands());
    }
 
+   // BIG local request
+   {
+      generator->value = 6;
+      ctrl->OnEvent(15, {"D6", "70", "3"});
+
+      auto showRequest = proxy->PopNextCommand();
+      ASSERT_TRUE(showRequest);
+      EXPECT_EQ(112, ID(showRequest));
+      EXPECT_EQ(4U, showRequest->GetArgsCount());
+      EXPECT_STREQ("D6", showRequest->GetArgAt(0).data());
+      EXPECT_STREQ("70", showRequest->GetArgAt(1).data());
+      EXPECT_STREQ("3", showRequest->GetArgAt(2).data());
+      EXPECT_STREQ("You", showRequest->GetArgAt(3).data());
+      showRequest->Respond(0);
+
+      const char * expectedRequest = R"(<Request successFrom="3" size="70" type="D6" />)";
+      for (const auto & peer : Peers()) {
+         auto sendRequest = proxy->PopNextCommand();
+         ASSERT_TRUE(sendRequest);
+         EXPECT_EQ(108, ID(sendRequest));
+         EXPECT_EQ(2U, sendRequest->GetArgsCount());
+         EXPECT_STREQ(expectedRequest, sendRequest->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendRequest->GetArgAt(1).data());
+         sendRequest->Respond(0);
+      }
+
+      std::ostringstream expectedResponse;
+      expectedResponse << R"(<Response successCount="70" size="70" type="D6">)";
+      for (int i = 0; i < 70; ++i)
+         expectedResponse << "<Val>6</Val>";
+      expectedResponse << R"(</Response>)";
+
+      for (const auto & peer : Peers()) {
+         auto sendResponse = proxy->PopNextCommand();
+         ASSERT_TRUE(sendResponse);
+         EXPECT_EQ(108, ID(sendResponse));
+         EXPECT_EQ(2U, sendResponse->GetArgsCount());
+         EXPECT_STREQ(expectedResponse.str().c_str(), sendResponse->GetArgAt(0).data());
+         EXPECT_STREQ(peer.mac.c_str(), sendResponse->GetArgAt(1).data());
+         sendResponse->Respond(0);
+      }
+
+      expectedResponse.str("");
+      for (int i = 0; i < 70; ++i)
+         expectedResponse << "6;";
+
+      auto showResponse = proxy->PopNextCommand();
+      ASSERT_TRUE(showResponse);
+      EXPECT_EQ(113, ID(showResponse));
+      EXPECT_EQ(4u, showResponse->GetArgsCount());
+      EXPECT_STREQ(expectedResponse.str().c_str(), showResponse->GetArgAt(0).data());
+      EXPECT_STREQ("D6", showResponse->GetArgAt(1).data());
+      EXPECT_STREQ("70", showResponse->GetArgAt(2).data());
+      EXPECT_STREQ("You", showResponse->GetArgAt(3).data());
+      showResponse->Respond(0);
+      EXPECT_TRUE(proxy->NoCommands());
+   }
+
    // Peer 1 wants to re-negotiate before 5 sec
    std::string offer = R"(<Offer round="12"><Mac>)" + Peers()[0].mac + "</Mac></Offer>";
    ctrl->OnEvent(14, {offer, Peers()[1].mac, ""});
@@ -1282,6 +1349,7 @@ using P2R20 = PlayingFixture<2u, 20u>;
 
 TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
 {
+   size_t prevBlockCount = cmd::pool.GetBlockCount();
    ctrl->OnEvent(16, {}); // game stopped
 
    {
@@ -1300,6 +1368,7 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
    }
 
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_TRUE(cmd::pool.GetBlockCount() <= prevBlockCount);
    auto btOn = proxy->PopNextCommand();
    ASSERT_TRUE(btOn);
    EXPECT_EQ(105, ID(btOn));

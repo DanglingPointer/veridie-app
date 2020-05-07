@@ -203,4 +203,34 @@ TEST(MempoolTest, poolbuilder_eliminates_duplicates_and_sorts)
    EXPECT_EQ(1U+2U+4U+8U, p.GetSize());
 }
 
+class Base
+{
+public:
+   Base() : m_i(42) {}
+   virtual ~Base() = default;
+   virtual int Get() const { return m_i; }
+
+protected:
+   int m_i;
+};
+
+class Derived : public Base
+{
+public:
+   Derived() : m_another(42) {}
+   int Get() const override { return m_i + m_another; }
+
+private:
+   int m_another;
+};
+
+TEST(MempoolTest, poolptr_handles_inheritancy_and_virtual_functions)
+{
+   using Pool = mem::PoolSuitableFor<Base, Derived>;
+   Pool pool(1);
+
+   mem::PoolPtr<Base> p = pool.MakeUnique<Derived>();
+   EXPECT_EQ(42+42, p->Get());
+}
+
 } // namespace

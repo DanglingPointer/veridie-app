@@ -5,6 +5,7 @@
 #include "core/logging.hpp"
 #include "core/timerengine.hpp"
 #include "sign/commands.hpp"
+#include "sign/commandpool.hpp"
 #include "core/proxy.hpp"
 #include "utils/canceller.hpp"
 
@@ -76,7 +77,7 @@ public:
                                          eventId,
                                          "Args:",
                                          ss.str());
-      m_proxy->ForwardToUi<TestCommand>((eventId << 8), args);
+      m_proxy->ForwardCommandToUi(cmd::Make<TestCommand>((eventId << 8), args));
    }
 
 private:

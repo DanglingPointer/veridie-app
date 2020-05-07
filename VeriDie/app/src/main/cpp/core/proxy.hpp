@@ -4,6 +4,7 @@
 #include <cassert>
 #include <memory>
 #include "sign/commands.hpp"
+#include "utils/poolptr.hpp"
 
 namespace core {
 
@@ -11,9 +12,9 @@ class Proxy
 {
 public:
    virtual ~Proxy() = default;
-   virtual void ForwardCommandToUi(std::unique_ptr<cmd::ICommand> c) = 0;
-   virtual void ForwardCommandToBt(std::unique_ptr<cmd::ICommand> c) = 0;
-   void ForwardCommand(std::unique_ptr<cmd::ICommand> c)
+   virtual void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) = 0;
+   virtual void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> c) = 0;
+   void ForwardCommand(mem::pool_ptr<cmd::ICommand> c)
    {
       if (Contains(cmd::UiDictionary{}, c->GetId())) {
          ForwardCommandToUi(std::move(c));
@@ -26,20 +27,10 @@ public:
       assert(false);
    }
 
-   template <typename TCmd, typename... TArgs>
-   void ForwardToUi(TArgs &&... args)
+   Proxy & operator<<(mem::pool_ptr<cmd::ICommand> c)
    {
-      ForwardCommandToUi(std::make_unique<TCmd>(std::forward<TArgs>(args)...));
-   }
-   template <typename TCmd, typename... TArgs>
-   void ForwardToBt(TArgs &&... args)
-   {
-      ForwardCommandToBt(std::make_unique<TCmd>(std::forward<TArgs>(args)...));
-   }
-   template <typename TCmd, typename... TArgs>
-   void Forward(TArgs &&... args)
-   {
-      ForwardCommand(std::make_unique<TCmd>(std::forward<TArgs>(args)...));
+      ForwardCommand(std::move(c));
+      return *this;
    }
 
 private:
@@ -50,6 +41,6 @@ private:
    }
 };
 
-}
+} // namespace core
 
 #endif // CORE_PROXY_HPP

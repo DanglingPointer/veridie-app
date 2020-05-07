@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <jni.h>
 
+#include "utils/poolptr.hpp"
+
 class ILogger;
 
 namespace cmd {
@@ -17,8 +19,8 @@ class ICmdManager
 {
 public:
    virtual ~ICmdManager() = default;
-   virtual void IssueUiCommand(std::unique_ptr<cmd::ICommand> c) = 0;
-   virtual void IssueBtCommand(std::unique_ptr<cmd::ICommand> c) = 0;
+   virtual void IssueUiCommand(mem::pool_ptr<cmd::ICommand> c) = 0;
+   virtual void IssueBtCommand(mem::pool_ptr<cmd::ICommand> c) = 0;
    virtual void OnCommandResponse(int32_t cmdId, int64_t response) = 0;
 };
 

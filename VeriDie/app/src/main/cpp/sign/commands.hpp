@@ -60,6 +60,7 @@ public:
 
    static constexpr int32_t ID = TTraits::ID;
    static constexpr size_t ARG_SIZE = std::tuple_size_v<ParamTuple>;
+   static constexpr size_t MAX_BUFFER_SIZE = TTraits::LONG_BUFFER_SIZE - 1;
 
 
    template <typename... Ts>
@@ -100,6 +101,13 @@ template <int32_t Id, typename TResponse, typename... TParams>
 struct LongTraits : Traits<Id, TResponse, TParams...>
 {
    static constexpr size_t LONG_BUFFER_SIZE = 256U;
+   static constexpr size_t SHORT_BUFFER_SIZE = 32U;
+};
+
+template <int32_t Id, typename TResponse, typename... TParams>
+struct ExtraLongTraits : Traits<Id, TResponse, TParams...>
+{
+   static constexpr size_t LONG_BUFFER_SIZE = 1024U;
    static constexpr size_t SHORT_BUFFER_SIZE = 32U;
 };
 
@@ -242,6 +250,13 @@ using SendMessageTraits = LongTraits<
 using SendMessage = Base<SendMessageTraits>;
 
 
+using SendLongMessageTraits = ExtraLongTraits<
+   ID(108),
+   SendMessageResponse,
+   std::string_view/*message*/, std::string_view/*remote mac addr*/>;
+using SendLongMessage = Base<SendLongMessageTraits>;
+
+
 using ShowAndExitResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ShowAndExitTraits = LongTraits<
@@ -280,11 +295,18 @@ using ShowRequest = Base<ShowRequestTraits>;
 
 using ShowResponseResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
-using ShowResponseTraits = Traits<
+using ShowResponseTraits = LongTraits<
    ID(113),
    ShowResponseResponse,
    dice::Cast/*numbers*/, std::string_view/*type*/, int32_t/*success count, -1=not set*/, std::string_view/*name*/>;
 using ShowResponse = Base<ShowResponseTraits>;
+
+
+using ShowLongResponseTraits = ExtraLongTraits<
+   ID(113),
+   ShowResponseResponse,
+   dice::Cast/*numbers*/, std::string_view/*type*/, int32_t/*success count, -1=not set*/, std::string_view/*name*/>;
+using ShowLongResponse = Base<ShowLongResponseTraits>;
 
 
 using ResetGameResponse = ResponseCodeSubset<
@@ -317,6 +339,7 @@ using BtDictionary = List<
    StopDiscovery,
    CloseConnection,
    SendMessage,
+   SendLongMessage,
    ResetConnections>;
 
 using UiDictionary = List<
@@ -327,6 +350,7 @@ using UiDictionary = List<
    ShowNotification,
    ShowRequest,
    ShowResponse,
+   ShowLongResponse,
    ResetGame>;
 
 

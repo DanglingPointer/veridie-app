@@ -18,14 +18,14 @@ public:
       (void)m_logger;
    }
 
-   void ForwardCommandToUi(std::unique_ptr<cmd::ICommand> c) override
+   void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) override
    {
       LogCommand(c);
       jni::Exec([cmd = std::move(c)](jni::ICmdManager * mgr) mutable {
          mgr->IssueUiCommand(std::move(cmd));
       });
    }
-   void ForwardCommandToBt(std::unique_ptr<cmd::ICommand> c) override
+   void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> c) override
    {
       LogCommand(c);
       jni::Exec([cmd = std::move(c)](jni::ICmdManager * mgr) mutable {
@@ -34,7 +34,7 @@ public:
    }
 
 private:
-   void LogCommand(const std::unique_ptr<cmd::ICommand> & cmd)
+   void LogCommand(const mem::pool_ptr<cmd::ICommand> & cmd)
    {
       std::ostringstream ss;
       ss << ">>>>> " << cmd->GetName();

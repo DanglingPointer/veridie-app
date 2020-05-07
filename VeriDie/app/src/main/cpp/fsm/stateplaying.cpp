@@ -9,8 +9,10 @@
 #include "dice/engine.hpp"
 #include "core/proxy.hpp"
 #include "sign/commands.hpp"
+#include "sign/commandpool.hpp"
 
 using namespace std::chrono_literals;
+using cmd::Make;
 namespace {
 
 constexpr uint32_t RETRY_COUNT = 5U;
@@ -72,7 +74,7 @@ public:
    ~RemotePeerManager()
    {
       if (!m_connected)
-         m_proxy.Forward<cmd::CloseConnection>(DetachedCb<cmd::CloseConnectionResponse>(),
+         m_proxy << Make<cmd::CloseConnection>(DetachedCb<cmd::CloseConnectionResponse>(),
                                                "Connection has been lost",
                                                m_remote.mac);
    }
@@ -117,29 +119,35 @@ private:
       if (retriesLeft == 0)
          return;
 
-      m_proxy.Forward<cmd::SendMessage>(
-         MakeCb([=](cmd::SendMessageResponse result) {
-            result.Handle(
-               [&](cmd::ResponseCode::INVALID_STATE) {
-                  Send(message, retriesLeft - 1);
-               },
-               [&](cmd::ResponseCode::OK) {
-                  m_connected = true;
-                  if (!m_queuedMessages.empty()) {
-                     std::string lastQueuedMsg = std::move(m_queuedMessages.back());
-                     m_queuedMessages.pop_back();
-                     Send(lastQueuedMsg, RETRY_COUNT);
-                  }
-               },
-               [&](auto) {
-                  m_connected = false;
-                  m_queuedMessages.emplace_back(message);
-                  if (m_isGenerator)
-                     m_renegotiate();
-               });
-         }),
-         message,
-         m_remote.mac);
+      auto callback = MakeCb([=](cmd::SendMessageResponse result) {
+         result.Handle(
+            [&](cmd::ResponseCode::INVALID_STATE) {
+               Send(message, retriesLeft - 1);
+            },
+            [&](cmd::ResponseCode::OK) {
+               m_connected = true;
+               if (!m_queuedMessages.empty()) {
+                  std::string lastQueuedMsg = std::move(m_queuedMessages.back());
+                  m_queuedMessages.pop_back();
+                  Send(lastQueuedMsg, RETRY_COUNT);
+               }
+            },
+            [&](auto) {
+               m_connected = false;
+               m_queuedMessages.emplace_back(message);
+               if (m_isGenerator)
+                  m_renegotiate();
+            });
+      });
+
+      if (message.size() <= cmd::SendMessage::MAX_BUFFER_SIZE)
+         m_proxy << Make<cmd::SendMessage>(std::move(callback), message, m_remote.mac);
+      else if (message.size() <= cmd::SendLongMessage::MAX_BUFFER_SIZE)
+         m_proxy << Make<cmd::SendLongMessage>(std::move(callback), message, m_remote.mac);
+      else
+         m_proxy << Make<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
+                                         "Cannot send too long message, try fewer dices",
+                                         7s);
    }
 
    bt::Device m_remote;
@@ -182,8 +190,8 @@ StatePlaying::~StatePlaying() = default;
 
 void StatePlaying::OnBluetoothOff()
 {
-   m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
-   m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
    fsm::Context ctx{m_ctx};
    m_ctx.state->emplace<StateIdle>(ctx);
 }
@@ -257,8 +265,8 @@ void StatePlaying::OnCastRequest(dice::Request && localRequest)
 
 void StatePlaying::OnGameStopped()
 {
-   m_ctx.proxy->Forward<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
-   m_ctx.proxy->Forward<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
    fsm::Context ctx{m_ctx};
    m_ctx.state->emplace<StateIdle>(ctx);
 }
@@ -284,7 +292,7 @@ StateNegotiating * StatePlaying::StartNegotiation()
 
 void StatePlaying::ShowRequest(const dice::Request & request, const std::string & from)
 {
-   m_ctx.proxy->Forward<cmd::ShowRequest>(MakeCb(
+   *m_ctx.proxy << Make<cmd::ShowRequest>(MakeCb(
       [=](cmd::ShowRequestResponse result) {
          if (result.Value() != cmd::ResponseCode::OK::value)
             ShowRequest(request, from);
@@ -300,21 +308,37 @@ void StatePlaying::ShowRequest(const dice::Request & request, const std::string 
 
 void StatePlaying::ShowResponse(const dice::Response & response, const std::string & from)
 {
-   m_ctx.proxy->Forward<cmd::ShowResponse>(MakeCb(
-      [=](cmd::ShowResponseResponse result) {
-         result.Handle(
-            [&](cmd::ResponseCode::OK) {
-               if (++m_responseCount >= ROUNDS_PER_GENERATOR)
-                  StartNegotiation();
-            },
-            [&](auto) {
-               ShowResponse(response, from);
-            });
-      }),
-      response.cast,
-      dice::TypeToString(response.cast),
-      response.successCount.value_or(-1),
-      from);
+   auto callback = MakeCb([=](cmd::ShowResponseResponse result) {
+      result.Handle(
+         [&](cmd::ResponseCode::OK) {
+            if (++m_responseCount >= ROUNDS_PER_GENERATOR)
+               StartNegotiation();
+         },
+         [&](auto) {
+            ShowResponse(response, from);
+         });
+   });
+   size_t responseSize = std::visit(
+      [](const auto & vec) {
+         return vec.size();
+      },
+      response.cast);
+   if (responseSize <= cmd::ShowResponse::MAX_BUFFER_SIZE / 3)
+      *m_ctx.proxy << Make<cmd::ShowResponse>(std::move(callback),
+                                              response.cast,
+                                              dice::TypeToString(response.cast),
+                                              response.successCount.value_or(-1),
+                                              from);
+   else if (responseSize <= cmd::ShowLongResponse::MAX_BUFFER_SIZE / 3)
+      *m_ctx.proxy << Make<cmd::ShowLongResponse>(std::move(callback),
+                                                  response.cast,
+                                                  dice::TypeToString(response.cast),
+                                                  response.successCount.value_or(-1),
+                                                  from);
+   else
+      *m_ctx.proxy << Make<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
+                                           "Request is too big, cannot proceed",
+                                           7s);
 }
 
 } // namespace fsm
