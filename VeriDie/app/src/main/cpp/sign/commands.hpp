@@ -1,5 +1,5 @@
-#ifndef CORE_COMMANDS_HPP
-#define CORE_COMMANDS_HPP
+#ifndef SIGN_COMMANDS_HPP
+#define SIGN_COMMANDS_HPP
 
 #include <array>
 #include <chrono>
@@ -356,4 +356,4 @@ using UiDictionary = List<
 
 } // namespace cmd
 
-#endif // CORE_COMMANDS_HPP
+#endif // SIGN_COMMANDS_HPP

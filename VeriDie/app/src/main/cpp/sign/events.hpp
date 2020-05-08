@@ -1,5 +1,5 @@
-#ifndef CORE_EVENTS_HPP
-#define CORE_EVENTS_HPP
+#ifndef SIGN_EVENTS_HPP
+#define SIGN_EVENTS_HPP
 
 #include <string>
 #include <string_view>
@@ -98,4 +98,4 @@ using Dictionary = List<
 
 } // namespace event
 
-#endif //CORE_EVENTS_HPP
+#endif //SIGN_EVENTS_HPP
