@@ -13,69 +13,64 @@ include_directories(${PROJECT_SOURCE_DIR})
 find_library(log-lib
         log)
 
+
+# logging
 add_library(veridielog
-        SHARED
+        STATIC
         utils/logger.cpp
         )
 target_link_libraries(veridielog
         ${log-lib})
 
 
-# main app logic:
-add_library(veridie
-        SHARED
-
+# cross-platform main logic
+add_library(veridiecore
+        STATIC
         sign/commands.cpp
         sign/events.cpp
-
         core/controller.cpp
         core/exec.cpp
         core/timerengine.cpp
-
         dice/engine.cpp
         dice/serializer.cpp
-
         fsm/stateconnecting.cpp
         fsm/stateidle.cpp
         fsm/statenegotiating.cpp
         fsm/stateplaying.cpp
-
-        jni/cmdmanager.cpp
-        jni/exec.cpp
-        jni/proxy.cpp
-
         utils/async.cpp
         utils/worker.cpp
         )
-target_link_libraries(veridie
+target_link_libraries(veridiecore
         veridielog)
 
 
-# fake library with empty controller for testing jni interop:
-add_library(jni_only_veridie
+# veridie for android
+add_library(veridie
         SHARED
-
-        sign/commands.cpp
-
-        tests/fakecontroller.cpp
-        core/exec.cpp
-
-        # no dice/
-
-        # no fsm/
-
         jni/cmdmanager.cpp
         jni/exec.cpp
         jni/proxy.cpp
+        )
+target_link_libraries(veridie
+        veridielog
+        veridiecore)
 
-        utils/async.cpp
+
+# echo controller for testing jni interop via instrumented tests
+add_library(jni_only_veridie
+        SHARED
+        tests/fakecontroller.cpp
+        core/exec.cpp
+        jni/cmdmanager.cpp
+        jni/exec.cpp
+        jni/proxy.cpp
         utils/worker.cpp
         )
 target_link_libraries(jni_only_veridie
         veridielog)
 
 
-# google test library:
+# google test static lib
 set(GOOGLETEST_ROOT ${ANDROID_NDK}/sources/third_party/googletest)
 add_library(gtest STATIC
         ${GOOGLETEST_ROOT}/src/gtest_main.cc
@@ -84,7 +79,7 @@ target_include_directories(gtest PRIVATE ${GOOGLETEST_ROOT})
 target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 
 
-# google test executable:
+# unit tests executable
 add_executable(tests
         tests/dice_test.cpp
         tests/async_test.cpp
@@ -94,18 +89,16 @@ add_executable(tests
         tests/pool_test.cpp)
 target_link_libraries(tests
         gtest
-        veridie)
+        veridiecore)
 
 
-# run gtest executable
+# push and run unit tests
 find_program(ADB ${ANDROID_NDK}/../platform-tools/adb)
 if(NOT ADB)
     message(FATAL_ERROR "Could not find adb")
 endif()
 add_custom_command(TARGET tests POST_BUILD
         COMMAND ${ADB} shell mkdir -p /data/local/tmp/${ANDROID_ABI}
-        COMMAND ${ADB} push $<TARGET_FILE:veridielog> /data/local/tmp/${ANDROID_ABI}/
-        COMMAND ${ADB} push $<TARGET_FILE:veridie> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} push $<TARGET_FILE:tests> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} shell \"export LD_LIBRARY_PATH=/data/local/tmp/${ANDROID_ABI}\; /data/local/tmp/${ANDROID_ABI}/tests\")
 
