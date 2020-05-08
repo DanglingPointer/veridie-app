@@ -64,10 +64,14 @@ class EchoController
    , private async::Canceller<>
 {
 public:
-   EchoController(ILogger & logger, std::unique_ptr<core::Proxy> proxy)
+   EchoController(ILogger & logger)
       : m_logger(logger)
-      , m_proxy(std::move(proxy))
+      , m_proxy(nullptr)
    {}
+   void Start(std::function<std::unique_ptr<core::Proxy>(ILogger &)> proxyBuilder) override
+   {
+      m_proxy = proxyBuilder(m_logger);
+   }
    void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
       std::ostringstream ss;
@@ -89,12 +93,11 @@ private:
 
 namespace core {
 
-std::unique_ptr<IController> CreateController(std::unique_ptr<core::Proxy> proxy,
-                                              std::unique_ptr<dice::IEngine> /*engine*/,
+std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> /*engine*/,
                                               std::unique_ptr<core::ITimerEngine> /*timer*/,
                                               std::unique_ptr<dice::ISerializer> /*serializer*/,
                                               ILogger & logger)
 {
-   return std::make_unique<EchoController>(logger, std::move(proxy));
+   return std::make_unique<EchoController>(logger);
 }
 } // namespace core

@@ -3,10 +3,11 @@
 #include <vector>
 #include <jni.h>
 #include "jni/exec.hpp"
-#include "utils/logger.hpp"
 #include "jni/cmdmanager.hpp"
+#include "jni/proxy.hpp"
 #include "core/exec.hpp"
 #include "core/controller.hpp"
+#include "utils/logger.hpp"
 #include "utils/worker.hpp"
 #include "bt/device.hpp"
 
@@ -102,8 +103,8 @@ JNIEXPORT void JNICALL Java_com_vasilyev_veridie_interop_Bridge_bridgeReady(JNIE
       if (!ctx->cmdMgr)
          ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
    });
-   core::Exec([](auto) {
-      // Do nothing; this will create Controller and states
+   core::Exec([](core::IController * ctrl) {
+      ctrl->Start(jni::CreateProxy);
    });
 }
 

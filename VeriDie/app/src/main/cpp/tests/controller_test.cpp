@@ -127,11 +127,14 @@ protected:
       proxy = new MockProxy;
       timer = new MockTimerEngine;
       generator = new StubGenerator;
-      return core::CreateController(std::unique_ptr<core::Proxy>(proxy),
-                                    std::unique_ptr<dice::IEngine>(generator),
-                                    std::unique_ptr<core::ITimerEngine>(timer),
-                                    dice::CreateXmlSerializer(),
-                                    logger);
+      auto ctrl = core::CreateController(std::unique_ptr<dice::IEngine>(generator),
+                                         std::unique_ptr<core::ITimerEngine>(timer),
+                                         dice::CreateXmlSerializer(),
+                                         logger);
+      ctrl->Start([=](ILogger &) {
+         return std::unique_ptr<core::Proxy>(proxy);
+      });
+      return ctrl;
    }
 
    MockProxy * proxy;

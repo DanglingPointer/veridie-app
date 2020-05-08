@@ -1,7 +1,6 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "core/timerengine.hpp"
-#include "core/external.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
 #include "utils/worker.hpp"
@@ -14,8 +13,7 @@ void MainExecutor(std::function<void()> task);
 Worker & MainWorker()
 {
    static auto s_logger = CreateLogger("MAIN_WORKER");
-   static auto s_ctrl = core::CreateController(external::CreateProxy(*s_logger),
-                                               dice::CreateUniformEngine(),
+   static auto s_ctrl = core::CreateController(dice::CreateUniformEngine(),
                                                core::CreateTimerEngine(MainExecutor),
                                                dice::CreateXmlSerializer(),
                                                *s_logger);

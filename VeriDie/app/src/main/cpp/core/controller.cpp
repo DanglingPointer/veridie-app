@@ -25,17 +25,23 @@ class Controller : public core::IController
 {
 public:
    Controller(ILogger & logger,
-              std::unique_ptr<core::Proxy> proxy,
               std::unique_ptr<dice::IEngine> engine,
               std::unique_ptr<core::ITimerEngine> timer,
               std::unique_ptr<dice::ISerializer> serializer)
       : m_logger(logger)
-      , m_proxy(std::move(proxy))
+      , m_proxy(nullptr)
       , m_generator(std::move(engine))
       , m_timer(std::move(timer))
       , m_serializer(std::move(serializer))
       , m_eventHandlers(CreateEventHandlers(event::Dictionary{}))
+   {}
+
+private:
+   void Start(std::function<std::unique_ptr<core::Proxy>(ILogger &)> proxyBuilder) override
    {
+      if (m_proxy)
+         return;
+      m_proxy = proxyBuilder(m_logger);
       m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger,
                                                    m_generator.get(),
                                                    m_serializer.get(),
@@ -43,8 +49,6 @@ public:
                                                    m_proxy.get(),
                                                    &m_state});
    }
-
-private:
    void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
       auto it = m_eventHandlers.find(eventId);
@@ -81,14 +85,12 @@ private:
 
 namespace core {
 
-std::unique_ptr<IController> CreateController(std::unique_ptr<core::Proxy> proxy,
-                                              std::unique_ptr<dice::IEngine> engine,
+std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
                                               std::unique_ptr<core::ITimerEngine> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,
                                               ILogger & logger)
 {
    return std::make_unique<Controller>(logger,
-                                       std::move(proxy),
                                        std::move(engine),
                                        std::move(timer),
                                        std::move(serializer));

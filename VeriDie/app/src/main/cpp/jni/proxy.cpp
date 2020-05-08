@@ -14,9 +14,7 @@ class Proxy : public core::Proxy
 public:
    explicit Proxy(ILogger & logger)
       : m_logger(logger)
-   {
-      (void)m_logger;
-   }
+   {}
 
    void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) override
    {
