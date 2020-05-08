@@ -213,6 +213,16 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         }
     }
 
+    @Override
+    public void connectFailed(BluetoothDevice device)
+    {
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.container);
+        if (current instanceof ConnectingFragment) {
+            ((ConnectingFragment)current).removeDiscoveredDevice(device);
+            ((ConnectingFragment)current).addDiscoveredDevice(device);
+        }
+    }
+
     // ---------------IdleFragment-callbacks--------------------------------------------------------
 
     @Override

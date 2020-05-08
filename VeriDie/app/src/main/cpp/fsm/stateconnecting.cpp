@@ -18,7 +18,7 @@ constexpr auto APP_UUID = "76445157-4f39-42e9-a62e-877390cbb4bb";
 constexpr auto APP_NAME = "VeriDie";
 constexpr uint32_t MAX_SEND_RETRY_COUNT = 10U;
 constexpr uint32_t MAX_GAME_START_RETRY_COUNT = 30U;
-constexpr auto DISCOVERABILITY_DURATION = 120s;
+constexpr auto DISCOVERABILITY_DURATION = 5min;
 
 } // namespace
 

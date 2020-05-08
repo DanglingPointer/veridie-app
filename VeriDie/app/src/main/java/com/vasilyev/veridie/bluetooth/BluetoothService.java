@@ -1,6 +1,5 @@
 package com.vasilyev.veridie.bluetooth;
 
-import android.annotation.SuppressLint;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -39,8 +38,8 @@ public class BluetoothService extends Service
     public interface Callbacks
     {
         void deviceDiscovered(BluetoothDevice device);
-
         void deviceConnected(BluetoothDevice device);
+        void connectFailed(BluetoothDevice device);
     }
 
     public class BluetoothBinder extends Binder
@@ -260,6 +259,14 @@ public class BluetoothService extends Service
                         m_cb.deviceConnected(device);
                     });
                 }
+
+                @Override
+                public void connectFailed(BluetoothDevice device)
+                {
+                    m_ex.execute(() -> {
+                        m_cb.connectFailed(device);
+                    });
+                }
             };
         });
     }
@@ -279,13 +286,13 @@ public class BluetoothService extends Service
             }
             catch (Exception e) {
                 e.printStackTrace();
-                if (socket != null) {
+                if (socket != null)
                     close(socket);
-                    socket = null;
-                }
-            }
-            if (socket == null)
+                if (m_callbacks != null)
+                    m_callbacks.connectFailed(device);
                 return;
+            }
+
             try {
                 m_connectionMgr.addConnection(socket);
             }

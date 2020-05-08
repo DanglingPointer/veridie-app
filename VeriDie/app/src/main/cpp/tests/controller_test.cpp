@@ -308,7 +308,7 @@ TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
    ASSERT_TRUE(cmdListening);
    EXPECT_EQ(100, ID(cmdListening));
    EXPECT_EQ(3U, cmdListening->GetArgsCount());
-   EXPECT_EQ("120", cmdListening->GetArgAt(2));
+   EXPECT_STREQ("300", cmdListening->GetArgAt(2).data());
 
    cmdListening->Respond(0);
    cmdDiscovering->Respond(0);
