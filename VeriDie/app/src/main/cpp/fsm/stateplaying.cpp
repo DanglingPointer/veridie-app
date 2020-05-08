@@ -228,8 +228,8 @@ void StatePlaying::OnMessageReceived(const bt::Device & sender, const std::strin
       if (m_localGenerator) {
          dice::Response response = GenerateResponse(*m_ctx.generator, std::move(*request));
          std::string encoded = m_ctx.serializer->Serialize(response);
-         for (auto & e : m_managers)
-            e.second.SendResponse(encoded);
+         for (auto & [_, peer] : m_managers)
+            peer.SendResponse(encoded);
          ShowResponse(response, "You");
       }
       return;
@@ -241,14 +241,14 @@ void StatePlaying::OnCastRequest(dice::Request && localRequest)
    ShowRequest(localRequest, "You");
 
    std::string encodedRequest = m_ctx.serializer->Serialize(localRequest);
-   for (auto & e : m_managers)
-      e.second.SendRequest(encodedRequest);
+   for (auto & [_, mgr] : m_managers)
+      mgr.SendRequest(encodedRequest);
 
    if (m_localGenerator) {
       dice::Response response = GenerateResponse(*m_ctx.generator, std::move(localRequest));
       std::string encodedResponse = m_ctx.serializer->Serialize(response);
-      for (auto & e : m_managers)
-         e.second.SendResponse(encodedResponse);
+      for (auto & [_, mgr] : m_managers)
+         mgr.SendResponse(encodedResponse);
       ShowResponse(response, "You");
    } else {
       m_pendingRequest = std::make_unique<dice::Request>(std::move(localRequest));
@@ -272,9 +272,9 @@ void StatePlaying::OnSocketReadFailure(const bt::Device & transmitter)
 StateNegotiating * StatePlaying::StartNegotiation()
 {
    std::unordered_set<bt::Device> peers;
-   for (const auto & e : m_managers)
-      if (e.second.IsConnected())
-         peers.emplace(e.second.GetDevice());
+   for (const auto & [_, mgr] : m_managers)
+      if (mgr.IsConnected())
+         peers.emplace(mgr.GetDevice());
    m_managers.clear();
    fsm::Context ctx{m_ctx};
    std::string localMac(std::move(m_localMac));

@@ -106,9 +106,9 @@ void StateNegotiating::UpdateAndBroadcastOffer()
    }
 
    uint32_t maxRound = s_round;
-   for (const auto & e : m_offers) {
-      if (e.second.round > maxRound)
-         maxRound = e.second.round;
+   for (const auto & [_, offer] : m_offers) {
+      if (offer.round > maxRound)
+         maxRound = offer.round;
    }
 
    // update local offer
