@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <mutex>
-#include "core/logging.hpp"
+#include "utils/logger.hpp"
 
 class FakeLogger : public ILogger
 {

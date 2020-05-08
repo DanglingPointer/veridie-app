@@ -3,7 +3,7 @@
 
 #include "bt/device.hpp"
 #include "fsm/states.hpp"
-#include "core/logging.hpp"
+#include "utils/logger.hpp"
 #include "core/timerengine.hpp"
 #include "dice/serializer.hpp"
 #include "dice/engine.hpp"

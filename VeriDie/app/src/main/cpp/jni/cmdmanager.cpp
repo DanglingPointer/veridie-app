@@ -2,7 +2,7 @@
 
 #include "sign/commands.hpp"
 #include "jni/cmdmanager.hpp"
-#include "core/logging.hpp"
+#include "utils/logger.hpp"
 #include "core/exec.hpp"
 
 namespace {

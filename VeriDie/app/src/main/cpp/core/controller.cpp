@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "core/controller.hpp"
-#include "core/logging.hpp"
+#include "utils/logger.hpp"
 #include "core/proxy.hpp"
 #include "dice/engine.hpp"
 #include "core/timerengine.hpp"

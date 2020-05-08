@@ -13,6 +13,13 @@ include_directories(${PROJECT_SOURCE_DIR})
 find_library(log-lib
         log)
 
+add_library(veridielog
+        SHARED
+        utils/logger.cpp
+        )
+target_link_libraries(veridielog
+        ${log-lib})
+
 
 # main app logic:
 add_library(veridie
@@ -35,14 +42,13 @@ add_library(veridie
 
         jni/cmdmanager.cpp
         jni/exec.cpp
-        jni/logger.cpp
         jni/proxy.cpp
 
         utils/async.cpp
         utils/worker.cpp
         )
 target_link_libraries(veridie
-        ${log-lib})
+        veridielog)
 
 
 # fake library with empty controller for testing jni interop:
@@ -60,14 +66,13 @@ add_library(jni_only_veridie
 
         jni/cmdmanager.cpp
         jni/exec.cpp
-        jni/logger.cpp
         jni/proxy.cpp
 
         utils/async.cpp
         utils/worker.cpp
         )
 target_link_libraries(jni_only_veridie
-        ${log-lib})
+        veridielog)
 
 
 # google test library:
@@ -99,6 +104,7 @@ if(NOT ADB)
 endif()
 add_custom_command(TARGET tests POST_BUILD
         COMMAND ${ADB} shell mkdir -p /data/local/tmp/${ANDROID_ABI}
+        COMMAND ${ADB} push $<TARGET_FILE:veridielog> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} push $<TARGET_FILE:veridie> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} push $<TARGET_FILE:tests> /data/local/tmp/${ANDROID_ABI}/
         COMMAND ${ADB} shell \"export LD_LIBRARY_PATH=/data/local/tmp/${ANDROID_ABI}\; /data/local/tmp/${ANDROID_ABI}/tests\")

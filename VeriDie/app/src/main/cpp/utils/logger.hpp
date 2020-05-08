@@ -1,5 +1,5 @@
-#ifndef CORE_LOGGING_HPP
-#define CORE_LOGGING_HPP
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
 
 #include <string>
 #include <string_view>
@@ -41,4 +41,6 @@ private:
    }
 };
 
-#endif // CORE_LOGGING_HPP
+std::unique_ptr<ILogger> CreateLogger(std::string tag);
+
+#endif // LOGGER_HPP

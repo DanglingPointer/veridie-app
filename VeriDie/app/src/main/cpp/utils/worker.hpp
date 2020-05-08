@@ -3,7 +3,7 @@
 
 #include <functional>
 #include "utils/blockingconcurrentqueue.h"
-#include "core/logging.hpp"
+#include "utils/logger.hpp"
 
 class Worker
 {

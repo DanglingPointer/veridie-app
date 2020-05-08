@@ -1,7 +1,9 @@
+#ifdef __ANDROID__
 #include <android/log.h>
-#include "jni/logger.hpp"
-
-using namespace jni;
+#else
+#include <cstdio>
+#endif
+#include "utils/logger.hpp"
 
 namespace {
 
@@ -13,7 +15,11 @@ public:
    {}
    void Write(LogPriority prio, std::string msg) override
    {
+#ifdef __ANDROID__
       __android_log_write(static_cast<int>(prio), m_tag.c_str(), msg.c_str());
+#else
+      fprintf(stdout, "Prio(%d): %s\n", static_cast<int>(prio), msg.c_str());
+#endif
    }
 
 private:
@@ -22,11 +28,7 @@ private:
 
 } // namespace
 
-namespace jni {
-
 std::unique_ptr<ILogger> CreateLogger(std::string tag)
 {
    return std::make_unique<Logger>(std::move(tag));
 }
-
-} // namespace jni

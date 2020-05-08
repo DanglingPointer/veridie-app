@@ -3,7 +3,7 @@
 #include <vector>
 #include <jni.h>
 #include "jni/exec.hpp"
-#include "jni/logger.hpp"
+#include "utils/logger.hpp"
 #include "jni/cmdmanager.hpp"
 #include "core/exec.hpp"
 #include "core/controller.hpp"
@@ -23,7 +23,7 @@ struct Context
 
 Worker & JniWorker()
 {
-   static auto s_logger = jni::CreateLogger("JNI_WORKER");
+   static auto s_logger = CreateLogger("JNI_WORKER");
    static Context s_ctx{*s_logger, nullptr, nullptr, nullptr};
 
    static Worker s_w(&s_ctx, *s_logger);

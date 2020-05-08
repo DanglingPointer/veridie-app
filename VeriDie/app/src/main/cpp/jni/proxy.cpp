@@ -3,7 +3,7 @@
 
 #include "jni/proxy.hpp"
 #include "sign/commands.hpp"
-#include "core/logging.hpp"
+#include "utils/logger.hpp"
 #include "jni/exec.hpp"
 #include "jni/cmdmanager.hpp"
 
