@@ -29,10 +29,10 @@ void WriteToBuffer(bool b, char * from, char * /*to*/) noexcept
    constexpr char t[] = "true";
    constexpr char f[] = "false";
    if (b) {
-      *from++ = static_cast<unsigned char>(sizeof(t));
+      *from++ = static_cast<unsigned char>(sizeof(t) - 1);
       std::memcpy(from, t, sizeof(t));
    } else {
-      *from++ = static_cast<unsigned char>(sizeof(f));
+      *from++ = static_cast<unsigned char>(sizeof(f) - 1);
       std::memcpy(from, f, sizeof(f));
    }
 }
