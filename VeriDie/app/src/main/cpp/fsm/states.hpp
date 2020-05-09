@@ -61,6 +61,8 @@ private:
    void SendHelloTo(const std::string & mac, uint32_t retriesLeft);
    void DisconnectDevice(const std::string & mac);
    void AttemptNegotiationStart(uint32_t retriesLeft);
+   void KickOffDiscovery(uint32_t retriesLeft);
+   void KickOffListening(uint32_t retriesLeft);
 
    Context m_ctx;
 
@@ -70,6 +72,8 @@ private:
    std::optional<std::string> m_localMac;
    std::unordered_set<bt::Device> m_peers;
    async::Future<core::Timeout> m_retryStartHandle;
+   async::Future<core::Timeout> m_retryDiscoveryHandle;
+   async::Future<core::Timeout> m_retryListeningHandle;
 };
 
 class StateNegotiating : public StateBase

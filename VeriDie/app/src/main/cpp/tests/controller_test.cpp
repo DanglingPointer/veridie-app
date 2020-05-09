@@ -318,6 +318,70 @@ TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
    EXPECT_TRUE(proxy->NoCommands());
 }
 
+TEST_F(ConnectingFixture, retries_to_start_listening_at_least_twice)
+{
+   auto cmdDiscovering = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
+
+   cmdListening->Respond(0xff'ff'ff'ff'ff'ff'ff'ffLL);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
+
+   cmdListening->Respond(3);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
+
+   cmdListening->Respond(0);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
+TEST_F(ConnectingFixture, retries_to_start_discovery_at_least_twice)
+{
+   auto cmdDiscovering = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+   auto cmdListening = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdListening);
+   EXPECT_EQ(100, ID(cmdListening));
+
+   cmdDiscovering->Respond(0xff'ff'ff'ff'ff'ff'ff'ffLL);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   cmdDiscovering = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+
+   cmdDiscovering->Respond(0xff'ff'ff'ff'ff'ff'ff'ffLL);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   cmdDiscovering = proxy->PopNextCommand();
+   ASSERT_TRUE(cmdDiscovering);
+   EXPECT_EQ(101, ID(cmdDiscovering));
+
+   cmdDiscovering->Respond(0);
+   EXPECT_TRUE(proxy->NoCommands());
+
+   timer->FastForwardTime(1s);
+   EXPECT_TRUE(proxy->NoCommands());
+}
+
 TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed)
 {
    auto cmdDiscovering = proxy->PopNextCommand();
@@ -328,8 +392,8 @@ TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed
    EXPECT_EQ(100, ID(cmdListening));
 
    logger.Clear();
-   cmdDiscovering->Respond(0xffffffffffffffff);
-   cmdListening->Respond(3);
+   cmdDiscovering->Respond(5);
+   cmdListening->Respond(6);
 
    auto fatalFailureText = proxy->PopNextCommand();
    ASSERT_TRUE(fatalFailureText);

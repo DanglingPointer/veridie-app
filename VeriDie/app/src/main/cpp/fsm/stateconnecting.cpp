@@ -18,6 +18,8 @@ constexpr auto APP_UUID = "76445157-4f39-42e9-a62e-877390cbb4bb";
 constexpr auto APP_NAME = "VeriDie";
 constexpr uint32_t MAX_SEND_RETRY_COUNT = 10U;
 constexpr uint32_t MAX_GAME_START_RETRY_COUNT = 30U;
+constexpr uint32_t MAX_DISCOVERY_RETRY_COUNT = 2U;
+constexpr uint32_t MAX_LISTENING_RETRY_COUNT = 2U;
 constexpr auto DISCOVERABILITY_DURATION = 5min;
 
 } // namespace
@@ -29,41 +31,8 @@ StateConnecting::StateConnecting(const Context & ctx)
    : m_ctx(ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
-   const bool includePaired = false;
-   *m_ctx.proxy << Make<cmd::StartDiscovery>(MakeCb(
-      [this](cmd::StartDiscoveryResponse result) {
-         result.Handle(
-            [this](cmd::ResponseCode::OK) {
-               m_discovering = true;
-            },
-            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
-               OnBluetoothOff();
-            },
-            [this](auto) {
-               m_discovering = false;
-               CheckStatus();
-            });
-      }),
-      APP_UUID,
-      APP_NAME,
-      includePaired);
-   *m_ctx.proxy << Make<cmd::StartListening>(MakeCb(
-      [this](cmd::StartListeningResponse result) {
-         result.Handle(
-            [this](cmd::ResponseCode::OK) {
-               m_listening = true;
-            },
-            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
-               OnBluetoothOff();
-            },
-            [this](auto) {
-               m_listening = false;
-               CheckStatus();
-            });
-      }),
-      APP_UUID,
-      APP_NAME,
-      DISCOVERABILITY_DURATION);
+   KickOffDiscovery(MAX_DISCOVERY_RETRY_COUNT);
+   KickOffListening(MAX_LISTENING_RETRY_COUNT);
 }
 
 StateConnecting::~StateConnecting()
@@ -137,30 +106,29 @@ void StateConnecting::SendHelloTo(const std::string & mac, uint32_t retriesLeft)
    if (m_peers.count(bt::Device{"", mac}) == 0)
       return;
 
-   std::string hello = m_ctx.serializer->Serialize(dice::Hello{ mac });
-   *m_ctx.proxy << Make<cmd::SendMessage>(MakeCb(
-      [=](cmd::SendMessageResponse result) {
-         result.Handle(
-            [&](cmd::ResponseCode::CONNECTION_NOT_FOUND) {
-               OnDeviceDisconnected(bt::Device{"", mac});
-            },
-            [&](cmd::ResponseCode::SOCKET_ERROR) {
-               m_peers.erase(bt::Device{"", mac});
-               DisconnectDevice(mac);
-            },
-            [&](cmd::ResponseCode::INVALID_STATE) {
-               SendHelloTo(mac, retriesLeft - 1);
-            },
-            [](cmd::ResponseCode::OK) { /*enjoy*/ });
-      }),
-      std::move(hello),
-      mac);
+   std::string hello = m_ctx.serializer->Serialize(dice::Hello{mac});
+   *m_ctx.proxy << Make<cmd::SendMessage>(MakeCb([=](cmd::SendMessageResponse result) {
+                                             result.Handle(
+                                                [&](cmd::ResponseCode::CONNECTION_NOT_FOUND) {
+                                                   OnDeviceDisconnected(bt::Device{"", mac});
+                                                },
+                                                [&](cmd::ResponseCode::SOCKET_ERROR) {
+                                                   m_peers.erase(bt::Device{"", mac});
+                                                   DisconnectDevice(mac);
+                                                },
+                                                [&](cmd::ResponseCode::INVALID_STATE) {
+                                                   SendHelloTo(mac, retriesLeft - 1);
+                                                },
+                                                [](cmd::ResponseCode::OK) { /*enjoy*/ });
+                                          }),
+                                          std::move(hello),
+                                          mac);
 }
 
 void StateConnecting::DisconnectDevice(const std::string & mac)
 {
-   *m_ctx.proxy << Make<cmd::CloseConnection>(MakeCb(
-      [this, mac](cmd::CloseConnectionResponse result) {
+   *m_ctx.proxy << Make<cmd::CloseConnection>(
+      MakeCb([this, mac](cmd::CloseConnectionResponse result) {
          result.Handle(
             [&](cmd::ResponseCode::INVALID_STATE) {
                DisconnectDevice(mac);
@@ -183,7 +151,8 @@ void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
    if (!m_localMac.has_value()) {
       if (retriesLeft % 3 == 0) {
          *m_ctx.proxy << Make<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
-                                              "Getting ready...", 3s);
+                                              "Getting ready...",
+                                              3s);
       }
       m_retryStartHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
          AttemptNegotiationStart(retriesLeft - 1);
@@ -195,6 +164,69 @@ void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
       std::unordered_set<bt::Device> peers(std::move(m_peers));
       m_ctx.state->emplace<StateNegotiating>(ctx, std::move(peers), std::move(localMac));
    }
+}
+
+void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
+{
+   const bool includePaired = false;
+   *m_ctx.proxy << Make<cmd::StartDiscovery>(
+      MakeCb([=](cmd::StartDiscoveryResponse result) {
+         result.Handle(
+            [this](cmd::ResponseCode::OK) {
+               m_discovering = true;
+            },
+            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
+               OnBluetoothOff();
+            },
+            [=](cmd::ResponseCode::INVALID_STATE) {
+               if (retriesLeft == 0) {
+                  m_discovering = false;
+                  CheckStatus();
+               } else {
+                  m_retryDiscoveryHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
+                     KickOffDiscovery(retriesLeft - 1);
+                  });
+               }
+            },
+            [this](auto) {
+               m_discovering = false;
+               CheckStatus();
+            });
+      }),
+      APP_UUID,
+      APP_NAME,
+      includePaired);
+}
+
+void StateConnecting::KickOffListening(uint32_t retriesLeft)
+{
+   *m_ctx.proxy << Make<cmd::StartListening>(
+      MakeCb([=](cmd::StartListeningResponse result) {
+         result.Handle(
+            [this](cmd::ResponseCode::OK) {
+               m_listening = true;
+            },
+            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
+               OnBluetoothOff();
+            },
+            [this](cmd::ResponseCode::USER_DECLINED) {
+               m_listening = false;
+               CheckStatus();
+            },
+            [=](auto) {
+               if (retriesLeft == 0) {
+                  m_listening = false;
+                  CheckStatus();
+               } else {
+                  m_retryListeningHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
+                     KickOffListening(retriesLeft - 1);
+                  });
+               }
+            });
+      }),
+      APP_UUID,
+      APP_NAME,
+      DISCOVERABILITY_DURATION);
 }
 
 } // namespace fsm
