@@ -32,11 +32,11 @@ public:
    }
    ~CmdManager() { m_env->DeleteGlobalRef(m_class); }
 
-   void IssueUiCommand(mem::pool_ptr<cmd::ICommand> c) override
+   void IssueUiCommand(mem::pool_ptr<cmd::ICommand> && c) override
    {
       IssueCommand(std::move(c), m_receiveUiCommand);
    }
-   void IssueBtCommand(mem::pool_ptr<cmd::ICommand> c) override
+   void IssueBtCommand(mem::pool_ptr<cmd::ICommand> && c) override
    {
       IssueCommand(std::move(c), m_receiveBtCommand);
    }
@@ -54,7 +54,7 @@ public:
    }
 
 private:
-   void IssueCommand(mem::pool_ptr<cmd::ICommand> c, jmethodID method)
+   void IssueCommand(mem::pool_ptr<cmd::ICommand> && c, jmethodID method)
    {
       jobjectArray argsArray = nullptr;
       const size_t argCount = c->GetArgsCount();
