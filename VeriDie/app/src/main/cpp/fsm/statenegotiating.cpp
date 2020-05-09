@@ -64,6 +64,13 @@ void StateNegotiating::OnMessageReceived(const bt::Device & sender, const std::s
    m_offers[sender.mac] = std::move(offer);
 }
 
+void StateNegotiating::OnGameStopped()
+{
+   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   Context ctx{m_ctx};
+   m_ctx.state->emplace<StateIdle>(ctx);
+}
+
 void StateNegotiating::OnSocketReadFailure(const bt::Device & from)
 {
    if (m_peers.count(from)) {

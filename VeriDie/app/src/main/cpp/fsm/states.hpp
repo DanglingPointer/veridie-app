@@ -54,6 +54,7 @@ public:
    void OnDeviceDisconnected(const bt::Device & remote);
    void OnMessageReceived(const bt::Device & sender, const std::string & message);
    void OnConnectivityEstablished();
+   void OnGameStopped();
    void OnSocketReadFailure(const bt::Device & from);
 
 private:
@@ -85,6 +86,7 @@ public:
    ~StateNegotiating();
    void OnBluetoothOff();
    void OnMessageReceived(const bt::Device & sender, const std::string & message);
+   void OnGameStopped();
    void OnSocketReadFailure(const bt::Device & from);
 
 private:

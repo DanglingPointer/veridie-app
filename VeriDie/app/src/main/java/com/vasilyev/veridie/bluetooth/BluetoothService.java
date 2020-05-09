@@ -194,9 +194,9 @@ public class BluetoothService extends Service
     public void onDestroy()
     {
         m_internalHandler.postAtFrontOfQueue(() -> {
-            unregisterReceiver(m_btStateReceiver);
             Bridge.setBtCmdHandler(null);
-            m_acceptorThread.interrupt();
+            if (m_acceptorThread != null)
+                m_acceptorThread.interrupt();
             m_connectionMgr.quitSafely();
             m_thread.quitSafely();
         });
@@ -225,6 +225,7 @@ public class BluetoothService extends Service
     public void onTaskRemoved(Intent rootIntent)
     {
         try {
+            unregisterReceiver(m_btStateReceiver);
             unregisterReceiver(m_discoverabilityReceiver);
             unregisterReceiver(m_discoveryReceiver);
         }
@@ -414,11 +415,13 @@ public class BluetoothService extends Service
 
     private void resetBluetooth(Command cmd)
     {
-        m_acceptorThread.interrupt();
+        if (m_acceptorThread != null)
+            m_acceptorThread.interrupt();
         m_connectionMgr.quit();
         m_connectionMgr = new ConnectionManager();
         m_connectionMgr.start();
         m_connectionCmdHandler = m_connectionMgr.getCommandHandler();
+        cmd.respond(Command.ERROR_NO_ERROR);
     }
 
     private void forwardToConnectionManager(Command cmd)

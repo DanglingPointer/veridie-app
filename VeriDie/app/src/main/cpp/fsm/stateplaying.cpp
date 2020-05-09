@@ -18,7 +18,7 @@ namespace {
 constexpr uint32_t RETRY_COUNT = 5U;
 constexpr uint32_t REQUEST_ATTEMPTS = 3U;
 constexpr uint32_t ROUNDS_PER_GENERATOR = 10U;
-constexpr auto IGNORE_OFFERS_DURATION = 5s;
+constexpr auto IGNORE_OFFERS_DURATION = 10s;
 
 bool Matches(const dice::Response & response, const dice::Request * request)
 {

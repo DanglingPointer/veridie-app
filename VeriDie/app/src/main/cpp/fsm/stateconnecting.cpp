@@ -90,6 +90,13 @@ void StateConnecting::OnConnectivityEstablished()
    AttemptNegotiationStart(MAX_GAME_START_RETRY_COUNT);
 }
 
+void StateConnecting::OnGameStopped()
+{
+   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   Context ctx{m_ctx};
+   m_ctx.state->emplace<StateIdle>(ctx);
+}
+
 void StateConnecting::CheckStatus()
 {
    if (m_listening.has_value() && !*m_listening && m_discovering.has_value() && !*m_discovering) {
@@ -168,7 +175,7 @@ void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
 
 void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
 {
-   const bool includePaired = false;
+   const bool includePaired = true;
    *m_ctx.proxy << Make<cmd::StartDiscovery>(
       MakeCb([=](cmd::StartDiscoveryResponse result) {
          result.Handle(

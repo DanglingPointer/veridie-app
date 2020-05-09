@@ -9,14 +9,14 @@ public final class Bridge
 
     private static CommandHandler s_uiHandler;
     public static synchronized  void setUiCmdHandler(CommandHandler handler) {
-        Log.d(TAG, "UI handler set");
+        Log.d(TAG, String.format("UI handler set: %b", handler));
         s_uiHandler = handler;
         if (s_uiHandler != null && s_btHandler!= null)
             bridgeReady();
     }
     private static CommandHandler s_btHandler;
     public static synchronized void setBtCmdHandler(CommandHandler handler) {
-        Log.d(TAG, "BT handler set");
+        Log.d(TAG, String.format("BT handler set: %b", handler));
         s_btHandler = handler;
         if (s_uiHandler != null && s_btHandler != null)
             bridgeReady();

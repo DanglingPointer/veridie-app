@@ -3,6 +3,7 @@ package com.vasilyev.veridie;
 import android.Manifest;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
@@ -12,6 +13,7 @@ import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -20,6 +22,7 @@ import android.widget.Toast;
 import com.vasilyev.veridie.bluetooth.BluetoothService;
 import com.vasilyev.veridie.fragments.ConnectingFragment;
 import com.vasilyev.veridie.fragments.IdleFragment;
+import com.vasilyev.veridie.fragments.NegotiationFragment;
 import com.vasilyev.veridie.interop.Bridge;
 import com.vasilyev.veridie.interop.Command;
 import com.vasilyev.veridie.interop.CommandHandler;
@@ -94,16 +97,18 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Bridge.setUiCmdHandler(m_cmdHandler);
+
         Fragment currentFragment;
         if (savedInstanceState != null)
             currentFragment = getSupportFragmentManager().getFragment(savedInstanceState, SAVED_FRAGMENT);
-        else
+        else {
             currentFragment = IdleFragment.newInstance();
+            Bridge.send(Event.GAME_STOPPED);
+        }
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.container, currentFragment)
                 .commit();
-
-        Bridge.setUiCmdHandler(m_cmdHandler);
 
         Intent startBtIntent = new Intent(this, BluetoothService.class);
         startService(startBtIntent);
@@ -131,6 +136,17 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     @Override
     public void onBackPressed()
     {
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.AppDialogTheme)
+                .setTitle("Exit")
+                .setMessage("Do you want to exit?")
+                .setNegativeButton(android.R.string.cancel, (dialogInterface, which) -> dialogInterface.dismiss())
+                .setPositiveButton(android.R.string.ok, (dialogInterface, which) -> {
+                    Bridge.send(Event.GAME_STOPPED);
+                    finishAndRemoveTask();
+                    System.exit(0);
+                })
+                .create();
+        dialog.show();
     }
 
     @Override
@@ -149,7 +165,10 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void negotiationStart(Command cmd)
     {
-
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, NegotiationFragment.newInstance())
+                .commit();
+        cmd.respond(Command.ERROR_NO_ERROR);
     }
 
     private void negotiationStop(Command cmd)
@@ -159,6 +178,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void showAndExit(Command cmd)
     {
+        cmd.respond(Command.ERROR_NO_ERROR);
         Toast.makeText(getApplicationContext(), cmd.getArgs()[0], Toast.LENGTH_LONG).show();
         finishAndRemoveTask();
     }
@@ -169,6 +189,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         int lengthSec = Integer.parseInt(cmd.getArgs()[1]);
         Toast.makeText(getApplicationContext(), message,
                 lengthSec >= 5 ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
+        cmd.respond(Command.ERROR_NO_ERROR);
     }
 
     private void showNotification(Command cmd)
@@ -191,6 +212,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.container, IdleFragment.newInstance())
                 .commit();
+        cmd.respond(Command.ERROR_NO_ERROR);
     }
 
     // ---------------BluetoothService-callbacks----------------------------------------------------

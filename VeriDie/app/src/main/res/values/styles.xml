@@ -6,6 +6,7 @@
         <item name="colorAccent">@color/colorAccent</item>
         <item name="android:background">@color/colorPrimary</item>
         <item name="android:buttonStyle">@style/AppButtonStyle</item>
+        <item name="android:alertDialogTheme">@style/AppDialogTheme</item>
     </style>
 
 <!--    <style name="AppTheme.Preferences">-->
@@ -15,6 +16,19 @@
     <style name="AppButtonStyle" parent="Widget.AppCompat.Button.Colored">
         <item name="android:background">@color/colorPrimaryDark</item>
         <item name="android:textColor">@color/textColor</item>
+    </style>
+
+    <style name="AppDialogButtonStyle" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:background">@color/transparent</item>
+        <item name="android:textColor">@color/textColor</item>
+    </style>
+
+    <style name="AppDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
+        <item name="android:background">@color/colorPrimaryDark</item>
+        <item name="android:textColor">@color/textColor</item>
+        <item name="android:textColorPrimary">@color/textColor</item>
+        <item name="buttonBarNegativeButtonStyle">@style/AppDialogButtonStyle</item>
+        <item name="buttonBarPositiveButtonStyle">@style/AppDialogButtonStyle</item>
     </style>
 
     <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />

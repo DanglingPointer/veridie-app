@@ -5,7 +5,8 @@
     <string name="conn_txt_discovered">Discovered devices:</string>
     <string name="conn_txt_connected">Connected devices:</string>
     <string name="conn_btn_ready">Ready</string>
-    <string name="conn_txt_title">Connect to other players, then press "Ready"</string>
+    <string name="conn_txt_title">Connect to other players, then press “Ready”</string>
     <string name="conn_btn_connect">Connect</string>
     <string name="conn_btn_disconnect">Disconnect</string>
+    <string name="neg_txt_wait">Please wait a few seconds…</string>
 </resources>

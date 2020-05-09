@@ -305,7 +305,7 @@ TEST_F(ConnectingFixture, discovery_and_listening_started_successfully)
    ASSERT_TRUE(cmdDiscovering);
    EXPECT_EQ(101, ID(cmdDiscovering));
    EXPECT_EQ(3U, cmdDiscovering->GetArgsCount());
-   EXPECT_STREQ("false", cmdDiscovering->GetArgAt(2).data());
+   EXPECT_STREQ("true", cmdDiscovering->GetArgAt(2).data());
 
    auto cmdListening = proxy->PopNextCommand();
    ASSERT_TRUE(cmdListening);
@@ -556,6 +556,28 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    auto stopListening = proxy->PopNextCommand();
    ASSERT_TRUE(stopListening);
    EXPECT_EQ(102, ID(stopListening));
+}
+
+TEST_F(ConnectingFixture, goes_to_idle_on_game_stop)
+{
+   StartDiscoveryAndListening();
+
+   ctrl->OnEvent(16, {}); // game stopped
+
+   auto resetBt = proxy->PopNextCommand();
+   ASSERT_TRUE(resetBt);
+   EXPECT_EQ(115, ID(resetBt));
+   EXPECT_EQ(0U, resetBt->GetArgsCount());
+
+   auto stopDiscovery = proxy->PopNextCommand();
+   ASSERT_TRUE(stopDiscovery);
+   EXPECT_EQ(103, ID(stopDiscovery));
+
+   auto stopListening = proxy->PopNextCommand();
+   ASSERT_TRUE(stopListening);
+   EXPECT_EQ(102, ID(stopListening));
+
+   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
 }
 
 TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
@@ -1105,7 +1127,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
    EXPECT_TRUE(proxy->NoCommands());
 
    // Peer 1 tries again 3 sec later
-   timer->FastForwardTime(3s);
+   timer->FastForwardTime(8s);
    EXPECT_TRUE(proxy->NoCommands());
    ctrl->OnEvent(14, {offer, Peers()[1].mac, ""});
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
@@ -1369,7 +1391,7 @@ using P2R17 = PlayingFixture<2u, 17u>;
 
 TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
 {
-   timer->FastForwardTime(5s);
+   timer->FastForwardTime(10s);
 
    // both peers report read errors...
    ctrl->OnEvent(19, {Peers()[0].mac, ""});
@@ -1444,5 +1466,37 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
 
    EXPECT_TRUE(proxy->NoCommands());
 }
+
+using P2R21 = PlayingFixture<2u, 21u>;
+TEST_F(P2R21, goes_to_idle_from_mid_game_negotiation_if_game_stopped)
+{
+   timer->FastForwardTime(10s);
+   std::string offer = R"(<Offer round="19"><Mac>)" + Peers()[1].mac + "</Mac></Offer>";
+   ctrl->OnEvent(14, {offer, Peers()[0].mac, ""});
+
+   auto negotiationStart = proxy->PopNextCommand();
+   ASSERT_TRUE(negotiationStart);
+   EXPECT_EQ(106, ID(negotiationStart));
+   negotiationStart->Respond(0);
+
+   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   for (size_t i = 0; i < Peers().size(); ++i) {
+      auto offer = proxy->PopNextCommand();
+      ASSERT_TRUE(offer);
+      EXPECT_EQ(108, ID(offer));
+      offer->Respond(0);
+   }
+
+   ctrl->OnEvent(16, {}); // game stopped
+
+   auto resetBt = proxy->PopNextCommand();
+   ASSERT_TRUE(resetBt);
+   EXPECT_EQ(115, ID(resetBt));
+   EXPECT_EQ(0U, resetBt->GetArgsCount());
+
+   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+}
+
+//round 22
 
 } // namespace
