@@ -12,9 +12,9 @@ class Proxy
 {
 public:
    virtual ~Proxy() = default;
-   virtual void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) = 0;
-   virtual void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> c) = 0;
-   void ForwardCommand(mem::pool_ptr<cmd::ICommand> c)
+   virtual void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> && c) = 0;
+   virtual void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> && c) = 0;
+   void ForwardCommand(mem::pool_ptr<cmd::ICommand> && c)
    {
       if (Contains(cmd::UiDictionary{}, c->GetId())) {
          ForwardCommandToUi(std::move(c));
@@ -27,7 +27,7 @@ public:
       assert(false);
    }
 
-   Proxy & operator<<(mem::pool_ptr<cmd::ICommand> c)
+   Proxy & operator<<(mem::pool_ptr<cmd::ICommand> && c)
    {
       ForwardCommand(std::move(c));
       return *this;

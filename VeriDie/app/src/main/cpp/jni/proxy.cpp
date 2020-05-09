@@ -16,14 +16,14 @@ public:
       : m_logger(logger)
    {}
 
-   void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) override
+   void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> && c) override
    {
       LogCommand(c);
       jni::Exec([cmd = std::move(c)](jni::ICmdManager * mgr) mutable {
          mgr->IssueUiCommand(std::move(cmd));
       });
    }
-   void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> c) override
+   void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> && c) override
    {
       LogCommand(c);
       jni::Exec([cmd = std::move(c)](jni::ICmdManager * mgr) mutable {

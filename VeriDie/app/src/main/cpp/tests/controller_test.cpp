@@ -31,8 +31,8 @@ public:
    bool NoCommands() const { return m_q.empty(); }
 
 private:
-   void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
-   void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> c) override { m_q.push(std::move(c)); }
+   void ForwardCommandToUi(mem::pool_ptr<cmd::ICommand> && c) override { m_q.push(std::move(c)); }
+   void ForwardCommandToBt(mem::pool_ptr<cmd::ICommand> && c) override { m_q.push(std::move(c)); }
 
 private:
    std::queue<mem::pool_ptr<cmd::ICommand>> m_q;
