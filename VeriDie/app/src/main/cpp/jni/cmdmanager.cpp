@@ -1,5 +1,6 @@
 #include <unordered_map>
 
+#include "sign/commandstorage.hpp"
 #include "sign/commands.hpp"
 #include "jni/cmdmanager.hpp"
 #include "utils/logger.hpp"
@@ -14,6 +15,7 @@ public:
       : m_logger(logger)
       , m_env(env)
       , m_class(globalRef)
+      , m_waitingCmds(logger)
    {
       m_receiveUiCommand =
          m_env->GetStaticMethodID(m_class, "receiveUiCommand", "(I[Ljava/lang/String;)V");
@@ -42,15 +44,12 @@ public:
    }
    void OnCommandResponse(int32_t cmdId, int64_t response) override
    {
-      auto it = m_waitingCmds.find(cmdId);
-      if (it == std::end(m_waitingCmds)) {
-         m_logger.Write<LogPriority::WARN>("CmdManager received orphaned response, cmdId =", cmdId);
-         return;
+      auto c = m_waitingCmds.Retrieve(cmdId);
+      if (c) {
+         core::Exec([cmd = std::move(c), response](auto) {
+            cmd->Respond(response);
+         });
       }
-      core::Exec([cmd = std::move(it->second), response](auto) {
-         cmd->Respond(response);
-      });
-      m_waitingCmds.erase(it);
    }
 
 private:
@@ -64,11 +63,7 @@ private:
          for (size_t i = 0; i < argCount; ++i)
             m_env->SetObjectArrayElement(argsArray, i, m_env->NewStringUTF(c->GetArgAt(i).data()));
       }
-
-      jint argId = c->GetId();
-      while (m_waitingCmds.count(argId))
-         ++argId;
-      m_waitingCmds.emplace(argId, std::move(c));
+      jint argId = m_waitingCmds.Store(std::move(c));
 
       m_env->CallStaticVoidMethod(m_class, method, argId, argsArray);
 
@@ -92,7 +87,7 @@ private:
    jmethodID m_receiveUiCommand;
    jmethodID m_receiveBtCommand;
 
-   std::unordered_map<int32_t, mem::pool_ptr<cmd::ICommand>> m_waitingCmds;
+   cmd::Storage m_waitingCmds;
 };
 
 } // namespace

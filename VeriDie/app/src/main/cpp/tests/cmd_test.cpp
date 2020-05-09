@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 #include "utils/canceller.hpp"
+#include "sign/commandstorage.hpp"
 #include "sign/commands.hpp"
+#include "sign/commandpool.hpp"
 #include "dice/serializer.hpp"
+#include "tests/fakelogger.hpp"
 
 namespace {
 using namespace cmd;
@@ -12,6 +15,8 @@ class CmdFixture
 {
 protected:
    CmdFixture() = default;
+
+   FakeLogger logger;
 };
 
 
@@ -79,6 +84,77 @@ TEST_F(CmdFixture, invalid_response_throws_exception)
    EXPECT_EQ(0U, cmd.GetArgsCount());
 
    EXPECT_THROW(cmd.Respond(123456789), std::invalid_argument);
+}
+
+TEST_F(CmdFixture, cmd_storage_can_store_different_commands)
+{
+   Storage storage(logger);
+   bool responded = false;
+   const char * arg = "Argument is unchanged";
+
+   auto negStart = Make<NegotiationStart>(MakeCb([](NegotiationStartResponse) {
+      ADD_FAILURE();
+   }));
+   EXPECT_EQ(NegotiationStart::ID, storage.Store(std::move(negStart)));
+
+   auto reset = Make<ResetConnections>(MakeCb([](ResetConnectionsResponse) {
+      ADD_FAILURE();
+   }));
+   EXPECT_EQ(ResetConnections::ID, storage.Store(std::move(reset)));
+
+   auto toast = Make<ShowToast>(MakeCb([&](ShowToastResponse) {
+                                   responded = true;
+                                }),
+                                arg,
+                                std::chrono::seconds(3));
+   EXPECT_EQ(ShowToast::ID, storage.Store(std::move(toast)));
+
+   reset = storage.Retrieve(ResetConnections::ID);
+   EXPECT_TRUE(reset);
+   EXPECT_EQ(ResetConnections::ID, reset->GetId());
+
+   negStart = storage.Retrieve(NegotiationStart::ID);
+   EXPECT_TRUE(negStart);
+   EXPECT_EQ(NegotiationStart::ID, negStart->GetId());
+
+   toast = storage.Retrieve(ShowToast::ID);
+   EXPECT_TRUE(toast);
+   EXPECT_EQ(ShowToast::ID, toast->GetId());
+   EXPECT_EQ(2u, toast->GetArgsCount());
+   EXPECT_STREQ(arg, toast->GetArgAt(0).data());
+   EXPECT_STREQ("3", toast->GetArgAt(1).data());
+   EXPECT_FALSE(responded);
+   toast->Respond(0);
+   EXPECT_TRUE(responded);
+
+   toast = storage.Retrieve(ShowToast::ID);
+   EXPECT_FALSE(toast);
+}
+
+TEST_F(CmdFixture, cmd_storage_handles_overflow)
+{
+   Storage storage(logger);
+
+   for (int i = 0; i < (1 << 8); ++i) {
+      auto negStart = Make<NegotiationStart>(MakeCb([](NegotiationStartResponse) {
+         ADD_FAILURE();
+      }));
+      EXPECT_EQ(NegotiationStart::ID + i, storage.Store(std::move(negStart)));
+      EXPECT_FALSE(negStart);
+   }
+
+   auto negStart = Make<NegotiationStart>(MakeCb([](NegotiationStartResponse) {
+      ADD_FAILURE();
+   }));
+   EXPECT_EQ(0, storage.Store(std::move(negStart)));
+   EXPECT_TRUE(negStart);
+
+   int ind = 200;
+   negStart = storage.Retrieve(NegotiationStart::ID + ind);
+   EXPECT_TRUE(negStart);
+   EXPECT_EQ(NegotiationStart::ID, negStart->GetId());
+
+   EXPECT_EQ(NegotiationStart::ID + ind, storage.Store(std::move(negStart)));
 }
 
 } // namespace

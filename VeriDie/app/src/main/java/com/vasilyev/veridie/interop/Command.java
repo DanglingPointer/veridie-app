@@ -36,7 +36,7 @@ public interface Command
     }
 
     int getId();
-    int getNativeId();
+    int getUniqueId();
     String[] getArgs();
     void respond(long result);
 

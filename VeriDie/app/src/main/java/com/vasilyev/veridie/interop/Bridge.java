@@ -46,7 +46,7 @@ public final class Bridge
                 return cmdId >> 8;
             }
             @Override
-            public int getNativeId() {
+            public int getUniqueId() {
                 return cmdId;
             }
             @Override

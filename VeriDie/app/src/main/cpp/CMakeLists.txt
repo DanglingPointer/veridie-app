@@ -26,8 +26,6 @@ target_link_libraries(veridielog
 # cross-platform main logic
 add_library(veridiecore
         STATIC
-        sign/commands.cpp
-        sign/events.cpp
         core/controller.cpp
         core/exec.cpp
         core/timerengine.cpp
@@ -37,6 +35,9 @@ add_library(veridiecore
         fsm/stateidle.cpp
         fsm/statenegotiating.cpp
         fsm/stateplaying.cpp
+        sign/commands.cpp
+        sign/commandstorage.cpp
+        sign/events.cpp
         utils/async.cpp
         utils/worker.cpp
         )
@@ -64,6 +65,7 @@ add_library(jni_only_veridie
         jni/cmdmanager.cpp
         jni/exec.cpp
         jni/proxy.cpp
+        sign/commandstorage.cpp
         utils/worker.cpp
         )
 target_link_libraries(jni_only_veridie

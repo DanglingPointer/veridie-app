@@ -3,6 +3,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -159,7 +160,7 @@ private:
 #define COMMON_RESPONSES \
    ResponseCode::OK, ResponseCode::INVALID_STATE
 
-#define ID(id) \
+#define COMMAND_ID(id) \
    (id << 8)
 
 
@@ -169,7 +170,7 @@ using StartListeningResponse = ResponseCodeSubset<
    ResponseCode::USER_DECLINED,
    ResponseCode::LISTEN_FAILED>;
 using StartListeningTraits = LongTraits<
-   ID(100),
+   COMMAND_ID(100),
    StartListeningResponse,
    std::string_view /*uuid*/, std::string_view /*name*/, std::chrono::seconds /*discoverability duration*/>;
 using StartListening = Base<StartListeningTraits>;
@@ -180,7 +181,7 @@ using StartDiscoveryResponse = ResponseCodeSubset<
    ResponseCode::NO_BT_ADAPTER,
    ResponseCode::BLUETOOTH_OFF>;
 using StartDiscoveryTraits = LongTraits<
-   ID(101),
+   COMMAND_ID(101),
    StartDiscoveryResponse,
    std::string_view /*uuid*/, std::string_view /*name*/, bool /*include paired*/>;
 using StartDiscovery = Base<StartDiscoveryTraits>;
@@ -189,7 +190,7 @@ using StartDiscovery = Base<StartDiscoveryTraits>;
 using StopListeningResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using StopListeningTraits = Traits<
-   ID(102),
+   COMMAND_ID(102),
    StopListeningResponse>;
 using StopListening = Base<StopListeningTraits>;
 
@@ -197,7 +198,7 @@ using StopListening = Base<StopListeningTraits>;
 using StopDiscoveryResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using StopDiscoveryTraits = Traits<
-   ID(103),
+   COMMAND_ID(103),
    StopDiscoveryResponse>;
 using StopDiscovery = Base<StopDiscoveryTraits>;
 
@@ -206,7 +207,7 @@ using CloseConnectionResponse = ResponseCodeSubset<
    COMMON_RESPONSES,
    ResponseCode::CONNECTION_NOT_FOUND>;
 using CloseConnectionTraits = Traits<
-   ID(104),
+   COMMAND_ID(104),
    CloseConnectionResponse,
    std::string_view/*error msg*/, std::string_view/*remote mac addr*/>;
 using CloseConnection = Base<CloseConnectionTraits>;
@@ -217,7 +218,7 @@ using EnableBluetoothResponse = ResponseCodeSubset<
    ResponseCode::NO_BT_ADAPTER,
    ResponseCode::USER_DECLINED>;
 using EnableBluetoothTraits = Traits<
-   ID(105),
+   COMMAND_ID(105),
    EnableBluetoothResponse>;
 using EnableBluetooth = Base<EnableBluetoothTraits>;
 
@@ -225,7 +226,7 @@ using EnableBluetooth = Base<EnableBluetoothTraits>;
 using NegotiationStartResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using NegotiationStartTraits = Traits<
-   ID(106),
+   COMMAND_ID(106),
    NegotiationStartResponse>;
 using NegotiationStart = Base<NegotiationStartTraits>;
 
@@ -233,7 +234,7 @@ using NegotiationStart = Base<NegotiationStartTraits>;
 using NegotiationStopResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using NegotiationStopTraits = Traits<
-   ID(107),
+   COMMAND_ID(107),
    NegotiationStopResponse,
    std::string_view/*nominee name*/>;
 using NegotiationStop = Base<NegotiationStopTraits>;
@@ -244,14 +245,14 @@ using SendMessageResponse = ResponseCodeSubset<
    ResponseCode::CONNECTION_NOT_FOUND,
    ResponseCode::SOCKET_ERROR>;
 using SendMessageTraits = LongTraits<
-   ID(108),
+   COMMAND_ID(108),
    SendMessageResponse,
    std::string_view/*message*/, std::string_view/*remote mac addr*/>;
 using SendMessage = Base<SendMessageTraits>;
 
 
 using SendLongMessageTraits = ExtraLongTraits<
-   ID(108),
+   COMMAND_ID(108),
    SendMessageResponse,
    std::string_view/*message*/, std::string_view/*remote mac addr*/>;
 using SendLongMessage = Base<SendLongMessageTraits>;
@@ -260,7 +261,7 @@ using SendLongMessage = Base<SendLongMessageTraits>;
 using ShowAndExitResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ShowAndExitTraits = LongTraits<
-   ID(109),
+   COMMAND_ID(109),
    ShowAndExitResponse,
    std::string_view>;
 using ShowAndExit = Base<ShowAndExitTraits>;
@@ -269,7 +270,7 @@ using ShowAndExit = Base<ShowAndExitTraits>;
 using ShowToastResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ShowToastTraits = Traits<
-   ID(110),
+   COMMAND_ID(110),
    ShowToastResponse,
    std::string_view, std::chrono::seconds>;
 using ShowToast = Base<ShowToastTraits>;
@@ -278,7 +279,7 @@ using ShowToast = Base<ShowToastTraits>;
 using ShowNotificationResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ShowNotificationTraits = Traits<
-   ID(111),
+   COMMAND_ID(111),
    ShowNotificationResponse,
    std::string_view>;
 using ShowNotification = Base<ShowNotificationTraits>;
@@ -287,7 +288,7 @@ using ShowNotification = Base<ShowNotificationTraits>;
 using ShowRequestResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ShowRequestTraits = Traits<
-   ID(112),
+   COMMAND_ID(112),
    ShowRequestResponse,
    std::string_view/*type*/, size_t/*size*/, uint32_t/*threshold, 0=not set*/, std::string_view/*name*/>;
 using ShowRequest = Base<ShowRequestTraits>;
@@ -296,14 +297,14 @@ using ShowRequest = Base<ShowRequestTraits>;
 using ShowResponseResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ShowResponseTraits = LongTraits<
-   ID(113),
+   COMMAND_ID(113),
    ShowResponseResponse,
    dice::Cast/*numbers*/, std::string_view/*type*/, int32_t/*success count, -1=not set*/, std::string_view/*name*/>;
 using ShowResponse = Base<ShowResponseTraits>;
 
 
 using ShowLongResponseTraits = ExtraLongTraits<
-   ID(113),
+   COMMAND_ID(113),
    ShowResponseResponse,
    dice::Cast/*numbers*/, std::string_view/*type*/, int32_t/*success count, -1=not set*/, std::string_view/*name*/>;
 using ShowLongResponse = Base<ShowLongResponseTraits>;
@@ -312,7 +313,7 @@ using ShowLongResponse = Base<ShowLongResponseTraits>;
 using ResetGameResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ResetGameTraits = Traits<
-   ID(114),
+   COMMAND_ID(114),
    ResetGameResponse>;
 using ResetGame = Base<ResetGameTraits>;
 
@@ -320,13 +321,12 @@ using ResetGame = Base<ResetGameTraits>;
 using ResetConnectionsResponse = ResponseCodeSubset<
    COMMON_RESPONSES>;
 using ResetConnectionsTraits = Traits<
-   ID(115),
+   COMMAND_ID(115),
    ResetConnectionsResponse>;
 using ResetConnections = Base<ResetConnectionsTraits>;
 
 
 #undef COMMON_RESPONSES
-#undef ID
 
 
 template <typename... T> struct List {};

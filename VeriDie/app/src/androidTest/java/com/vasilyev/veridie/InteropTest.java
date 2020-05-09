@@ -117,19 +117,19 @@ public class InteropTest
       Command cmd1 = cht.getNextCommand();
       assertNotNull(cmd1);
       assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd1.getId());
-      assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd1.getNativeId());
+      assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd1.getUniqueId());
 
       Bridge.send(Event.NEW_GAME_REQUESTED);
       Command cmd2 = cht.getNextCommand();
       assertNotNull(cmd2);
       assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd2.getId());
-      assertEquals((Event.NEW_GAME_REQUESTED.getId() << 8) + 1, cmd2.getNativeId());
+      assertEquals((Event.NEW_GAME_REQUESTED.getId() << 8) + 1, cmd2.getUniqueId());
 
       Bridge.send(Event.NEW_GAME_REQUESTED);
       Command cmd3 = cht.getNextCommand();
       assertNotNull(cmd3);
       assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd3.getId());
-      assertEquals((Event.NEW_GAME_REQUESTED.getId() << 8) + 2, cmd3.getNativeId());
+      assertEquals((Event.NEW_GAME_REQUESTED.getId() << 8) + 2, cmd3.getUniqueId());
 
       cmd1.respond(Command.ERROR_NO_ERROR);
       cmd2.respond(Command.ERROR_NO_ERROR);
@@ -139,7 +139,7 @@ public class InteropTest
       Command cmd4 = cht.getNextCommand();
       assertNotNull(cmd4);
       assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd4.getId());
-      assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd4.getNativeId());
+      assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd4.getUniqueId());
       cmd4.respond(Command.ERROR_NO_ERROR);
    }
 }
