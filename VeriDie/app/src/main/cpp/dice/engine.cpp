@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <random>
 #include "dice/engine.hpp"
 
@@ -19,6 +20,7 @@ public:
       for (auto & value : cast) {
          value(dist(m_generator));
       }
+      std::sort(std::begin(cast), std::end(cast));
    }
    void GenerateResult(Cast & cast) override { std::visit(*this, cast); }
 

@@ -7,6 +7,7 @@ import com.vasilyev.veridie.interop.Bridge;
 import com.vasilyev.veridie.interop.Command;
 import com.vasilyev.veridie.interop.CommandHandler;
 import com.vasilyev.veridie.interop.Event;
+import com.vasilyev.veridie.utils.Cast;
 
 import org.junit.After;
 import org.junit.Before;
@@ -141,5 +142,15 @@ public class InteropTest
       assertEquals(Event.NEW_GAME_REQUESTED.getId(), cmd4.getId());
       assertEquals(Event.NEW_GAME_REQUESTED.getId() << 8, cmd4.getUniqueId());
       cmd4.respond(Command.ERROR_NO_ERROR);
+   }
+
+   @Test
+   public void testCastResultIsParsedCorrectly()
+   {
+      Cast.Result r = new Cast.Result("D6", "1;2;3;4;5;6;", 3, null);
+      assertEquals("D6", r.getD());
+      assertArrayEquals(new int[] {1, 2, 3, 4, 5, 6}, r.getValues());
+      assertTrue(r.hasSuccessCount());
+      assertEquals(Integer.valueOf(3), r.getSuccessCount());
    }
 }

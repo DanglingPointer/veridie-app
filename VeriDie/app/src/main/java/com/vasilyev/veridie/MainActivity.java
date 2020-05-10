@@ -3,7 +3,6 @@ package com.vasilyev.veridie;
 import android.Manifest;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
@@ -23,17 +22,22 @@ import com.vasilyev.veridie.bluetooth.BluetoothService;
 import com.vasilyev.veridie.fragments.ConnectingFragment;
 import com.vasilyev.veridie.fragments.IdleFragment;
 import com.vasilyev.veridie.fragments.NegotiationFragment;
+import com.vasilyev.veridie.fragments.PlayingFragment;
 import com.vasilyev.veridie.interop.Bridge;
 import com.vasilyev.veridie.interop.Command;
 import com.vasilyev.veridie.interop.CommandHandler;
 import com.vasilyev.veridie.interop.Event;
+import com.vasilyev.veridie.utils.Cast;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements BluetoothService.Callbacks, IdleFragment.Callbacks, ConnectingFragment.Callbacks
+public class MainActivity extends AppCompatActivity implements BluetoothService.Callbacks,
+        IdleFragment.Callbacks,
+        ConnectingFragment.Callbacks,
+        PlayingFragment.Callbacks
 {
     static {
         System.loadLibrary("veridie");
@@ -173,7 +177,10 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void negotiationStop(Command cmd)
     {
-
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, PlayingFragment.newInstance(cmd.getArgs()[0]))
+                .commit();
+        cmd.respond(Command.ERROR_NO_ERROR);
     }
 
     private void showAndExit(Command cmd)
@@ -202,17 +209,50 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void showNotification(Command cmd)
     {
-
+        cmd.respond(Command.ERROR_NO_ERROR);
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.AppDialogTheme)
+                .setTitle(R.string.dialog_notification_title)
+                .setMessage(cmd.getArgs()[0])
+                .setCancelable(false)
+                .setPositiveButton(android.R.string.ok, (dialogInterface, which) -> dialogInterface.dismiss())
+                .create();
+        dialog.show();
     }
 
     private void showRequest(Command cmd)
     {
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.container);
+        try {
+            String d = cmd.getArgs()[0];
+            int size = Integer.parseInt(cmd.getArgs()[1]);
+            int threshold = Integer.parseInt(cmd.getArgs()[2]);
+            String from = cmd.getArgs()[3];
+            Cast.Request r = new Cast.Request(d, size, threshold, this);
 
+            ((PlayingFragment)current).addRequest(from, r);
+            cmd.respond(Command.ERROR_NO_ERROR);
+        } catch (Exception e) {
+            e.printStackTrace();
+            cmd.respond(Command.ERROR_INVALID_STATE);
+        }
     }
 
     private void showResponse(Command cmd)
     {
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.container);
+        try {
+            String values = cmd.getArgs()[0];
+            String d = cmd.getArgs()[1];
+            int successCount = Integer.parseInt(cmd.getArgs()[2]);
+            String from = cmd.getArgs()[3];
+            Cast.Result r = new Cast.Result(d, values, successCount, this);
 
+            ((PlayingFragment)current).addResult(from, r);
+            cmd.respond(Command.ERROR_NO_ERROR);
+        } catch (Exception e) {
+            e.printStackTrace();
+            cmd.respond(Command.ERROR_INVALID_STATE);
+        }
     }
 
     private void resetGame(Command cmd)
@@ -296,5 +336,19 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     public void onFinishedConnecting()
     {
         Bridge.send(Event.CONNECTIVITY_ESTABLISHED);
+    }
+
+    // ---------------PlayingFragment-callbacks-----------------------------------------------------
+
+    @Override
+    public void onCastRequestPressed()
+    {
+        Bridge.send(Event.CAST_REQUEST_ISSUED.withArgs("D6", "5", "3")); // temp
+    }
+
+    @Override
+    public void onDetailedViewPressed(CastItem cast)
+    {
+
     }
 }

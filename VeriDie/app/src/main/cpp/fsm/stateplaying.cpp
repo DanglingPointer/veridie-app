@@ -295,7 +295,7 @@ void StatePlaying::ShowRequest(const dice::Request & request, const std::string 
    *m_ctx.proxy << Make<cmd::ShowRequest>(MakeCb(
       [=](cmd::ShowRequestResponse result) {
          if (result.Value() != cmd::ResponseCode::OK::value)
-            ShowRequest(request, from);
+            OnGameStopped();
       }),
       dice::TypeToString(request.cast),
       std::visit([](const auto & vec) {
@@ -315,7 +315,7 @@ void StatePlaying::ShowResponse(const dice::Response & response, const std::stri
                StartNegotiation();
          },
          [&](auto) {
-            ShowResponse(response, from);
+            OnGameStopped();
          });
    });
    size_t responseSize = std::visit(

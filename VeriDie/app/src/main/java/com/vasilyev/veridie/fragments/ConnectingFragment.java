@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,8 +34,8 @@ public class ConnectingFragment extends Fragment
     }
 
     private static final String TAG = "ConnectingFragment";
-    private static final String ARG_DISCOVERED_DEVICES = "ARG_DISCOVERED_ARRAY";
-    private static final String ARG_CONNECTED_DEVICES = "ARG_CONNECTED_ARRAY";
+    private static final String SAVED_DISCOVERED_DEVICES = "SAVED_DISCOVERED_ARRAY";
+    private static final String SAVED_CONNECTED_DEVICES = "SAVED_CONNECTED_ARRAY";
 
     private DevicesListAdapter m_discoveredAdapter;
     private DevicesListAdapter m_connectedAdapter;
@@ -75,8 +74,8 @@ public class ConnectingFragment extends Fragment
         ArrayList<BluetoothDevice> discoveredDevices = null;
         ArrayList<BluetoothDevice> connectedDevices = null;
         if (savedInstanceState != null) {
-            discoveredDevices = savedInstanceState.getParcelableArrayList(ARG_DISCOVERED_DEVICES);
-            connectedDevices = savedInstanceState.getParcelableArrayList(ARG_CONNECTED_DEVICES);
+            discoveredDevices = savedInstanceState.getParcelableArrayList(SAVED_DISCOVERED_DEVICES);
+            connectedDevices = savedInstanceState.getParcelableArrayList(SAVED_CONNECTED_DEVICES);
         }
         if (discoveredDevices == null)
             discoveredDevices = new ArrayList<>();
@@ -112,8 +111,8 @@ public class ConnectingFragment extends Fragment
     public void onSaveInstanceState(@NonNull Bundle outState)
     {
         super.onSaveInstanceState(outState);
-        outState.putParcelableArrayList(ARG_DISCOVERED_DEVICES, m_discoveredAdapter.getDevices());
-        outState.putParcelableArrayList(ARG_CONNECTED_DEVICES, m_connectedAdapter.getDevices());
+        outState.putParcelableArrayList(SAVED_DISCOVERED_DEVICES, m_discoveredAdapter.getDevices());
+        outState.putParcelableArrayList(SAVED_CONNECTED_DEVICES, m_connectedAdapter.getDevices());
     }
 
     @Override
