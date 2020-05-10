@@ -14,7 +14,7 @@ namespace fsm {
 using namespace std::chrono_literals;
 using cmd::Make;
 
-uint32_t StateNegotiating::s_round = 0U;
+uint32_t g_negotiationRound = 0U;
 
 StateNegotiating::StateNegotiating(const fsm::Context & ctx,
                                    std::unordered_set<bt::Device> && peers,
@@ -30,7 +30,7 @@ StateNegotiating::StateNegotiating(const fsm::Context & ctx,
                   [](const bt::Device & device) {
                      return std::make_pair(device.mac, dice::Offer{"", 0U});
                   });
-   auto [localOffer, _] = m_offers.insert_or_assign(m_localMac, dice::Offer{"", ++s_round});
+   auto [localOffer, _] = m_offers.insert_or_assign(m_localMac, dice::Offer{"", ++g_negotiationRound});
    localOffer->second.mac = GetLocalOfferMac();
 
    *m_ctx.proxy << Make<cmd::NegotiationStart>(MakeCb([this](cmd::NegotiationStartResponse result) {
@@ -82,7 +82,7 @@ void StateNegotiating::OnSocketReadFailure(const bt::Device & from)
 
 const std::string & StateNegotiating::GetLocalOfferMac()
 {
-   size_t index = s_round % m_offers.size();
+   size_t index = g_negotiationRound % m_offers.size();
    auto it = std::next(m_offers.cbegin(), index);
    return it->first;
 }
@@ -114,16 +114,16 @@ void StateNegotiating::UpdateAndBroadcastOffer()
       return;
    }
 
-   uint32_t maxRound = s_round;
+   uint32_t maxRound = g_negotiationRound;
    for (const auto & [_, offer] : m_offers) {
       if (offer.round > maxRound)
          maxRound = offer.round;
    }
 
    // update local offer
-   if (maxRound > s_round)
-      s_round = maxRound;
-   localOffer->second.round = s_round;
+   if (maxRound > g_negotiationRound)
+      g_negotiationRound = maxRound;
+   localOffer->second.round = g_negotiationRound;
    localOffer->second.mac = GetLocalOfferMac();
 
    // broadcast local offer

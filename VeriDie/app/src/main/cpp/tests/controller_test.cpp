@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <queue>
 #include <list>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -13,6 +14,10 @@
 #include "core/proxy.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
+
+namespace fsm {
+extern uint32_t g_negotiationRound;
+}
 
 namespace {
 using namespace std::chrono_literals;
@@ -677,10 +682,13 @@ class NegotiatingFixture : public ConnectingFixture
 protected:
    static constexpr size_t peersCount = PEERS_COUNT;
 
-   NegotiatingFixture()
+   NegotiatingFixture(std::optional<uint32_t> round = std::nullopt)
       : ConnectingFixture()
       , localMac("5c:b9:01:f8:b6:4" + std::to_string(peersCount))
    {
+      if (round)
+         fsm::g_negotiationRound = *round;
+
       StartDiscoveryAndListening();
 
       for (size_t i = 0; i < peersCount; ++i)
@@ -874,6 +882,27 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    EXPECT_TRUE(proxy->NoCommands());
 }
 
+// round 8
+TEST_F(NegotiatingFixture3, goes_to_idle_on_game_stopped)
+{
+   auto negotiationStart = proxy->PopNextCommand();
+   ASSERT_TRUE(negotiationStart);
+   EXPECT_EQ(106, ID(negotiationStart));
+   negotiationStart->Respond(0);
+
+   CheckLocalOffer(R"(<Offer round="8"><Mac>5c:b9:01:f8:b6:40</Mac></Offer>)");
+   EXPECT_TRUE(proxy->NoCommands());
+
+   ctrl->OnEvent(16, {}); // game stopped
+
+   auto resetBt = proxy->PopNextCommand();
+   ASSERT_TRUE(resetBt);
+   EXPECT_EQ(115, ID(resetBt));
+   EXPECT_EQ(0U, resetBt->GetArgsCount());
+   resetBt->Respond(0);
+   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+}
+
 template <size_t PEERS_COUNT, uint32_t ROUND>
 class PlayingFixture : public NegotiatingFixture<PEERS_COUNT>
 {
@@ -883,7 +912,7 @@ protected:
    using Base = NegotiatingFixture<PEERS_COUNT>;
 
    PlayingFixture()
-      : Base()
+      : Base(round - 1)
    {
       auto negotiationStart = Base::proxy->PopNextCommand();
       EXPECT_TRUE(negotiationStart);
@@ -1468,6 +1497,7 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
 }
 
 using P2R21 = PlayingFixture<2u, 21u>;
+
 TEST_F(P2R21, goes_to_idle_from_mid_game_negotiation_if_game_stopped)
 {
    timer->FastForwardTime(10s);
@@ -1497,6 +1527,6 @@ TEST_F(P2R21, goes_to_idle_from_mid_game_negotiation_if_game_stopped)
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
 }
 
-//round 22
+//round 23
 
 } // namespace

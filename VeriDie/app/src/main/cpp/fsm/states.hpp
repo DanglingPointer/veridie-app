@@ -94,8 +94,6 @@ private:
    const std::string & GetLocalOfferMac();
    void DisconnectDevice(const std::string & mac);
 
-   static uint32_t s_round;
-
    Context m_ctx;
    std::string m_localMac;
 
