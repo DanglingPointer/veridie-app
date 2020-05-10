@@ -60,8 +60,12 @@ private:
       if (argCount > 0) {
          jclass stringClass = m_env->FindClass("java/lang/String");
          argsArray = m_env->NewObjectArray(argCount, stringClass, nullptr);
-         for (size_t i = 0; i < argCount; ++i)
-            m_env->SetObjectArrayElement(argsArray, i, m_env->NewStringUTF(c->GetArgAt(i).data()));
+         for (size_t i = 0; i < argCount; ++i) {
+            jstring arg = m_env->NewStringUTF(c->GetArgAt(i).data());
+            m_env->SetObjectArrayElement(argsArray, i, arg);
+            m_env->DeleteLocalRef(arg);
+         }
+         m_env->DeleteLocalRef(stringClass);
       }
       jint argId = m_waitingCmds.Store(std::move(c));
 
@@ -73,11 +77,8 @@ private:
          m_env->ExceptionClear();
       }
 
-      if (argsArray) {
-         for (size_t i = 0; i < argCount; ++i)
-            m_env->DeleteLocalRef(m_env->GetObjectArrayElement(argsArray, i));
+      if (argsArray)
          m_env->DeleteLocalRef(argsArray);
-      }
    }
 
    ILogger & m_logger;

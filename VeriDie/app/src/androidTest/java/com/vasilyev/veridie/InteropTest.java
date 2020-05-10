@@ -145,6 +145,20 @@ public class InteropTest
    }
 
    @Test
+   public void testLocalRefOverflow() {
+      for (int i = 0; i < 512; ++i) {
+         Bridge.send(Event.CAST_REQUEST_ISSUED.withArgs("D100", Integer.toString(i), "4"));
+         Command cmd = cht.getNextCommand();
+         assertNotNull(cmd);
+         assertEquals(Event.CAST_REQUEST_ISSUED.getId(), cmd.getId());
+         assertEquals("D100", cmd.getArgs()[0]);
+         assertEquals(Integer.toString(i), cmd.getArgs()[1]);
+         assertEquals("4", cmd.getArgs()[2]);
+         cmd.respond(Command.ERROR_NO_ERROR);
+      }
+   }
+
+   @Test
    public void testCastResultIsParsedCorrectly()
    {
       Cast.Result r = new Cast.Result("D6", "1;2;3;4;5;6;", 3, null);
