@@ -137,8 +137,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     public void onBackPressed()
     {
         AlertDialog dialog = new AlertDialog.Builder(this, R.style.AppDialogTheme)
-                .setTitle("Exit")
-                .setMessage("Do you want to exit?")
+                .setTitle(R.string.dialog_exit_title)
+                .setMessage(R.string.dialog_exit_prompt)
                 .setNegativeButton(android.R.string.cancel, (dialogInterface, which) -> dialogInterface.dismiss())
                 .setPositiveButton(android.R.string.ok, (dialogInterface, which) -> {
                     Bridge.send(Event.GAME_STOPPED);
@@ -179,8 +179,16 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     private void showAndExit(Command cmd)
     {
         cmd.respond(Command.ERROR_NO_ERROR);
-        Toast.makeText(getApplicationContext(), cmd.getArgs()[0], Toast.LENGTH_LONG).show();
-        finishAndRemoveTask();
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.AppDialogTheme)
+                .setTitle(R.string.dialog_fatal_title)
+                .setMessage(cmd.getArgs()[0])
+                .setCancelable(false)
+                .setPositiveButton(android.R.string.ok, (dialogInterface, which) -> {
+                    finishAndRemoveTask();
+                    System.exit(0);
+                })
+                .create();
+        dialog.show();
     }
 
     private void showToast(Command cmd)

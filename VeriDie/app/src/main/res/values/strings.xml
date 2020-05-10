@@ -9,4 +9,7 @@
     <string name="conn_btn_connect">Connect</string>
     <string name="conn_btn_disconnect">Disconnect</string>
     <string name="neg_txt_wait">Please wait a few seconds…</string>
+    <string name="dialog_fatal_title">Fatal failure</string>
+    <string name="dialog_exit_title">Exit</string>
+    <string name="dialog_exit_prompt">Do you want to exit?</string>
 </resources>
