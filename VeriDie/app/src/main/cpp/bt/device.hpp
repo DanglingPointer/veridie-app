@@ -1,7 +1,6 @@
 #ifndef BT_DEVICE_HPP
 #define BT_DEVICE_HPP
 
-#include <bitset>
 #include <functional>
 #include <string>
 
