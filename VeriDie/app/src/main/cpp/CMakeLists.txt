@@ -3,10 +3,12 @@
 
 # Sets the minimum version of CMake required to build the native library.
 
-cmake_minimum_required(VERSION 3.4.1)
+cmake_minimum_required(VERSION 3.18.1)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wpedantic -Wimplicit-fallthrough -Wno-sign-compare -Wno-error=c++11-narrowing")
+project(VeriDie)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wpedantic -Wimplicit-fallthrough -Wno-sign-compare -Wno-error=c++11-narrowing -fcoroutines-ts")
 
 include_directories(${PROJECT_SOURCE_DIR})
 
@@ -95,7 +97,7 @@ target_link_libraries(tests
 
 
 # push and run unit tests
-find_program(ADB ${ANDROID_NDK}/../platform-tools/adb)
+find_program(ADB ${ANDROID_NDK}/../../platform-tools/adb)
 if(NOT ADB)
     message(FATAL_ERROR "Could not find adb")
 endif()

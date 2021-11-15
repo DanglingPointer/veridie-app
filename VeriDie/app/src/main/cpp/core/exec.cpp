@@ -40,4 +40,18 @@ void InternalExec(std::function<void(IController *)> task)
    });
 }
 
+void Scheduler::await_suspend(std::experimental::coroutine_handle<> h)
+{
+   core::Exec([h, this](core::IController * ctrl) mutable {
+      ctrl_ = ctrl;
+      h.resume();
+   });
+}
+
+core::IController * Scheduler::await_resume()
+{
+   assert(ctrl_);
+   return ctrl_;
+}
+
 } // namespace core
