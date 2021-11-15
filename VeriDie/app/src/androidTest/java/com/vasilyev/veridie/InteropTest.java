@@ -161,7 +161,7 @@ public class InteropTest
    @Test
    public void testCastResultIsParsedCorrectly()
    {
-      Cast.Result r = new Cast.Result("D6", "1;2;3;4;5;6;", 3, null);
+      Cast.Result r = new Cast.Result("D6", "1;2;3;4;5;6;", 3);
       assertEquals("D6", r.getD());
       assertArrayEquals(new int[] {1, 2, 3, 4, 5, 6}, r.getValues());
       assertTrue(r.hasSuccessCount());
