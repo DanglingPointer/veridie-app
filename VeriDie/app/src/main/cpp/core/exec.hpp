@@ -23,7 +23,7 @@ struct Scheduler
    core::IController * await_resume();
 
 private:
-   core::IController * ctrl_ = nullptr;
+   core::IController * m_ctrl = nullptr;
 };
 
 } // namespace core

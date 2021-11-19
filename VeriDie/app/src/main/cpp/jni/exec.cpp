@@ -156,15 +156,15 @@ void InternalExec(std::function<void(ICmdManager *)> task)
 void Scheduler::await_suspend(std::experimental::coroutine_handle<> h)
 {
    InternalExec([h, this](ICmdManager * mgr) mutable {
-      mgr_ = mgr;
+      m_mgr = mgr;
       h.resume();
    });
 }
 
 ICmdManager * Scheduler::await_resume()
 {
-   assert(mgr_);
-   return mgr_;
+   assert(m_mgr);
+   return m_mgr;
 }
 
 } // namespace jni

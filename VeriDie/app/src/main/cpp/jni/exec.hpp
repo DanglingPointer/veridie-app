@@ -23,7 +23,7 @@ struct Scheduler
    ICmdManager * await_resume();
 
 private:
-   ICmdManager * mgr_ = nullptr;
+   ICmdManager * m_mgr = nullptr;
 };
 
 } // namespace jni
