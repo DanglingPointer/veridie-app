@@ -18,9 +18,9 @@ void Exec(F && f)
 
 struct Scheduler
 {
-   bool await_ready() { return false; }
+   bool await_ready() const noexcept { return false; }
    void await_suspend(std::experimental::coroutine_handle<> h);
-   ICmdManager * await_resume();
+   ICmdManager * await_resume() const noexcept;
 
 private:
    ICmdManager * m_mgr = nullptr;

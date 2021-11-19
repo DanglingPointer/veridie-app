@@ -48,7 +48,7 @@ void Scheduler::await_suspend(std::experimental::coroutine_handle<> h)
    });
 }
 
-core::IController * Scheduler::await_resume()
+core::IController * Scheduler::await_resume() const noexcept
 {
    assert(m_ctrl);
    return m_ctrl;

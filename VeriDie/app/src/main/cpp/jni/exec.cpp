@@ -161,7 +161,7 @@ void Scheduler::await_suspend(std::experimental::coroutine_handle<> h)
    });
 }
 
-ICmdManager * Scheduler::await_resume()
+ICmdManager * Scheduler::await_resume() const noexcept
 {
    assert(m_mgr);
    return m_mgr;
