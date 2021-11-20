@@ -1,26 +1,50 @@
-#ifndef WORKER_HPP
-#define WORKER_HPP
+#ifndef ASYNC_WORKER_HPP
+#define ASYNC_WORKER_HPP
 
+#include <chrono>
+#include <condition_variable>
 #include <functional>
-#include "utils/blockingconcurrentqueue.h"
-#include "utils/logger.hpp"
+#include <map>
+#include <mutex>
+#include <string_view>
+#include <thread>
+
+namespace async {
 
 class Worker
 {
 public:
-   using Task = std::function<void(void *)>;
+   struct Config
+   {
+      std::string name;
+      size_t capacity;
+      std::function<void(std::string_view /*worker*/, std::string_view /*ex*/)> exceptionHandler;
+   };
+   using Task = std::function<void()>;
 
-   Worker(void * data, ILogger & log);
+   Worker(const Config & config);
    ~Worker();
-   void ScheduleTask(Task item);
+
+   void Schedule(Task && work);
+   bool TrySchedule(Task && work);
+   void Schedule(std::chrono::milliseconds delay, Task && work);
+   bool TrySchedule(std::chrono::milliseconds delay, Task && work);
 
 private:
-   void Launch(void * arg);
+   void Run();
+   void GetNextTask(Task & out);
 
-   using Queue = moodycamel::BlockingConcurrentQueue<Task>;
-   Queue * const m_queue;
-   bool * const m_stop;
-   ILogger & m_log;
+   const Config m_config;
+   bool m_stop;
+
+   std::multimap<std::chrono::steady_clock::time_point, Task> m_tasks;
+   std::mutex m_tasksSync;
+   std::condition_variable m_filledSignal;
+   std::condition_variable m_emptiedSignal;
+
+   std::thread m_thread;
 };
 
-#endif // WORKER_HPP
+} // namespace async
+
+#endif // ASYNC_WORKER_HPP

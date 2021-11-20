@@ -12,6 +12,7 @@
 #include "utils/worker.hpp"
 #include "bt/device.hpp"
 
+using namespace std::chrono_literals;
 
 namespace {
 
@@ -23,13 +24,23 @@ struct Context
    std::unique_ptr<jni::ICmdManager> cmdMgr;
 };
 
-Worker & JniWorker()
+void ScheduleOnJniWorker(std::function<void(Context &)> && task,
+                         std::chrono::milliseconds delay = 0ms)
 {
+   static auto onException = [](std::string_view /*worker*/, std::string_view /*exception*/) {
+      std::abort(); // TODO
+   };
+   static async::Worker s_worker(async::Worker::Config{
+      .name = "JNI_WORKER",
+      .capacity = std::numeric_limits<size_t>::max(),
+      .exceptionHandler = onException,
+   });
    static auto s_logger = CreateLogger("JNI_WORKER");
    static Context s_ctx{*s_logger, nullptr, nullptr, nullptr};
 
-   static Worker s_w(&s_ctx, *s_logger);
-   return s_w;
+   s_worker.Schedule(delay, [task = std::move(task)] {
+      task(s_ctx);
+   });
 }
 
 
@@ -55,17 +66,15 @@ std::string ErrorToString(jint error)
    }
 }
 
-
-struct ScheduleOnJniWorker
+struct JniWorkerScheduler
 {
    Context * ctx_ = nullptr;
 
    bool await_ready() { return false; }
    void await_suspend(stdcr::coroutine_handle<> h)
    {
-      JniWorker().ScheduleTask([h, this](void * arg) mutable {
-         auto * ctx = static_cast<Context *>(arg);
-         ctx_ = ctx;
+      ScheduleOnJniWorker([h, this](Context & ctx) mutable {
+         ctx_ = &ctx;
          h.resume();
       });
    }
@@ -78,7 +87,7 @@ struct ScheduleOnJniWorker
 
 cr::DetachedHandle OnLoad(JavaVM * vm)
 {
-   Context * ctx = co_await ScheduleOnJniWorker{};
+   Context * ctx = co_await JniWorkerScheduler{};
    ctx->jvm = vm;
    auto res = ctx->jvm->AttachCurrentThread(&ctx->jenv, nullptr);
    if (res != JNI_OK) {
@@ -89,7 +98,7 @@ cr::DetachedHandle OnLoad(JavaVM * vm)
 
 cr::DetachedHandle OnUnload(JavaVM * vm)
 {
-   Context * ctx = co_await ScheduleOnJniWorker{};
+   Context * ctx = co_await JniWorkerScheduler{};
    ctx->cmdMgr = nullptr;
    ctx->jvm = nullptr;
    ctx->jenv = nullptr;
@@ -100,7 +109,7 @@ cr::DetachedHandle BridgeReady(JNIEnv * env, jclass localRef)
 {
    auto globalRef = static_cast<jclass>(env->NewGlobalRef(localRef));
 
-   Context * ctx = co_await ScheduleOnJniWorker{};
+   Context * ctx = co_await JniWorkerScheduler{};
    if (!ctx->cmdMgr)
       ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
 
@@ -134,8 +143,8 @@ namespace jni {
 
 void InternalExec(std::function<void(ICmdManager *)> task)
 {
-   JniWorker().ScheduleTask([t = std::move(task)](void * arg) {
-      t(static_cast<Context *>(arg)->cmdMgr.get());
+   ScheduleOnJniWorker([t = std::move(task)](Context & ctx) {
+      t(ctx.cmdMgr.get());
    });
 }
 

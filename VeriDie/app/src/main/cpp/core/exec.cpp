@@ -6,37 +6,46 @@
 #include "utils/worker.hpp"
 #include "utils/logger.hpp"
 
+#include <cassert>
+#include <chrono>
+
+using namespace std::chrono_literals;
+
+namespace core {
 namespace {
 
-void MainExecutor(std::function<void()> task);
-
-Worker & MainWorker()
+void ScheduleOnMainWorker(std::function<void()> && task, std::chrono::milliseconds delay = 0ms)
 {
-   static auto s_logger = CreateLogger("MAIN_WORKER");
-   static auto s_ctrl = core::CreateController(dice::CreateUniformEngine(),
-                                               core::CreateTimerEngine(MainExecutor),
-                                               dice::CreateXmlSerializer(),
-                                               *s_logger);
-
-   static Worker s_w(s_ctrl.get(), *s_logger);
-   return s_w;
+   static auto onException = [](std::string_view /*worker*/, std::string_view /*exception*/) {
+      std::abort(); // TODO
+   };
+   static async::Worker s_worker(async::Worker::Config{
+      .name = "MAIN_WORKER",
+      .capacity = std::numeric_limits<size_t>::max(),
+      .exceptionHandler = onException,
+   });
+   s_worker.Schedule(delay, std::move(task));
 }
 
-void MainExecutor(std::function<void()> task)
+IController & GetController()
 {
-   MainWorker().ScheduleTask([t = std::move(task)](void *) {
-      t();
-   });
+   static auto executor = [](std::function<void()> task) {
+      ScheduleOnMainWorker(std::move(task));
+   };
+   static auto s_logger = CreateLogger("MAIN_WORKER");
+   static auto s_ctrl = core::CreateController(dice::CreateUniformEngine(),
+                                               core::CreateTimerEngine(executor),
+                                               dice::CreateXmlSerializer(),
+                                               *s_logger);
+   return *s_ctrl;
 }
 
 } // namespace
 
-namespace core {
-
 void InternalExec(std::function<void(IController *)> task)
 {
-   MainWorker().ScheduleTask([t = std::move(task)](void * data) {
-      t(static_cast<IController *>(data));
+   ScheduleOnMainWorker([task = std::move(task)] {
+      task(&GetController());
    });
 }
 
