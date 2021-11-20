@@ -7,6 +7,7 @@
 #include "jni/proxy.hpp"
 #include "core/exec.hpp"
 #include "core/controller.hpp"
+#include "utils/task.hpp"
 #include "utils/logger.hpp"
 #include "utils/worker.hpp"
 #include "bt/device.hpp"
@@ -55,20 +56,6 @@ std::string ErrorToString(jint error)
 }
 
 
-struct Handle
-{
-   struct promise_type;
-};
-
-struct Handle::promise_type
-{
-   Handle get_return_object() noexcept { return Handle{}; }
-   stdcr::suspend_never initial_suspend() noexcept { return {}; }
-   stdcr::suspend_never final_suspend() noexcept { return {}; }
-   void unhandled_exception() { std::abort(); } // todo: temp
-   void return_void() noexcept {}
-};
-
 struct ScheduleOnJniWorker
 {
    Context * ctx_ = nullptr;
@@ -76,7 +63,7 @@ struct ScheduleOnJniWorker
    bool await_ready() { return false; }
    void await_suspend(stdcr::coroutine_handle<> h)
    {
-      JniWorker().ScheduleTask([h, this] (void * arg) mutable {
+      JniWorker().ScheduleTask([h, this](void * arg) mutable {
          auto * ctx = static_cast<Context *>(arg);
          ctx_ = ctx;
          h.resume();
@@ -89,7 +76,7 @@ struct ScheduleOnJniWorker
    }
 };
 
-Handle OnLoad(JavaVM * vm)
+cr::DetachedHandle OnLoad(JavaVM * vm)
 {
    Context * ctx = co_await ScheduleOnJniWorker{};
    ctx->jvm = vm;
@@ -100,7 +87,7 @@ Handle OnLoad(JavaVM * vm)
    }
 }
 
-Handle OnUnload(JavaVM * vm)
+cr::DetachedHandle OnUnload(JavaVM * vm)
 {
    Context * ctx = co_await ScheduleOnJniWorker{};
    ctx->cmdMgr = nullptr;
@@ -109,7 +96,7 @@ Handle OnUnload(JavaVM * vm)
    vm->DetachCurrentThread();
 }
 
-Handle BridgeReady(JNIEnv * env, jclass localRef)
+cr::DetachedHandle BridgeReady(JNIEnv * env, jclass localRef)
 {
    auto globalRef = static_cast<jclass>(env->NewGlobalRef(localRef));
 
@@ -121,7 +108,7 @@ Handle BridgeReady(JNIEnv * env, jclass localRef)
    ctrl->Start(jni::CreateProxy);
 }
 
-Handle SendEvent(JNIEnv * env, jint eventId, jobjectArray args)
+cr::DetachedHandle SendEvent(JNIEnv * env, jint eventId, jobjectArray args)
 {
    std::vector<std::string> arguments;
 
@@ -135,7 +122,7 @@ Handle SendEvent(JNIEnv * env, jint eventId, jobjectArray args)
    ctrl->OnEvent(eventId, arguments);
 }
 
-Handle SendResponse(jint cmdId, jlong result)
+cr::DetachedHandle SendResponse(jint cmdId, jlong result)
 {
    jni::ICmdManager * mgr = co_await jni::Scheduler{};
    mgr->OnCommandResponse(cmdId, result);

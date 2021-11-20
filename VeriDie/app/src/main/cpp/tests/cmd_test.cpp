@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "utils/canceller.hpp"
+#include "utils/task.hpp"
 #include "sign/commandmanager.hpp"
 #include "sign/commandstorage.hpp"
 #include "sign/commands.hpp"
@@ -158,20 +159,6 @@ TEST_F(CmdFixture, cmd_storage_handles_overflow)
    EXPECT_EQ(NegotiationStart::ID + ind, storage.Store(std::move(negStart)));
 }
 
-struct NonOwningHandle
-{
-   struct promise_type;
-};
-
-struct NonOwningHandle::promise_type
-{
-   NonOwningHandle get_return_object() noexcept { return NonOwningHandle{}; }
-   stdcr::suspend_never initial_suspend() noexcept { return {}; }
-   stdcr::suspend_never final_suspend() noexcept { return {}; }
-   void unhandled_exception() { std::abort(); }
-   void return_void() noexcept {}
-};
-
 struct TestCommand : ICommand
 {
    template <typename... Args>
@@ -231,7 +218,7 @@ public:
 };
 
 template <typename F>
-NonOwningHandle coawait_and_get_response(F && f, int64_t * outResponse)
+cr::DetachedHandle coawait_and_get_response(F && f, int64_t * outResponse)
 {
    auto response = co_await f();
    if (outResponse)
