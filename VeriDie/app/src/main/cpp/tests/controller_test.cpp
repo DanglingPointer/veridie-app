@@ -644,6 +644,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    // 5c:b9:01:f8:b6:43 <-- round 2
    // 5c:b9:01:f8:b6:44
    const char * expectedOffer = R"(<Offer round="2"><Mac>5c:b9:01:f8:b6:43</Mac></Offer>)";
+   ASSERT_EQ(2, fsm::g_negotiationRound);
 
    // local offer is being broadcast
    {
@@ -652,7 +653,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
       EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
-      EXPECT_STREQ("5c:b9:01:f8:b6:44", offer->GetArgAt(1).data());
+      EXPECT_STREQ("5c:b9:01:f8:b6:43", offer->GetArgAt(1).data());
       offer->Respond(0);
    }
    {
@@ -661,7 +662,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
       EXPECT_EQ(108, ID(offer));
       EXPECT_EQ(2U, offer->GetArgsCount());
       EXPECT_STREQ(expectedOffer, offer->GetArgAt(0).data());
-      EXPECT_STREQ("5c:b9:01:f8:b6:43", offer->GetArgAt(1).data());
+      EXPECT_STREQ("5c:b9:01:f8:b6:44", offer->GetArgAt(1).data());
       offer->Respond(0);
    }
    {
