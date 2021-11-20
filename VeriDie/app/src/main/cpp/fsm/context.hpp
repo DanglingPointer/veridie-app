@@ -4,12 +4,14 @@
 #include <variant>
 
 namespace core {
-class ITimerEngine;
 class Proxy;
 }
 namespace dice {
 class IEngine;
 class ISerializer;
+}
+namespace async {
+class Timer;
 }
 
 class ILogger;
@@ -29,7 +31,7 @@ struct Context
    ILogger * const logger;
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
-   core::ITimerEngine * const timer;
+   async::Timer * const timer;
    core::Proxy * const proxy;
 
    StateHolder * const state;

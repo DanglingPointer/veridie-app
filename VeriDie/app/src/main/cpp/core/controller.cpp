@@ -4,9 +4,9 @@
 
 #include "core/controller.hpp"
 #include "utils/logger.hpp"
+#include "utils/timer.hpp"
 #include "core/proxy.hpp"
 #include "dice/engine.hpp"
-#include "core/timerengine.hpp"
 #include "dice/serializer.hpp"
 #include "sign/events.hpp"
 #include "fsm/states.hpp"
@@ -26,7 +26,7 @@ class Controller : public core::IController
 public:
    Controller(ILogger & logger,
               std::unique_ptr<dice::IEngine> engine,
-              std::unique_ptr<core::ITimerEngine> timer,
+              std::unique_ptr<async::Timer> timer,
               std::unique_ptr<dice::ISerializer> serializer)
       : m_logger(logger)
       , m_proxy(nullptr)
@@ -74,7 +74,7 @@ private:
    ILogger & m_logger;
    std::unique_ptr<core::Proxy> m_proxy;
    std::unique_ptr<dice::IEngine> m_generator;
-   std::unique_ptr<core::ITimerEngine> m_timer;
+   std::unique_ptr<async::Timer> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;
 
    EventHandlerMap m_eventHandlers;
@@ -86,7 +86,7 @@ private:
 namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
-                                              std::unique_ptr<core::ITimerEngine> timer,
+                                              std::unique_ptr<async::Timer> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,
                                               ILogger & logger)
 {

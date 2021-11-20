@@ -3,8 +3,9 @@
 
 #include "bt/device.hpp"
 #include "fsm/states.hpp"
+#include "fsm/stateswitcher.hpp"
 #include "utils/logger.hpp"
-#include "core/timerengine.hpp"
+#include "utils/timer.hpp"
 #include "dice/serializer.hpp"
 #include "dice/engine.hpp"
 #include "core/proxy.hpp"
@@ -60,7 +61,7 @@ class StatePlaying::RemotePeerManager : private async::Canceller<32>
 public:
    RemotePeerManager(const bt::Device & remote,
                      core::Proxy & proxy,
-                     core::ITimerEngine & timer,
+                     async::Timer & timer,
                      bool isGenerator,
                      std::function<void()> renegotiate)
       : m_remote(remote)
@@ -81,20 +82,13 @@ public:
    const bt::Device & GetDevice() const { return m_remote; }
    bool IsConnected() const { return m_connected; }
    bool IsGenerator() const { return m_isGenerator; }
-   void SendRequest(const std::string & request, uint32_t attempt = REQUEST_ATTEMPTS)
+   void SendRequest(const std::string & request)
    {
-      if (attempt == 0) {
-         m_renegotiate();
-         return;
-      }
       m_pendingRequest = true;
-      Send(request, RETRY_COUNT);
-      if (m_isGenerator) {
-         m_retryRequest = m_timer.ScheduleTimer(1s).Then([=](auto) {
-            if (m_pendingRequest)
-               SendRequest(request, attempt - 1);
-         });
-      }
+      if (!m_isGenerator)
+         Send(request, RETRY_COUNT);
+      else
+         m_retryRequest = SendRequestToGenerator(request);
    }
    void SendResponse(const std::string & response)
    {
@@ -114,6 +108,16 @@ public:
    }
 
 private:
+   cr::TaskHandle<void> SendRequestToGenerator(std::string request)
+   {
+      for (unsigned attempt = REQUEST_ATTEMPTS; attempt > 0; --attempt) {
+         Send(request, RETRY_COUNT);
+         co_await m_timer.Start(1s);
+         if (!m_pendingRequest)
+            co_return;
+      }
+      m_renegotiate();
+   }
    void Send(const std::string & message, uint32_t retriesLeft)
    {
       if (retriesLeft == 0)
@@ -152,13 +156,13 @@ private:
 
    bt::Device m_remote;
    core::Proxy & m_proxy;
-   core::ITimerEngine & m_timer;
+   async::Timer & m_timer;
    std::function<void()> m_renegotiate;
    const bool m_isGenerator;
 
    bool m_pendingRequest;
    bool m_connected;
-   async::Future<core::Timeout> m_retryRequest;
+   cr::TaskHandle<void> m_retryRequest;
    std::vector<std::string> m_queuedMessages;
 };
 
@@ -170,7 +174,7 @@ StatePlaying::StatePlaying(const Context & ctx,
    : m_ctx(ctx)
    , m_localMac(std::move(localMac))
    , m_localGenerator(m_localMac == generatorMac)
-   , m_ignoreOffers(ctx.timer->ScheduleTimer(IGNORE_OFFERS_DURATION))
+   , m_ignoreOffers(m_ctx.timer->Start(IGNORE_OFFERS_DURATION))
    , m_responseCount(0U)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
@@ -192,8 +196,7 @@ void StatePlaying::OnBluetoothOff()
 {
    *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
    *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
-   fsm::Context ctx{m_ctx};
-   m_ctx.state->emplace<StateIdle>(ctx);
+   SwitchToState<StateIdle>(m_ctx);
 }
 
 void StatePlaying::OnDeviceConnected(const bt::Device & remote)
@@ -213,7 +216,7 @@ void StatePlaying::OnMessageReceived(const bt::Device & sender, const std::strin
 
    if (std::holds_alternative<dice::Offer>(parsed)) {
       mgr->second.OnReceptionSuccess(m_pendingRequest == nullptr);
-      if (m_ignoreOffers.IsActive())
+      if (m_ignoreOffers)
          return;
       StateNegotiating * s = StartNegotiation();
       s->OnMessageReceived(sender, message);
@@ -267,8 +270,7 @@ void StatePlaying::OnGameStopped()
 {
    *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
    *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
-   fsm::Context ctx{m_ctx};
-   m_ctx.state->emplace<StateIdle>(ctx);
+   SwitchToState<StateIdle>(m_ctx);
 }
 
 void StatePlaying::OnSocketReadFailure(const bt::Device & transmitter)

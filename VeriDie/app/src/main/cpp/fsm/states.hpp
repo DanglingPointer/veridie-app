@@ -8,7 +8,8 @@
 
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
-#include "utils/future.hpp"
+#include "utils/task.hpp"
+#include "utils/timer.hpp"
 
 namespace bt {
 struct Device;
@@ -27,7 +28,7 @@ namespace fsm {
 class StateIdle : public StateBase
 {
 public:
-   explicit StateIdle(const Context & ctx);
+   explicit StateIdle(const Context & ctx, bool startNewGame = false);
    void OnBluetoothOn();
    void OnBluetoothOff();
    void OnNewGame();
@@ -38,7 +39,7 @@ private:
    Context m_ctx;
 
    CallbackId m_enableBtCb;
-   async::Future<core::Timeout> m_retryHandle;
+   cr::TaskHandle<void> m_retryHandle;
 
    bool m_newGamePending;
    bool m_bluetoothOn;
@@ -61,7 +62,7 @@ private:
    void CheckStatus();
    void SendHelloTo(const std::string & mac, uint32_t retriesLeft);
    void DisconnectDevice(const std::string & mac);
-   void AttemptNegotiationStart(uint32_t retriesLeft);
+   cr::TaskHandle<void> AttemptNegotiationStart();
    void KickOffDiscovery(uint32_t retriesLeft);
    void KickOffListening(uint32_t retriesLeft);
 
@@ -72,9 +73,9 @@ private:
 
    std::optional<std::string> m_localMac;
    std::unordered_set<bt::Device> m_peers;
-   async::Future<core::Timeout> m_retryStartHandle;
-   async::Future<core::Timeout> m_retryDiscoveryHandle;
-   async::Future<core::Timeout> m_retryListeningHandle;
+   cr::TaskHandle<void> m_retryStartHandle;
+   cr::TaskHandle<void> m_retryDiscoveryHandle;
+   cr::TaskHandle<void> m_retryListeningHandle;
 };
 
 class StateNegotiating : public StateBase
@@ -90,7 +91,7 @@ public:
    void OnSocketReadFailure(const bt::Device & from);
 
 private:
-   void UpdateAndBroadcastOffer();
+   cr::TaskHandle<void> UpdateAndBroadcastOffer();
    const std::string & GetLocalOfferMac();
    void DisconnectDevice(const std::string & mac);
 
@@ -100,7 +101,7 @@ private:
    std::unordered_set<bt::Device> m_peers;
    std::map<std::string, dice::Offer> m_offers;
 
-   async::Future<core::Timeout> m_retrySendOffer;
+   cr::TaskHandle<void> m_retrySendOffer;
 };
 
 class StatePlaying : public StateBase
@@ -129,7 +130,7 @@ private:
    std::string m_localMac;
    bool m_localGenerator;
 
-   async::Future<core::Timeout> m_ignoreOffers;
+   cr::TaskHandle<async::Timeout> m_ignoreOffers;
    std::unique_ptr<dice::Request> m_pendingRequest;
 
    std::unordered_map<std::string, RemotePeerManager> m_managers;

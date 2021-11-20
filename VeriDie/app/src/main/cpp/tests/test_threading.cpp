@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "tests/fakelogger.hpp"
-#include "core/timerengine.hpp"
+#include "utils/task.hpp"
+#include "utils/timer.hpp"
 #include "utils/worker.hpp"
 
 #include <atomic>
@@ -10,25 +10,66 @@
 namespace {
 using namespace std::chrono_literals;
 using async::Worker;
+using async::Timer;
 
-TEST(TimerTest, timer_fires_within_1s_of_scheduled_time)
+TEST(TimerTest, timer_schedules_delayed_task_correctly)
 {
-   auto engine = core::CreateTimerEngine([](auto task) { task(); });
+   std::function<void()> pendingTask;
+   std::chrono::milliseconds requestedDelay;
+   bool taskFinished = false;
 
-   std::atomic_bool fired = false;
-   std::optional<core::Timeout> timeout;
-   auto handle = engine->ScheduleTimer(3s).Then([&](std::optional<core::Timeout> t) {
-      fired = true;
-      timeout = std::move(t);
+   Timer timer([&](auto task, std::chrono::milliseconds delay) {
+      pendingTask = std::move(task);
+      requestedDelay = delay;
    });
 
-   std::this_thread::sleep_for(2s);
-   EXPECT_FALSE(fired.load());
-   EXPECT_FALSE(timeout);
+   auto StartTimer = [&]() -> cr::DetachedHandle {
+      co_await timer.Start(3s);
+      taskFinished = true;
+   };
 
-   std::this_thread::sleep_for(2s);
-   EXPECT_TRUE(fired.load());
-   EXPECT_TRUE(timeout);
+   StartTimer();
+   EXPECT_FALSE(taskFinished);
+   EXPECT_EQ(3s, requestedDelay);
+   EXPECT_TRUE(pendingTask);
+
+   pendingTask();
+   EXPECT_TRUE(taskFinished);
+}
+
+TEST(TimerTest, timer_schedules_immediate_task)
+{
+   std::function<void()> pendingTask;
+   std::chrono::milliseconds requestedDelay = 123ms;
+   bool task1Finished = false;
+   bool task2Finished = false;
+
+   Timer timer([&](auto task, std::chrono::milliseconds delay) {
+      pendingTask = std::move(task);
+      requestedDelay = delay;
+   });
+
+   auto StartTimer = [&timer](bool & finished,
+                              std::chrono::milliseconds timeout) -> cr::DetachedHandle {
+      co_await timer.Start(timeout);
+      finished = true;
+   };
+
+   StartTimer(task1Finished, 0s);
+   EXPECT_FALSE(task1Finished);
+   EXPECT_EQ(0ms, requestedDelay);
+   EXPECT_TRUE(pendingTask);
+
+   pendingTask();
+   EXPECT_TRUE(task1Finished);
+
+   StartTimer(task2Finished, -42s);
+   EXPECT_FALSE(task2Finished);
+   EXPECT_EQ(0ms, requestedDelay);
+   EXPECT_TRUE(pendingTask);
+
+   pendingTask();
+   EXPECT_TRUE(task2Finished);
 }
 
 TEST(WorkerTest, worker_executes_instantaneous_task_within_100ms)

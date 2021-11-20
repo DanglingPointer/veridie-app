@@ -30,7 +30,6 @@ add_library(veridiecore
         STATIC
         core/controller.cpp
         core/exec.cpp
-        core/timerengine.cpp
         dice/engine.cpp
         dice/serializer.cpp
         fsm/stateconnecting.cpp
@@ -42,6 +41,7 @@ add_library(veridiecore
         sign/commandstorage.cpp
         sign/events.cpp
         utils/async.cpp
+        utils/timer.cpp
         utils/worker.cpp
         )
 target_link_libraries(veridiecore

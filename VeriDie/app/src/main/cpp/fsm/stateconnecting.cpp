@@ -2,12 +2,13 @@
 
 #include "bt/device.hpp"
 #include "fsm/states.hpp"
+#include "fsm/stateswitcher.hpp"
 #include "core/proxy.hpp"
 #include "dice/serializer.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
 #include "utils/logger.hpp"
-#include "core/timerengine.hpp"
+#include "utils/timer.hpp"
 
 using namespace std::chrono_literals;
 using cmd::Make;
@@ -45,9 +46,7 @@ StateConnecting::~StateConnecting()
 
 void StateConnecting::OnBluetoothOff()
 {
-   fsm::Context ctx{m_ctx};
-   m_ctx.state->emplace<StateIdle>(ctx);
-   std::get_if<StateIdle>(ctx.state)->OnNewGame();
+   SwitchToState<StateIdle>(m_ctx, true);
 }
 
 void StateConnecting::OnDeviceConnected(const bt::Device & remote)
@@ -85,16 +84,15 @@ void StateConnecting::OnSocketReadFailure(const bt::Device & from)
 
 void StateConnecting::OnConnectivityEstablished()
 {
-   if (m_retryStartHandle.IsActive())
+   if (m_retryStartHandle)
       return;
-   AttemptNegotiationStart(MAX_GAME_START_RETRY_COUNT);
+   m_retryStartHandle = AttemptNegotiationStart();
 }
 
 void StateConnecting::OnGameStopped()
 {
    *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
-   Context ctx{m_ctx};
-   m_ctx.state->emplace<StateIdle>(ctx);
+   SwitchToState<StateIdle>(m_ctx);
 }
 
 void StateConnecting::CheckStatus()
@@ -102,7 +100,7 @@ void StateConnecting::CheckStatus()
    if (m_listening.has_value() && !*m_listening && m_discovering.has_value() && !*m_discovering) {
       *m_ctx.proxy << Make<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
                                              "Cannot proceed due to a fatal failure.");
-      m_ctx.state->emplace<std::monostate>();
+      SwitchToState<std::monostate>(m_ctx);
    }
 }
 
@@ -146,31 +144,26 @@ void StateConnecting::DisconnectDevice(const std::string & mac)
       mac);
 }
 
-void StateConnecting::AttemptNegotiationStart(uint32_t retriesLeft)
+cr::TaskHandle<void> StateConnecting::AttemptNegotiationStart()
 {
-   if (retriesLeft == 0U) {
-      *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
-      *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
-      fsm::Context ctx{m_ctx};
-      m_ctx.state->emplace<StateIdle>(ctx);
-      return;
-   }
-   if (!m_localMac.has_value()) {
+   for (unsigned retriesLeft = MAX_GAME_START_RETRY_COUNT; retriesLeft > 0; --retriesLeft) {
+      if (m_localMac.has_value()) {
+         cmd::pool.Resize(m_peers.size());
+         SwitchToState<StateNegotiating>(m_ctx, std::move(m_peers), *std::move(m_localMac));
+         co_return;
+      }
       if (retriesLeft % 3 == 0) {
          *m_ctx.proxy << Make<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
                                               "Getting ready...",
                                               3s);
       }
-      m_retryStartHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
-         AttemptNegotiationStart(retriesLeft - 1);
-      });
-   } else {
-      cmd::pool.Resize(m_peers.size());
-      fsm::Context ctx{m_ctx};
-      std::string localMac(*std::move(m_localMac));
-      std::unordered_set<bt::Device> peers(std::move(m_peers));
-      m_ctx.state->emplace<StateNegotiating>(ctx, std::move(peers), std::move(localMac));
+      co_await m_ctx.timer->Start(1s);
    }
+
+   *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
+   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   SwitchToState<StateIdle>(m_ctx);
+   co_return;
 }
 
 void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
@@ -190,9 +183,10 @@ void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
                   m_discovering = false;
                   CheckStatus();
                } else {
-                  m_retryDiscoveryHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
+                  m_retryDiscoveryHandle = [=] () -> cr::TaskHandle<void> {
+                     co_await m_ctx.timer->Start(1s);
                      KickOffDiscovery(retriesLeft - 1);
-                  });
+                  }();
                }
             },
             [this](auto) {
@@ -225,9 +219,10 @@ void StateConnecting::KickOffListening(uint32_t retriesLeft)
                   m_listening = false;
                   CheckStatus();
                } else {
-                  m_retryListeningHandle = m_ctx.timer->ScheduleTimer(1s).Then([=](auto) {
+                  m_retryListeningHandle = [=] () -> cr::TaskHandle<void> {
+                     co_await m_ctx.timer->Start(1s);
                      KickOffListening(retriesLeft - 1);
-                  });
+                  }();
                }
             });
       }),

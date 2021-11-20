@@ -3,7 +3,6 @@
 
 #include "core/controller.hpp"
 #include "utils/logger.hpp"
-#include "core/timerengine.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
 #include "core/proxy.hpp"
@@ -15,12 +14,6 @@ std::unique_ptr<IEngine> CreateUniformEngine()
    return nullptr;
 }
 } // namespace dice
-namespace core {
-std::unique_ptr<ITimerEngine> CreateTimerEngine(async::Executor)
-{
-   return nullptr;
-}
-} // namespace core
 namespace dice {
 std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
 {
@@ -94,7 +87,7 @@ private:
 namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> /*engine*/,
-                                              std::unique_ptr<core::ITimerEngine> /*timer*/,
+                                              std::unique_ptr<async::Timer> /*timer*/,
                                               std::unique_ptr<dice::ISerializer> /*serializer*/,
                                               ILogger & logger)
 {

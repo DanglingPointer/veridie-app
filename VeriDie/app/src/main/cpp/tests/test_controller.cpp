@@ -10,7 +10,7 @@
 #include "core/controller.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
-#include "core/timerengine.hpp"
+#include "utils/timer.hpp"
 #include "core/proxy.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
@@ -43,16 +43,18 @@ private:
    std::queue<mem::pool_ptr<cmd::ICommand>> m_q;
 };
 
-class MockTimerEngine : public core::ITimerEngine
+class MockTimerEngine
 {
 public:
    MockTimerEngine()
       : m_processing(false)
    {}
 
-   void FastForwardTime(std::chrono::seconds sec)
+   void FastForwardTime(std::chrono::seconds sec = 0s)
    {
-      ASSERT_TRUE(sec >= 1s);
+      if (sec == 0s)
+         return ProcessTimers();
+
       const auto end = m_now + sec;
       do {
          m_now += 1s;
@@ -60,23 +62,16 @@ public:
       } while (m_now < end);
    }
 
-private:
-   async::Future<core::Timeout> ScheduleTimer(std::chrono::seconds period) override
+   void operator()(std::function<void()> && task, std::chrono::milliseconds period)
    {
-      async::Promise<core::Timeout> p([](auto task) {
-         task();
-      });
-      auto future = p.GetFuture();
       const auto timeToFire = m_now + period;
-      m_timers.push_back({std::move(p), timeToFire});
-      ProcessTimers();
-      return future;
+      m_timers.push_back({std::move(task), timeToFire});
    }
 
 private:
    struct Timer
    {
-      async::Promise<core::Timeout> promise;
+      std::function<void()> task;
       std::chrono::steady_clock::time_point time;
    };
    void ProcessTimers()
@@ -85,10 +80,8 @@ private:
          return;
       m_processing = true;
       for (auto it = std::begin(m_timers); it != std::end(m_timers);) {
-         if (it->promise.IsCancelled()) {
-            it = m_timers.erase(it);
-         } else if (it->time <= m_now) {
-            it->promise.Finished(core::Timeout{});
+         if (it->time <= m_now) {
+            it->task();
             it = m_timers.erase(it);
          } else {
             ++it;
@@ -130,10 +123,10 @@ protected:
    std::unique_ptr<core::IController> CreateController()
    {
       proxy = new MockProxy;
-      timer = new MockTimerEngine;
+      timer = &m_timer;
       generator = new StubGenerator;
       auto ctrl = core::CreateController(std::unique_ptr<dice::IEngine>(generator),
-                                         std::unique_ptr<core::ITimerEngine>(timer),
+                                         std::make_unique<async::Timer>(std::ref(m_timer)),
                                          dice::CreateXmlSerializer(),
                                          logger);
       ctrl->Start([=](ILogger &) {
@@ -141,6 +134,8 @@ protected:
       });
       return ctrl;
    }
+
+   MockTimerEngine m_timer;
 
    MockProxy * proxy;
    MockTimerEngine * timer;
@@ -169,6 +164,7 @@ TEST_F(IdlingFixture, state_idle_bluetooth_turned_on_successfully)
 
    // new game requested
    ctrl->OnEvent(13, {});
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
 }
 
@@ -272,6 +268,7 @@ TEST_F(IdlingFixture, state_idle_retry_after_bluetooth_off_and_user_declined)
       EXPECT_EQ(0U, enableBt->GetArgsCount());
       enableBt->Respond(0);
    }
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
 }
 
@@ -284,6 +281,7 @@ protected:
       auto c = proxy->PopNextCommand();
       c->Respond(0);
       ctrl->OnEvent(13, {});
+      timer->FastForwardTime();
       EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
       EXPECT_TRUE(logger.NoWarningsOrErrors());
       logger.Clear();
@@ -446,6 +444,7 @@ TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
    size_t prevBlockCount = cmd::pool.GetBlockCount();
    cmdDiscovering->Respond(2);
    cmdListening->Respond(2);
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
    EXPECT_TRUE(cmd::pool.GetBlockCount() <= prevBlockCount);
    auto enableBt = proxy->PopNextCommand();
@@ -453,6 +452,7 @@ TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
    EXPECT_EQ(105, ID(enableBt));
    EXPECT_TRUE(proxy->NoCommands());
    enableBt->Respond(0);
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
 }
 
@@ -574,6 +574,8 @@ TEST_F(ConnectingFixture, goes_to_idle_on_game_stop)
    EXPECT_EQ(115, ID(resetBt));
    EXPECT_EQ(0U, resetBt->GetArgsCount());
 
+   timer->FastForwardTime();
+
    auto stopDiscovery = proxy->PopNextCommand();
    ASSERT_TRUE(stopDiscovery);
    EXPECT_EQ(103, ID(stopDiscovery));
@@ -626,6 +628,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
 
    // game start
    ctrl->OnEvent(12, {});
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
 
    auto stopDiscovery = proxy->PopNextCommand();
@@ -709,6 +712,7 @@ protected:
          EXPECT_TRUE(proxy->NoCommands());
       }
       ctrl->OnEvent(12, {}); // start
+      timer->FastForwardTime();
       EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
 
       auto stopDiscovery = proxy->PopNextCommand();
@@ -901,6 +905,7 @@ TEST_F(NegotiatingFixture3, goes_to_idle_on_game_stopped)
    EXPECT_EQ(115, ID(resetBt));
    EXPECT_EQ(0U, resetBt->GetArgsCount());
    resetBt->Respond(0);
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
 }
 
@@ -1486,6 +1491,7 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
       reset->Respond(0);
    }
 
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
    EXPECT_TRUE(cmd::pool.GetBlockCount() <= prevBlockCount);
    auto btOn = proxy->PopNextCommand();
@@ -1525,6 +1531,7 @@ TEST_F(P2R21, goes_to_idle_from_mid_game_negotiation_if_game_stopped)
    EXPECT_EQ(115, ID(resetBt));
    EXPECT_EQ(0U, resetBt->GetArgsCount());
 
+   timer->FastForwardTime();
    EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
 }
 

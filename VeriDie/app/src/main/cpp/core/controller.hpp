@@ -13,8 +13,11 @@ class IEngine;
 class ISerializer;
 } // namespace dice
 
+namespace async {
+class Timer;
+}
+
 namespace core {
-class ITimerEngine;
 class Proxy;
 
 class IController
@@ -26,7 +29,7 @@ public:
 };
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
-                                              std::unique_ptr<core::ITimerEngine> timer,
+                                              std::unique_ptr<async::Timer> timer,
                                               std::unique_ptr<dice::ISerializer> serializer,
                                               ILogger & logger);
 
