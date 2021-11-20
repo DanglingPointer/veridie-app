@@ -88,6 +88,7 @@ target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 add_executable(tests
         tests/dice_test.cpp
         tests/async_test.cpp
+        tests/test_task.cpp
         tests/threading_test.cpp
         tests/cmd_test.cpp
         tests/controller_test.cpp
