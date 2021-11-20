@@ -38,6 +38,7 @@ add_library(veridiecore
         fsm/statenegotiating.cpp
         fsm/stateplaying.cpp
         sign/commands.cpp
+        sign/commandmanager.cpp
         sign/commandstorage.cpp
         sign/events.cpp
         utils/async.cpp
