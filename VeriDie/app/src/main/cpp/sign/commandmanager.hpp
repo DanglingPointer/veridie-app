@@ -1,10 +1,10 @@
 #ifndef SIGN_COMMANDMANAGER_HPP
 #define SIGN_COMMANDMANAGER_HPP
 
+#include "utils/coroutine.hpp"
 #include "utils/poolptr.hpp"
 
 #include <cstdint>
-#include <experimental/coroutine>
 #include <memory>
 #include <unordered_map>
 
@@ -27,7 +27,7 @@ public:
    {
       FutureResponse(Manager & mgr, int32_t id) noexcept;
       bool await_ready() const noexcept;
-      void await_suspend(std::experimental::coroutine_handle<> h) const;
+      void await_suspend(stdcr::coroutine_handle<> h) const;
       int64_t await_resume() const;
 
    private:

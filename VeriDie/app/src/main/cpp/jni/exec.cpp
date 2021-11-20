@@ -54,7 +54,6 @@ std::string ErrorToString(jint error)
    }
 }
 
-using namespace std::experimental;
 
 struct Handle
 {
@@ -64,8 +63,8 @@ struct Handle
 struct Handle::promise_type
 {
    Handle get_return_object() noexcept { return Handle{}; }
-   suspend_never initial_suspend() noexcept { return {}; }
-   suspend_never final_suspend() noexcept { return {}; }
+   stdcr::suspend_never initial_suspend() noexcept { return {}; }
+   stdcr::suspend_never final_suspend() noexcept { return {}; }
    void unhandled_exception() { std::abort(); } // todo: temp
    void return_void() noexcept {}
 };
@@ -75,7 +74,7 @@ struct ScheduleOnJniWorker
    Context * ctx_ = nullptr;
 
    bool await_ready() { return false; }
-   void await_suspend(coroutine_handle<> h)
+   void await_suspend(stdcr::coroutine_handle<> h)
    {
       JniWorker().ScheduleTask([h, this] (void * arg) mutable {
          auto * ctx = static_cast<Context *>(arg);
@@ -153,7 +152,7 @@ void InternalExec(std::function<void(ICmdManager *)> task)
    });
 }
 
-void Scheduler::await_suspend(std::experimental::coroutine_handle<> h)
+void Scheduler::await_suspend(stdcr::coroutine_handle<> h)
 {
    InternalExec([h, this](ICmdManager * mgr) mutable {
       m_mgr = mgr;

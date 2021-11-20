@@ -12,7 +12,7 @@ constexpr int32_t INVALID_CMD_ID = 0;
 
 struct Manager::CommandData
 {
-   std::experimental::coroutine_handle<> callback = nullptr;
+   stdcr::coroutine_handle<> callback = nullptr;
    int64_t response = ResponseCode::INVALID_STATE();
 };
 
@@ -26,7 +26,7 @@ bool Manager::FutureResponse::await_ready() const noexcept
    return m_id == INVALID_CMD_ID;
 }
 
-void Manager::FutureResponse::await_suspend(std::experimental::coroutine_handle<> h) const
+void Manager::FutureResponse::await_suspend(stdcr::coroutine_handle<> h) const
 {
    assert(m_mgr.m_pendingCmds.count(m_id) == 0);
    m_mgr.m_pendingCmds[m_id].callback = h;

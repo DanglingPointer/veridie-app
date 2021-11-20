@@ -166,8 +166,8 @@ struct NonOwningHandle
 struct NonOwningHandle::promise_type
 {
    NonOwningHandle get_return_object() noexcept { return NonOwningHandle{}; }
-   std::experimental::suspend_never initial_suspend() noexcept { return {}; }
-   std::experimental::suspend_never final_suspend() noexcept { return {}; }
+   stdcr::suspend_never initial_suspend() noexcept { return {}; }
+   stdcr::suspend_never final_suspend() noexcept { return {}; }
    void unhandled_exception() { std::abort(); }
    void return_void() noexcept {}
 };
