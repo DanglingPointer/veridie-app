@@ -86,13 +86,13 @@ target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 
 # unit tests executable
 add_executable(tests
-        tests/dice_test.cpp
-        tests/async_test.cpp
+        tests/test_dice.cpp
+        tests/test_async.cpp
         tests/test_task.cpp
-        tests/threading_test.cpp
-        tests/cmd_test.cpp
-        tests/controller_test.cpp
-        tests/pool_test.cpp)
+        tests/test_threading.cpp
+        tests/test_cmd.cpp
+        tests/test_controller.cpp
+        tests/test_mempool.cpp)
 target_link_libraries(tests
         gtest
         veridiecore)
