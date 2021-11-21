@@ -3,6 +3,7 @@
 
 #include <string>
 #include "utils/canceller.hpp"
+#include "utils/taskowner.hpp"
 
 namespace bt {
 struct Device;
@@ -13,7 +14,7 @@ struct Request;
 
 namespace fsm {
 
-class StateBase : protected async::Canceller<128U>
+class StateBase : protected async::Canceller<128U>, protected cr::TaskOwner<>
 {
 protected:
    using async::Canceller<128U>::CallbackId;

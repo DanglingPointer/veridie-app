@@ -62,10 +62,10 @@ void StateIdle::RequestBluetoothOn()
                OnBluetoothOn();
             },
             [this](cmd::ResponseCode::INVALID_STATE) {
-               m_retryHandle = [this] () -> cr::TaskHandle<void> {
+               StartTask([this] () -> cr::TaskHandle<void> {
                   co_await m_ctx.timer->Start(1s);
                   RequestBluetoothOn();
-               }();
+               }());
             },
             [this](cmd::ResponseCode::NO_BT_ADAPTER) {
                *m_ctx.proxy << Make<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),

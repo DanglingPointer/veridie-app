@@ -12,6 +12,11 @@ struct Counter
    {
       ++count;
    }
+   Counter(const Counter & other)
+      : count(other.count)
+   {
+      ++count;
+   }
    ~Counter() { --count; }
 };
 
@@ -105,6 +110,13 @@ TEST_F(TaskHandleFixture, task_runs_if_handle_is_alive)
 
    cr::TaskHandle<void> task = StartVoidOperation(state);
    EXPECT_TRUE(task);
+   EXPECT_FALSE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(0, state.count);
+
+   task.Run();
+   EXPECT_TRUE(task);
    EXPECT_TRUE(state.beforeSuspend);
    EXPECT_FALSE(state.afterSuspend);
    EXPECT_TRUE(state.handle);
@@ -134,11 +146,7 @@ TEST_F(TaskHandleFixture, task_is_canceled_when_handle_dies)
    };
 
    cr::TaskHandle<void> task = StartVoidOperation(state);
-   EXPECT_TRUE(task);
-   EXPECT_TRUE(state.beforeSuspend);
-   EXPECT_FALSE(state.afterSuspend);
-   EXPECT_TRUE(state.handle);
-   EXPECT_EQ(1, state.count);
+   task.Run();
 
    task = {};
    EXPECT_FALSE(task);
@@ -179,6 +187,7 @@ TEST_F(TaskHandleFixture, task_resumes_outer_task)
    };
 
    auto task = StartOuterVoidOperation(state);
+   task.Run();
    EXPECT_TRUE(state.beforeOuterSuspend);
    EXPECT_TRUE(state.beforeInnerSuspend);
    EXPECT_FALSE(state.afterOuterSuspend);
@@ -219,12 +228,7 @@ TEST_F(TaskHandleFixture, canceled_task_doesnt_run_once_resumed)
    };
 
    auto task = StartOuterVoidOperation(state);
-   EXPECT_TRUE(state.beforeOuterSuspend);
-   EXPECT_TRUE(state.beforeInnerSuspend);
-   EXPECT_FALSE(state.afterOuterSuspend);
-   EXPECT_FALSE(state.afterInnerSuspend);
-   EXPECT_TRUE(state.handle);
-   EXPECT_EQ(2, state.count);
+   task.Run();
 
    task = {};
    state.handle.resume();
@@ -255,6 +259,7 @@ TEST_F(TaskHandleFixture, task_returns_value_to_outer_task)
    };
 
    auto task = StartOuterVoidOperation(state);
+   task.Run();
    EXPECT_TRUE(state.value.empty());
    EXPECT_TRUE(state.handle);
    EXPECT_EQ(2, state.count);
@@ -286,9 +291,7 @@ TEST_F(TaskHandleFixture, canceled_task_doesnt_receive_value_from_inner_task)
    };
 
    auto task = StartOuterVoidOperation(state);
-   EXPECT_TRUE(state.value.empty());
-   EXPECT_TRUE(state.handle);
-   EXPECT_EQ(2, state.count);
+   task.Run();
 
    task = {};
    state.handle.resume();
@@ -322,6 +325,7 @@ TEST_F(TaskHandleFixture, three_nested_tasks_resume_each_other)
    };
 
    auto task = StartOuterVoidOperation(state);
+   task.Run();
    EXPECT_TRUE(state.handle);
    EXPECT_EQ(0, state.innerValue);
    EXPECT_TRUE(state.middleValue.empty());
@@ -329,6 +333,193 @@ TEST_F(TaskHandleFixture, three_nested_tasks_resume_each_other)
    state.handle.resume();
    EXPECT_EQ(42, state.innerValue);
    EXPECT_STREQ("42", state.middleValue.c_str());
+}
+
+struct ManualDispatcher
+{
+   using Task = std::function<void()>;
+
+   struct Executor
+   {
+      ManualDispatcher * master = nullptr;
+      void Execute(Task && task)
+      {
+         assert(master);
+         master->queue.push_back(std::move(task));
+      }
+   };
+
+   bool ProcessOneTask()
+   {
+      if (queue.empty())
+         return false;
+      Task t = std::move(queue.back());
+      queue.pop_back();
+      t();
+      return true;
+   }
+
+   std::vector<Task> queue;
+};
+
+TEST_F(TaskHandleFixture, task_uses_provided_executor_and_passes_it_to_inner_task)
+{
+   using TaskType = cr::TaskHandle<void, ManualDispatcher::Executor>;
+
+   struct State
+   {
+      bool beforeInnerSuspend = false;
+      bool afterInnerSuspend = false;
+      bool beforeOuterSuspend = false;
+      bool afterOuterSuspend = false;
+      stdcr::coroutine_handle<> handle = nullptr;
+      int count = 0;
+   } state;
+
+   Counter counter{state.count};
+   ManualDispatcher dispatcher;
+
+   static auto StartInnerVoidOperation = [](State & state, Counter counter) -> TaskType {
+      Counter copy(counter);
+      state.beforeInnerSuspend = true;
+      co_await Awaitable<State>{state};
+      state.afterInnerSuspend = true;
+   };
+
+   static auto StartOuterVoidOperation = [](State & state, Counter counter) -> TaskType {
+      Counter copy(counter);
+      state.beforeOuterSuspend = true;
+      co_await StartInnerVoidOperation(state, counter);
+      state.afterOuterSuspend = true;
+   };
+
+   auto task = StartOuterVoidOperation(state, counter);
+
+   // co-awaiting on initial suspend
+   EXPECT_FALSE(state.beforeOuterSuspend);
+   EXPECT_FALSE(state.beforeInnerSuspend);
+   EXPECT_FALSE(state.afterOuterSuspend);
+   EXPECT_FALSE(state.afterInnerSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(2, state.count);
+   EXPECT_EQ(0, dispatcher.queue.size());
+
+   // task schedules itself on executor
+   task.Run(ManualDispatcher::Executor{&dispatcher});
+   EXPECT_FALSE(state.beforeOuterSuspend);
+   EXPECT_FALSE(state.beforeInnerSuspend);
+   EXPECT_FALSE(state.afterOuterSuspend);
+   EXPECT_FALSE(state.afterInnerSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(2, state.count);
+   EXPECT_EQ(1, dispatcher.queue.size());
+
+   // co-awaiting on initial suspend of the inner coro
+   dispatcher.ProcessOneTask();
+   EXPECT_TRUE(state.beforeOuterSuspend);
+   EXPECT_FALSE(state.beforeInnerSuspend);
+   EXPECT_FALSE(state.afterOuterSuspend);
+   EXPECT_FALSE(state.afterInnerSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(5, state.count); // WHY NOT 4???
+   EXPECT_EQ(1, dispatcher.queue.size());
+
+   // co-awaiting on Awaitable<State>
+   dispatcher.ProcessOneTask();
+   EXPECT_TRUE(state.beforeOuterSuspend);
+   EXPECT_TRUE(state.beforeInnerSuspend);
+   EXPECT_FALSE(state.afterOuterSuspend);
+   EXPECT_FALSE(state.afterInnerSuspend);
+   EXPECT_TRUE(state.handle);
+   EXPECT_FALSE(state.handle.done());
+   EXPECT_EQ(6, state.count); // WHY NOT 5???
+   EXPECT_EQ(0, dispatcher.queue.size());
+
+   // inner coro reached final suspend and schedules the rest of the outer coro
+   state.handle.resume();
+   EXPECT_TRUE(state.beforeOuterSuspend);
+   EXPECT_TRUE(state.beforeInnerSuspend);
+   EXPECT_FALSE(state.afterOuterSuspend);
+   EXPECT_TRUE(state.afterInnerSuspend);
+   EXPECT_TRUE(state.handle);
+   EXPECT_TRUE(state.handle.done());
+   EXPECT_EQ(5, state.count); // WHY NOT 4???
+   EXPECT_EQ(1, dispatcher.queue.size());
+
+   // outer coro reached final suspend
+   dispatcher.ProcessOneTask();
+   EXPECT_TRUE(state.beforeOuterSuspend);
+   EXPECT_TRUE(state.beforeInnerSuspend);
+   EXPECT_TRUE(state.afterOuterSuspend);
+   EXPECT_TRUE(state.afterInnerSuspend);
+   EXPECT_TRUE(state.handle);
+   EXPECT_EQ(2, state.count);
+   EXPECT_EQ(0, dispatcher.queue.size());
+
+   // outer coro is destroyed
+   task = {};
+   EXPECT_TRUE(state.beforeOuterSuspend);
+   EXPECT_TRUE(state.beforeInnerSuspend);
+   EXPECT_TRUE(state.afterOuterSuspend);
+   EXPECT_TRUE(state.afterInnerSuspend);
+   EXPECT_TRUE(state.handle);
+   EXPECT_EQ(1, state.count);
+   EXPECT_EQ(0, dispatcher.queue.size());
+}
+
+TEST_F(TaskHandleFixture, task_doesnt_run_when_canceled_before_initial_suspend)
+{
+   using TaskType = cr::TaskHandle<void, ManualDispatcher::Executor>;
+
+   struct State
+   {
+      bool beforeSuspend = false;
+      bool afterSuspend = false;
+      stdcr::coroutine_handle<> handle = nullptr;
+      int count = 0;
+   } state;
+
+   Counter counter{state.count};
+   ManualDispatcher dispatcher;
+
+   static auto StartVoidOperation = [](State & state, Counter c) -> TaskType {
+      state.beforeSuspend = true;
+      co_await Awaitable<State>{state};
+      state.afterSuspend = true;
+   };
+
+   auto task = StartVoidOperation(state, counter);
+
+   // co-awaiting on initial suspend
+   EXPECT_FALSE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(2, state.count);
+   EXPECT_EQ(0, dispatcher.queue.size());
+
+   // task schedules itself on executor
+   task.Run(ManualDispatcher::Executor{&dispatcher});
+   EXPECT_FALSE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(2, state.count);
+   EXPECT_EQ(1, dispatcher.queue.size());
+
+   // coro doesn't know it's canceled until it resumes
+   task = {};
+   EXPECT_FALSE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(2, state.count);
+   EXPECT_EQ(1, dispatcher.queue.size());
+
+   // coro resumes and finds out it's been canceled
+   dispatcher.ProcessOneTask();
+   EXPECT_FALSE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(1, state.count);
+   EXPECT_EQ(0, dispatcher.queue.size());
 }
 
 } // namespace

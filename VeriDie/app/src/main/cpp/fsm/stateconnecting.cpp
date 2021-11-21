@@ -87,6 +87,7 @@ void StateConnecting::OnConnectivityEstablished()
    if (m_retryStartHandle)
       return;
    m_retryStartHandle = AttemptNegotiationStart();
+   m_retryStartHandle.Run();
 }
 
 void StateConnecting::OnGameStopped()
@@ -183,10 +184,10 @@ void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
                   m_discovering = false;
                   CheckStatus();
                } else {
-                  m_retryDiscoveryHandle = [=] () -> cr::TaskHandle<void> {
+                  StartTask([=] () -> cr::TaskHandle<void> {
                      co_await m_ctx.timer->Start(1s);
                      KickOffDiscovery(retriesLeft - 1);
-                  }();
+                  }());
                }
             },
             [this](auto) {
@@ -219,10 +220,10 @@ void StateConnecting::KickOffListening(uint32_t retriesLeft)
                   m_listening = false;
                   CheckStatus();
                } else {
-                  m_retryListeningHandle = [=] () -> cr::TaskHandle<void> {
+                  StartTask([=] () -> cr::TaskHandle<void> {
                      co_await m_ctx.timer->Start(1s);
                      KickOffListening(retriesLeft - 1);
-                  }();
+                  }());
                }
             });
       }),

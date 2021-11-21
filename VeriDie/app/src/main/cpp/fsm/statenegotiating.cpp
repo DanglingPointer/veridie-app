@@ -40,7 +40,7 @@ StateNegotiating::StateNegotiating(const fsm::Context & ctx,
             m_ctx.logger->Write<LogPriority::FATAL>("Cannot start negotiation in invalid state");
          },
          [this](cmd::ResponseCode::OK) {
-            m_retrySendOffer = UpdateAndBroadcastOffer();
+            StartTask(UpdateAndBroadcastOffer());
          });
    }));
 }

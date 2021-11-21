@@ -5,15 +5,27 @@
 
 #include <concepts>
 #include <exception>
+#include <functional>
 #include <type_traits>
 #include <variant>
 
 namespace cr {
 
+struct InlineExecutor
+{
+   template <class F>
+   void Execute(F && f) const noexcept
+   {
+      std::invoke(std::forward<F>(f));
+   }
+};
+
 template <typename T>
 concept TaskResult = std::is_move_constructible_v<T> || std::is_same_v<T, void>;
 
+
 namespace internal {
+
 template <typename T>
 struct ValidAwaitSuspendReturnType : std::false_type
 {};
@@ -29,10 +41,10 @@ struct ValidAwaitSuspendReturnType<stdcr::coroutine_handle<P>> : std::true_type
 template <typename T>
 concept AwaitSuspendReturnType = ValidAwaitSuspendReturnType<T>::value;
 
-struct DetachedPromise;
-
-template <TaskResult T>
-struct Promise;
+struct Callable
+{
+   void operator()() {}
+};
 } // namespace internal
 
 
@@ -43,6 +55,24 @@ concept Awaiter = requires(T && awaiter, stdcr::coroutine_handle<void> h) {
    awaiter.await_resume();
    requires internal::AwaitSuspendReturnType<decltype(awaiter.await_suspend(h))>;
 };
+
+template <typename E>
+concept Executor =
+   std::is_default_constructible_v<E> &&
+   std::is_copy_constructible_v<E> &&
+   requires (E && e, internal::Callable f) {
+      std::forward<E>(e).Execute(f);
+      std::forward<E>(e).Execute(std::move(f));
+   };
+
+
+namespace internal {
+
+struct DetachedPromise;
+
+template <TaskResult T, Executor E>
+struct Promise;
+} // namespace internal
 
 
 struct DetachedHandle
@@ -55,10 +85,10 @@ struct CanceledException : std::exception
    const char * what() const noexcept override { return "Coroutine canceled"; }
 };
 
-template <TaskResult T>
+template <TaskResult T, Executor E = InlineExecutor>
 struct TaskHandle
 {
-   using promise_type = internal::Promise<T>;
+   using promise_type = internal::Promise<T, E>;
    using handle_type = stdcr::coroutine_handle<promise_type>;
 
    TaskHandle() noexcept;
@@ -66,17 +96,15 @@ struct TaskHandle
    explicit TaskHandle(promise_type & promise);
    ~TaskHandle();
    TaskHandle & operator=(TaskHandle && other) noexcept;
+
    explicit operator bool() const noexcept;
-
-   bool await_ready() const noexcept;
-   void await_suspend(stdcr::coroutine_handle<> h) noexcept;
-   T await_resume();
-
+   auto Run(E executor = {});
    void Swap(TaskHandle & other) noexcept;
 
 private:
    handle_type m_handle;
 };
+
 
 namespace internal {
 
@@ -87,6 +115,10 @@ struct DetachedPromise
    stdcr::suspend_never final_suspend() const noexcept { return {}; }
    void unhandled_exception() const noexcept { std::abort(); }
    void return_void() noexcept {}
+   template <Awaiter A>
+   decltype(auto) await_transform(A && a) { return std::forward<A>(a); }
+   template <TaskResult T, Executor E>
+   auto await_transform(TaskHandle<T, E> && handle) { return handle.Run(); }
 };
 
 template <TaskResult T>
@@ -111,41 +143,62 @@ struct ValueHolder<void>
    std::variant<std::monostate, std::exception_ptr> value;
 };
 
-template <TaskResult T>
-struct Promise : ValueHolder<T>
+template <TaskResult T, Executor E>
+struct Promise : public ValueHolder<T>, public E
 {
+   template <Awaiter A>
+   struct CancelingAwaiter : A
+   {
+      const Promise & p;
+      decltype(auto) await_resume()
+      {
+         if (p.canceled)
+            throw CanceledException{};
+         return A::await_resume();
+      }
+   };
+
    bool canceled = false;
    stdcr::coroutine_handle<> outerHandle = nullptr;
+
+   const E & GetExecutor() const noexcept { return static_cast<const E &>(*this); }
+   E & GetExecutor() noexcept { return static_cast<E &>(*this); }
 
    void unhandled_exception() noexcept
    {
       this->value.template emplace<std::exception_ptr>(std::current_exception());
    }
 
-   TaskHandle<T> get_return_object() { return TaskHandle<T>{*this}; }
+   TaskHandle<T, E> get_return_object() { return TaskHandle<T, E>{*this}; }
 
-   template <typename A>
-   auto await_transform(A && awaiter)
+   template <Awaiter A>
+   auto await_transform(A && awaiter) const
    {
-      static_assert(Awaiter<A>, "Can't wrap non-awaiter types");
-      struct CancelingAwaitable
-      {
-         std::remove_reference_t<A> a;
-         const Promise & p;
+      return CancelingAwaiter<std::remove_reference_t<A>>{std::forward<A>(awaiter), *this};
+   }
 
-         bool await_ready() { return a.await_ready(); }
-         void await_suspend(stdcr::coroutine_handle<> h) { a.await_suspend(h); }
-         decltype(auto) await_resume()
+   template <TaskResult R>
+   auto await_transform(TaskHandle<R, E> && innerTask) const
+   {
+      using InnerAwaiter = std::remove_reference_t<decltype(innerTask.Run())>;
+      return CancelingAwaiter<InnerAwaiter>{innerTask.Run(GetExecutor()), *this};
+   }
+
+   auto initial_suspend() noexcept
+   {
+      struct CancelingSuspendAlways
+      {
+         const Promise & p;
+         bool await_ready() const noexcept { return false; }
+         void await_suspend(stdcr::coroutine_handle<>) const noexcept {}
+         void await_resume() const
          {
             if (p.canceled)
                throw CanceledException{};
-            return a.await_resume();
          }
       };
-      return CancelingAwaitable{std::forward<A>(awaiter), *this};
+      return CancelingSuspendAlways{*this};
    }
-
-   auto initial_suspend() noexcept { return stdcr::suspend_never{}; }
 
    auto final_suspend() noexcept
    {
@@ -157,7 +210,7 @@ struct Promise : ValueHolder<T>
          void await_suspend(stdcr::coroutine_handle<>) noexcept
          {
             if (p.outerHandle)
-               p.outerHandle.resume();
+               p.Execute(p.outerHandle);
          }
          void await_resume() const noexcept {}
       };
@@ -167,25 +220,25 @@ struct Promise : ValueHolder<T>
 
 } // namespace internal
 
-template <TaskResult T>
-TaskHandle<T>::TaskHandle() noexcept
+template <TaskResult T, Executor E>
+TaskHandle<T, E>::TaskHandle() noexcept
    : m_handle(nullptr)
 {}
 
-template <TaskResult T>
-TaskHandle<T>::TaskHandle(TaskHandle && other) noexcept
+template <TaskResult T, Executor E>
+TaskHandle<T, E>::TaskHandle(TaskHandle && other) noexcept
    : TaskHandle()
 {
    Swap(other);
 }
 
-template <TaskResult T>
-TaskHandle<T>::TaskHandle(promise_type & promise)
+template <TaskResult T, Executor E>
+TaskHandle<T, E>::TaskHandle(promise_type & promise)
    : m_handle(handle_type::from_promise(promise))
 {}
 
-template <TaskResult T>
-TaskHandle<T>::~TaskHandle()
+template <TaskResult T, Executor E>
+TaskHandle<T, E>::~TaskHandle()
 {
    if (!m_handle)
       return;
@@ -198,41 +251,43 @@ TaskHandle<T>::~TaskHandle()
    m_handle.promise().canceled = true;
 }
 
-template <TaskResult T>
-TaskHandle<T> & TaskHandle<T>::operator=(TaskHandle && other) noexcept
+template <TaskResult T, Executor E>
+TaskHandle<T, E> & TaskHandle<T, E>::operator=(TaskHandle && other) noexcept
 {
    TaskHandle(std::move(other)).Swap(*this);
    return *this;
 }
 
-template <TaskResult T>
-TaskHandle<T>::operator bool() const noexcept
+template <TaskResult T, Executor E>
+TaskHandle<T, E>::operator bool() const noexcept
 {
    return m_handle && !m_handle.done();
 }
 
-template <TaskResult T>
-bool TaskHandle<T>::await_ready() const noexcept
+template <TaskResult T, Executor E>
+auto TaskHandle<T, E>::Run(E executor)
 {
-   return false;
+   m_handle.promise().GetExecutor() = executor;
+   m_handle.promise().GetExecutor().Execute(m_handle);
+
+   struct Awaiter
+   {
+      handle_type handle;
+
+      bool await_ready() const noexcept { return false; }
+      void await_suspend(stdcr::coroutine_handle<> h) { handle.promise().outerHandle = h; }
+      T await_resume()
+      {
+         if (std::holds_alternative<std::exception_ptr>(handle.promise().value))
+            std::rethrow_exception(std::get<std::exception_ptr>(handle.promise().value));
+         return handle.promise().RetrieveValue();
+      }
+   };
+   return Awaiter{m_handle};
 }
 
-template <TaskResult T>
-void TaskHandle<T>::await_suspend(stdcr::coroutine_handle<> h) noexcept
-{
-   m_handle.promise().outerHandle = h;
-}
-
-template <TaskResult T>
-T TaskHandle<T>::await_resume()
-{
-   if (std::holds_alternative<std::exception_ptr>(m_handle.promise().value))
-      std::rethrow_exception(std::get<std::exception_ptr>(m_handle.promise().value));
-   return m_handle.promise().RetrieveValue();
-}
-
-template <TaskResult T>
-void TaskHandle<T>::Swap(TaskHandle & other) noexcept
+template <TaskResult T, Executor E>
+void TaskHandle<T, E>::Swap(TaskHandle & other) noexcept
 {
    std::swap(m_handle, other.m_handle);
 }

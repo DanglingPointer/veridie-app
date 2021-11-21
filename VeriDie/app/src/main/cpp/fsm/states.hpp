@@ -8,7 +8,6 @@
 
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
-#include "utils/task.hpp"
 #include "utils/timer.hpp"
 
 namespace bt {
@@ -39,7 +38,6 @@ private:
    Context m_ctx;
 
    CallbackId m_enableBtCb;
-   cr::TaskHandle<void> m_retryHandle;
 
    bool m_newGamePending;
    bool m_bluetoothOn;
@@ -74,8 +72,6 @@ private:
    std::optional<std::string> m_localMac;
    std::unordered_set<bt::Device> m_peers;
    cr::TaskHandle<void> m_retryStartHandle;
-   cr::TaskHandle<void> m_retryDiscoveryHandle;
-   cr::TaskHandle<void> m_retryListeningHandle;
 };
 
 class StateNegotiating : public StateBase
@@ -100,8 +96,6 @@ private:
 
    std::unordered_set<bt::Device> m_peers;
    std::map<std::string, dice::Offer> m_offers;
-
-   cr::TaskHandle<void> m_retrySendOffer;
 };
 
 class StatePlaying : public StateBase

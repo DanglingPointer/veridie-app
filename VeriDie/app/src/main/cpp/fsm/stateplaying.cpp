@@ -56,7 +56,7 @@ namespace fsm {
 
 // Handles connection errors, retries, reconnections(?), buffering etc
 // We assume no new requests until the last one has been answered
-class StatePlaying::RemotePeerManager : private async::Canceller<32>
+class StatePlaying::RemotePeerManager : private async::Canceller<32>, private cr::TaskOwner<>
 {
 public:
    RemotePeerManager(const bt::Device & remote,
@@ -88,7 +88,7 @@ public:
       if (!m_isGenerator)
          Send(request, RETRY_COUNT);
       else
-         m_retryRequest = SendRequestToGenerator(request);
+         StartTask(SendRequestToGenerator(request));
    }
    void SendResponse(const std::string & response)
    {
@@ -162,7 +162,6 @@ private:
 
    bool m_pendingRequest;
    bool m_connected;
-   cr::TaskHandle<void> m_retryRequest;
    std::vector<std::string> m_queuedMessages;
 };
 
@@ -178,6 +177,7 @@ StatePlaying::StatePlaying(const Context & ctx,
    , m_responseCount(0U)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+   m_ignoreOffers.Run();
 
    for (const auto & peer : peers) {
       bool isGenerator = !m_localGenerator && peer.mac == generatorMac;
