@@ -1,6 +1,6 @@
 #include <stdexcept>
 #include "dice/serializer.hpp"
-#include "utils/xmlparser.hpp"
+#include "dice/xmlparser.hpp"
 
 namespace {
 
