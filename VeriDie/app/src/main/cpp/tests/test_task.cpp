@@ -337,11 +337,13 @@ TEST_F(TaskHandleFixture, three_nested_tasks_resume_each_other)
 
 struct ManualDispatcher
 {
+   static ManualDispatcher s_instance;
+
    using Task = std::function<void()>;
 
    struct Executor
    {
-      ManualDispatcher * master = nullptr;
+      ManualDispatcher * master = &s_instance;
       void Execute(Task && task)
       {
          assert(master);
@@ -361,6 +363,8 @@ struct ManualDispatcher
 
    std::vector<Task> queue;
 };
+
+ManualDispatcher ManualDispatcher::s_instance;
 
 TEST_F(TaskHandleFixture, task_uses_provided_executor_and_passes_it_to_inner_task)
 {
@@ -520,6 +524,62 @@ TEST_F(TaskHandleFixture, task_doesnt_run_when_canceled_before_initial_suspend)
    EXPECT_FALSE(state.handle);
    EXPECT_EQ(1, state.count);
    EXPECT_EQ(0, dispatcher.queue.size());
+}
+
+TEST_F(TaskHandleFixture, detached_task_schedules_lazy_inner_task_on_default_constructed_executor)
+{
+   using LazyIntTask = cr::TaskHandle<int, ManualDispatcher::Executor>;
+
+   struct State
+   {
+      bool beforeSuspend = false;
+      bool afterSuspend = false;
+      int value = 0;
+      stdcr::coroutine_handle<> handle = nullptr;
+   } state;
+
+   static auto StartInnerIntOperation = [](State & state) -> LazyIntTask {
+      state.beforeSuspend = true;
+      co_await Awaitable<State>{state};
+      state.afterSuspend = true;
+      co_return 42;
+   };
+
+   static auto StartDetachedOperation = [](State & state) -> cr::DetachedHandle {
+      int result = co_await StartInnerIntOperation(state);
+      state.value = result;
+   };
+
+   StartDetachedOperation(state);
+   EXPECT_FALSE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_EQ(0, state.value);
+   EXPECT_FALSE(state.handle);
+   EXPECT_EQ(1, ManualDispatcher::s_instance.queue.size());
+
+   ManualDispatcher::s_instance.ProcessOneTask();
+   EXPECT_TRUE(state.beforeSuspend);
+   EXPECT_FALSE(state.afterSuspend);
+   EXPECT_EQ(0, state.value);
+   EXPECT_TRUE(state.handle);
+   EXPECT_FALSE(state.handle.done());
+   EXPECT_EQ(0, ManualDispatcher::s_instance.queue.size());
+
+   state.handle.resume();
+   EXPECT_TRUE(state.beforeSuspend);
+   EXPECT_TRUE(state.afterSuspend);
+   EXPECT_EQ(0, state.value);
+   EXPECT_TRUE(state.handle);
+   EXPECT_TRUE(state.handle.done());
+   EXPECT_EQ(1, ManualDispatcher::s_instance.queue.size());
+
+   ManualDispatcher::s_instance.ProcessOneTask();
+   EXPECT_TRUE(state.beforeSuspend);
+   EXPECT_TRUE(state.afterSuspend);
+   EXPECT_EQ(42, state.value);
+   EXPECT_TRUE(state.handle);
+   EXPECT_TRUE(state.handle.done());
+   EXPECT_EQ(0, ManualDispatcher::s_instance.queue.size());
 }
 
 } // namespace
