@@ -24,7 +24,7 @@ TEST(TimerTest, timer_schedules_delayed_task_correctly)
    });
 
    auto StartTimer = [&]() -> cr::DetachedHandle {
-      co_await timer.Start(3s);
+      co_await timer.WaitFor(3s);
       taskFinished = true;
    };
 
@@ -51,7 +51,7 @@ TEST(TimerTest, timer_schedules_immediate_task)
 
    auto StartTimer = [&timer](bool & finished,
                               std::chrono::milliseconds timeout) -> cr::DetachedHandle {
-      co_await timer.Start(timeout);
+      co_await timer.WaitFor(timeout);
       finished = true;
    };
 

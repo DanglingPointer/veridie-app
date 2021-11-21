@@ -141,7 +141,7 @@ cr::TaskHandle<void> StateNegotiating::UpdateAndBroadcastOffer()
             message,
             remote.mac);
       }
-      co_await m_ctx.timer->Start(1s);
+      co_await m_ctx.timer->WaitFor(1s);
    }
 }
 

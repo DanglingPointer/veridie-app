@@ -112,7 +112,7 @@ private:
    {
       for (unsigned attempt = REQUEST_ATTEMPTS; attempt > 0; --attempt) {
          Send(request, RETRY_COUNT);
-         co_await m_timer.Start(1s);
+         co_await m_timer.WaitFor(1s);
          if (!m_pendingRequest)
             co_return;
       }
@@ -173,7 +173,7 @@ StatePlaying::StatePlaying(const Context & ctx,
    : m_ctx(ctx)
    , m_localMac(std::move(localMac))
    , m_localGenerator(m_localMac == generatorMac)
-   , m_ignoreOffers(m_ctx.timer->Start(IGNORE_OFFERS_DURATION))
+   , m_ignoreOffers(m_ctx.timer->WaitFor(IGNORE_OFFERS_DURATION))
    , m_responseCount(0U)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);

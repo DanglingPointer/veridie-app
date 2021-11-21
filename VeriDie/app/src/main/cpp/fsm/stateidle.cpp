@@ -63,7 +63,7 @@ void StateIdle::RequestBluetoothOn()
             },
             [this](cmd::ResponseCode::INVALID_STATE) {
                StartTask([this] () -> cr::TaskHandle<void> {
-                  co_await m_ctx.timer->Start(1s);
+                  co_await m_ctx.timer->WaitFor(1s);
                   RequestBluetoothOn();
                }());
             },

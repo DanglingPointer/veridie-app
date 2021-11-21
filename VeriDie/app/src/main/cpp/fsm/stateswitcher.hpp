@@ -10,7 +10,7 @@ namespace fsm {
 template <typename S, typename... Args>
 inline cr::DetachedHandle SwitchToState(Context ctx, Args... args)
 {
-   co_await ctx.timer->Start(std::chrono::milliseconds(0));
+   co_await ctx.timer->WaitFor(std::chrono::milliseconds(0));
    if (!std::holds_alternative<S>(*ctx.state))
       ctx.state->template emplace<S>(ctx, std::move(args)...);
 }
@@ -18,7 +18,7 @@ inline cr::DetachedHandle SwitchToState(Context ctx, Args... args)
 template <>
 inline cr::DetachedHandle SwitchToState<std::monostate>(Context ctx)
 {
-   co_await ctx.timer->Start(std::chrono::milliseconds(0));
+   co_await ctx.timer->WaitFor(std::chrono::milliseconds(0));
    ctx.state->template emplace<std::monostate>();
 }
 

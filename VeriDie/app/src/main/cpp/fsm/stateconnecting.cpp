@@ -158,7 +158,7 @@ cr::TaskHandle<void> StateConnecting::AttemptNegotiationStart()
                                               "Getting ready...",
                                               3s);
       }
-      co_await m_ctx.timer->Start(1s);
+      co_await m_ctx.timer->WaitFor(1s);
    }
 
    *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
@@ -185,7 +185,7 @@ void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
                   CheckStatus();
                } else {
                   StartTask([=] () -> cr::TaskHandle<void> {
-                     co_await m_ctx.timer->Start(1s);
+                     co_await m_ctx.timer->WaitFor(1s);
                      KickOffDiscovery(retriesLeft - 1);
                   }());
                }
@@ -221,7 +221,7 @@ void StateConnecting::KickOffListening(uint32_t retriesLeft)
                   CheckStatus();
                } else {
                   StartTask([=] () -> cr::TaskHandle<void> {
-                     co_await m_ctx.timer->Start(1s);
+                     co_await m_ctx.timer->WaitFor(1s);
                      KickOffListening(retriesLeft - 1);
                   }());
                }

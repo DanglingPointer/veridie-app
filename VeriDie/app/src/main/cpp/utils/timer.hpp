@@ -19,7 +19,7 @@ public:
       : m_scheduler(std::forward<S>(scheduler))
    {}
 
-   cr::TaskHandle<Timeout> Start(std::chrono::milliseconds delay);
+   cr::TaskHandle<Timeout> WaitFor(std::chrono::milliseconds delay);
 
 private:
    struct FutureTimeout;
