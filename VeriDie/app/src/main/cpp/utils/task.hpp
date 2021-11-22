@@ -274,7 +274,7 @@ auto TaskHandle<T, E>::Run(E executor)
    {
       handle_type handle;
 
-      bool await_ready() const noexcept { return false; }
+      bool await_ready() const noexcept { return handle.done(); }
       void await_suspend(stdcr::coroutine_handle<> h) { handle.promise().outerHandle = h; }
       T await_resume()
       {

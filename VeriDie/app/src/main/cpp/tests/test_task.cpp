@@ -582,4 +582,20 @@ TEST_F(TaskHandleFixture, detached_task_schedules_lazy_inner_task_on_default_con
    EXPECT_EQ(0, ManualDispatcher::s_instance.queue.size());
 }
 
+TEST_F(TaskHandleFixture, eager_task_resumes_its_continuation)
+{
+   int value = 0;
+
+   static auto EagerIntTask = []() -> cr::TaskHandle<int> {
+      co_return 42;
+   };
+
+   static auto OuterVoidTask = [](int & outValue) -> cr::DetachedHandle {
+      outValue = co_await EagerIntTask();
+   };
+
+   OuterVoidTask(value);
+   EXPECT_EQ(42, value);
+}
+
 } // namespace
