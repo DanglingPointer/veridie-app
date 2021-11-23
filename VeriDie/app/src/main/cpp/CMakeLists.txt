@@ -53,6 +53,7 @@ add_library(veridie
         SHARED
         jni/cmdmanager.cpp
         jni/exec.cpp
+        jni/javainvoker.cpp
         jni/proxy.cpp
         )
 target_link_libraries(veridie
@@ -67,6 +68,7 @@ add_library(jni_only_veridie
         core/exec.cpp
         jni/cmdmanager.cpp
         jni/exec.cpp
+        jni/javainvoker.cpp
         jni/proxy.cpp
         sign/commandstorage.cpp
         utils/worker.cpp

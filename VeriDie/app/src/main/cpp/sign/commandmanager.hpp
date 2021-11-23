@@ -17,7 +17,7 @@ class IExternalInvoker
 {
 public:
    virtual ~IExternalInvoker() = default;
-   virtual void Invoke(mem::pool_ptr<ICommand> && data, int32_t id) = 0;
+   virtual bool Invoke(mem::pool_ptr<ICommand> && data, int32_t id) = 0;
 };
 
 class Manager

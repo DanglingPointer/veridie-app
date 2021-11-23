@@ -179,9 +179,10 @@ struct TestCommand : ICommand
 
 struct MockExternalInvoker : IExternalInvoker
 {
-   void Invoke(mem::pool_ptr<cmd::ICommand> && data, int32_t id) override
+   bool Invoke(mem::pool_ptr<cmd::ICommand> && data, int32_t id) override
    {
       receivedCommands.emplace_back(std::move(data), id);
+      return true;
    }
 
    struct Invocation

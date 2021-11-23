@@ -83,7 +83,11 @@ Manager::FutureResponse Manager::IssueCommand(mem::pool_ptr<ICommand> && cmd,
       return FutureResponse(*this, INVALID_CMD_ID);
    }
 
-   invoker.Invoke(std::move(cmd), id);
+   if (!invoker.Invoke(std::move(cmd), id)) {
+      m_log.Write<LogPriority::ERROR>("External Invoker failed");
+      return FutureResponse(*this, INVALID_CMD_ID);
+   }
+
    return FutureResponse(*this, id);
 }
 
