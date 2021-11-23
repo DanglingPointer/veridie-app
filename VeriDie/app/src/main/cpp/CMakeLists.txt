@@ -28,6 +28,7 @@ target_link_libraries(veridielog
 # cross-platform main logic
 add_library(veridiecore
         STATIC
+        core/commandadapter.cpp
         core/controller.cpp
         core/exec.cpp
         dice/engine.cpp
