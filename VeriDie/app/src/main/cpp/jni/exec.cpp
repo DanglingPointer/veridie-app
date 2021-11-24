@@ -1,12 +1,13 @@
+#include <cassert>
 #include <string>
 #include <memory>
 #include <vector>
 #include <jni.h>
 #include "jni/exec.hpp"
-#include "jni/cmdmanager.hpp"
-#include "jni/proxy.hpp"
+#include "jni/javainvoker.hpp"
 #include "core/exec.hpp"
 #include "core/controller.hpp"
+#include "sign/commandmanager.hpp"
 #include "utils/task.hpp"
 #include "utils/logger.hpp"
 #include "utils/worker.hpp"
@@ -21,7 +22,8 @@ struct Context
    ILogger & logger;
    JavaVM * jvm;
    JNIEnv * jenv;
-   std::unique_ptr<jni::ICmdManager> cmdMgr;
+   std::shared_ptr<jni::JavaInvoker> uiInvoker;
+   std::shared_ptr<jni::JavaInvoker> btInvoker;
 };
 
 void ScheduleOnJniWorker(std::function<void(Context &)> && task,
@@ -36,7 +38,7 @@ void ScheduleOnJniWorker(std::function<void(Context &)> && task,
       .exceptionHandler = onException,
    });
    static auto s_logger = CreateLogger("JNI_WORKER");
-   static Context s_ctx{*s_logger, nullptr, nullptr, nullptr};
+   static Context s_ctx{*s_logger, nullptr, nullptr, nullptr, nullptr};
 
    s_worker.Schedule(delay, [task = std::move(task)] {
       task(s_ctx);
@@ -99,7 +101,8 @@ cr::DetachedHandle OnLoad(JavaVM * vm)
 cr::DetachedHandle OnUnload(JavaVM * vm)
 {
    Context * ctx = co_await JniWorkerScheduler{};
-   ctx->cmdMgr = nullptr;
+   ctx->uiInvoker.reset();
+   ctx->btInvoker.reset();
    ctx->jvm = nullptr;
    ctx->jenv = nullptr;
    vm->DetachCurrentThread();
@@ -107,14 +110,22 @@ cr::DetachedHandle OnUnload(JavaVM * vm)
 
 cr::DetachedHandle BridgeReady(JNIEnv * env, jclass localRef)
 {
-   auto globalRef = static_cast<jclass>(env->NewGlobalRef(localRef));
+   auto globalRef1 = static_cast<jclass>(env->NewGlobalRef(localRef));
+   auto globalRef2 = static_cast<jclass>(env->NewGlobalRef(localRef));
 
    Context * ctx = co_await JniWorkerScheduler{};
-   if (!ctx->cmdMgr)
-      ctx->cmdMgr = jni::CreateCmdManager(ctx->logger, ctx->jenv, globalRef);
+
+   if (!ctx->uiInvoker)
+      ctx->uiInvoker = std::make_shared<jni::JavaInvoker>(*ctx->jenv, globalRef1, "receiveUiCommand");
+   auto uii = ctx->uiInvoker->GetExternalInvoker();
+
+   if (!ctx->btInvoker)
+      ctx->btInvoker = std::make_shared<jni::JavaInvoker>(*ctx->jenv, globalRef2, "receiveBtCommand");
+   auto bti = ctx->btInvoker->GetExternalInvoker();
 
    core::IController * ctrl = co_await core::Scheduler{};
-   ctrl->Start(jni::CreateProxy);
+
+   ctrl->Start(std::move(uii), std::move(bti));
 }
 
 cr::DetachedHandle SendEvent(JNIEnv * env, jint eventId, jobjectArray args)
@@ -133,33 +144,19 @@ cr::DetachedHandle SendEvent(JNIEnv * env, jint eventId, jobjectArray args)
 
 cr::DetachedHandle SendResponse(jint cmdId, jlong result)
 {
-   jni::ICmdManager * mgr = co_await jni::Scheduler{};
-   mgr->OnCommandResponse(cmdId, result);
+   core::IController * ctrl = co_await core::Scheduler{};
+   ctrl->OnCommandResponse(cmdId, result);
 }
 
 } // namespace
 
 namespace jni {
 
-void InternalExec(std::function<void(ICmdManager *)> task)
+void InternalExec(std::function<void()> task)
 {
-   ScheduleOnJniWorker([t = std::move(task)](Context & ctx) {
-      t(ctx.cmdMgr.get());
+   ScheduleOnJniWorker([t = std::move(task)](Context &) {
+      t();
    });
-}
-
-void Scheduler::await_suspend(stdcr::coroutine_handle<> h)
-{
-   InternalExec([h, this](ICmdManager * mgr) mutable {
-      m_mgr = mgr;
-      h.resume();
-   });
-}
-
-ICmdManager * Scheduler::await_resume() const noexcept
-{
-   assert(m_mgr);
-   return m_mgr;
 }
 
 } // namespace jni

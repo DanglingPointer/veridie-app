@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
-#include "utils/canceller.hpp"
 #include "utils/task.hpp"
 #include "sign/commandmanager.hpp"
-#include "sign/commandstorage.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
 #include "dice/serializer.hpp"
@@ -13,7 +11,6 @@ using namespace cmd;
 
 class CmdFixture
    : public ::testing::Test
-   , protected async::Canceller<>
 {
 protected:
    CmdFixture() = default;
@@ -22,43 +19,38 @@ protected:
 };
 
 
-TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
-{
-   StopListeningResponse r1(ResponseCode::OK::value);
-   r1.Handle(
-      [](ResponseCode::OK) {
-         // OK
-      },
-      [](ResponseCode::INVALID_STATE) {
-         ADD_FAILURE();
-      });
-   EXPECT_EQ(ResponseCode::OK::value, r1.Value());
+//TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
+//{
+//   StopListeningResponse r1(ResponseCode::OK::value);
+//   r1.Handle(
+//      [](ResponseCode::OK) {
+//         // OK
+//      },
+//      [](ResponseCode::INVALID_STATE) {
+//         ADD_FAILURE();
+//      });
+//   EXPECT_EQ(ResponseCode::OK::value, r1.Value());
+//
+//   StopListeningResponse r2(ResponseCode::INVALID_STATE::value);
+//   r2.Handle(
+//      [](ResponseCode::OK) {
+//         ADD_FAILURE();
+//      },
+//      [](ResponseCode::INVALID_STATE) {
+//         // OK
+//      });
+//   EXPECT_EQ(ResponseCode::INVALID_STATE::value, r2.Value());
+//
+//   EXPECT_THROW({ StopListeningResponse r4(42); }, std::invalid_argument);
+//}
 
-   StopListeningResponse r2(ResponseCode::INVALID_STATE::value);
-   r2.Handle(
-      [](ResponseCode::OK) {
-         ADD_FAILURE();
-      },
-      [](ResponseCode::INVALID_STATE) {
-         // OK
-      });
-   EXPECT_EQ(ResponseCode::INVALID_STATE::value, r2.Value());
-
-   EXPECT_THROW({ StopListeningResponse r4(42); }, std::invalid_argument);
-}
-
-TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
+TEST_F(CmdFixture, common_base_stores_arguments_correctly)
 {
    auto cast = dice::MakeCast("D6", 4);
 
-   const int64_t expectedResponse = 0LL;
-   std::optional<int64_t> responseValue;
    const std::string player1 = "Player 1";
 
-   ShowResponse cmd(MakeCb([&](ShowResponseResponse r) {
-                       responseValue = r.Value();
-                    }),
-                    cast,
+   ShowResponse cmd(cast,
                     "D100",
                     2,
                     player1);
@@ -70,94 +62,19 @@ TEST_F(CmdFixture, common_base_stores_arguments_and_responds_correctly)
    EXPECT_STREQ("D100", cmd.GetArgAt(1).data());
    EXPECT_STREQ("2", cmd.GetArgAt(2).data());
    EXPECT_STREQ("Player 1", cmd.GetArgAt(3).data());
-
-   cmd.Respond(expectedResponse);
-   EXPECT_TRUE(responseValue);
-   EXPECT_EQ(expectedResponse, *responseValue);
 }
 
-TEST_F(CmdFixture, invalid_response_throws_exception)
-{
-   NegotiationStart cmd(MakeCb([&](NegotiationStartResponse r) {
-      ADD_FAILURE() << "Responded to: " << r.Value();
-   }));
-   EXPECT_EQ(NegotiationStart::ID, cmd.GetId());
-   EXPECT_STREQ("NegotiationStart", cmd.GetName().data());
-   EXPECT_EQ(0U, cmd.GetArgsCount());
-
-   EXPECT_THROW(cmd.Respond(123456789), std::invalid_argument);
-}
-
-TEST_F(CmdFixture, cmd_storage_can_store_different_commands)
-{
-   Storage storage(logger);
-   bool responded = false;
-   const char * arg = "Argument is unchanged";
-
-   auto negStart = Make<NegotiationStart>(MakeCb([](NegotiationStartResponse) {
-      ADD_FAILURE();
-   }));
-   EXPECT_EQ(NegotiationStart::ID, storage.Store(std::move(negStart)));
-
-   auto reset = Make<ResetConnections>(MakeCb([](ResetConnectionsResponse) {
-      ADD_FAILURE();
-   }));
-   EXPECT_EQ(ResetConnections::ID, storage.Store(std::move(reset)));
-
-   auto toast = Make<ShowToast>(MakeCb([&](ShowToastResponse) {
-                                   responded = true;
-                                }),
-                                arg,
-                                std::chrono::seconds(3));
-   EXPECT_EQ(ShowToast::ID, storage.Store(std::move(toast)));
-
-   reset = storage.Retrieve(ResetConnections::ID);
-   EXPECT_TRUE(reset);
-   EXPECT_EQ(ResetConnections::ID, reset->GetId());
-
-   negStart = storage.Retrieve(NegotiationStart::ID);
-   EXPECT_TRUE(negStart);
-   EXPECT_EQ(NegotiationStart::ID, negStart->GetId());
-
-   toast = storage.Retrieve(ShowToast::ID);
-   EXPECT_TRUE(toast);
-   EXPECT_EQ(ShowToast::ID, toast->GetId());
-   EXPECT_EQ(2u, toast->GetArgsCount());
-   EXPECT_STREQ(arg, toast->GetArgAt(0).data());
-   EXPECT_STREQ("3", toast->GetArgAt(1).data());
-   EXPECT_FALSE(responded);
-   toast->Respond(0);
-   EXPECT_TRUE(responded);
-
-   toast = storage.Retrieve(ShowToast::ID);
-   EXPECT_FALSE(toast);
-}
-
-TEST_F(CmdFixture, cmd_storage_handles_overflow)
-{
-   Storage storage(logger);
-
-   for (int i = 0; i < (1 << 8); ++i) {
-      auto negStart = Make<NegotiationStart>(MakeCb([](NegotiationStartResponse) {
-         ADD_FAILURE();
-      }));
-      EXPECT_EQ(NegotiationStart::ID + i, storage.Store(std::move(negStart)));
-      EXPECT_FALSE(negStart);
-   }
-
-   auto negStart = Make<NegotiationStart>(MakeCb([](NegotiationStartResponse) {
-      ADD_FAILURE();
-   }));
-   EXPECT_EQ(0, storage.Store(std::move(negStart)));
-   EXPECT_TRUE(negStart);
-
-   int ind = 200;
-   negStart = storage.Retrieve(NegotiationStart::ID + ind);
-   EXPECT_TRUE(negStart);
-   EXPECT_EQ(NegotiationStart::ID, negStart->GetId());
-
-   EXPECT_EQ(NegotiationStart::ID + ind, storage.Store(std::move(negStart)));
-}
+//TEST_F(CmdFixture, invalid_response_throws_exception)
+//{
+//   NegotiationStart cmd(MakeCb([&](NegotiationStartResponse r) {
+//      ADD_FAILURE() << "Responded to: " << r.Value();
+//   }));
+//   EXPECT_EQ(NegotiationStart::ID, cmd.GetId());
+//   EXPECT_STREQ("NegotiationStart", cmd.GetName().data());
+//   EXPECT_EQ(0U, cmd.GetArgsCount());
+//
+//   EXPECT_THROW(cmd.Respond(123456789), std::invalid_argument);
+//}
 
 struct TestCommand : ICommand
 {
@@ -171,7 +88,6 @@ struct TestCommand : ICommand
    std::string_view GetName() const override { return "TestCommand"; }
    size_t GetArgsCount() const override { return args.size(); }
    std::string_view GetArgAt(size_t index) const override { return args[index]; }
-   void Respond(int64_t) override {}
 
    const int32_t id;
    const std::vector<std::string> args;
@@ -229,7 +145,7 @@ cr::DetachedHandle coawait_and_get_response(F && f, int64_t * outResponse)
 
 TEST_F(ManagerFixture, cmd_manager_forwards_command_and_responses_correctly)
 {
-   auto sentCmd1 = Make<TestCommand>(NegotiationStart::ID, "LETS", "NEGOTIATE");
+   auto sentCmd1 = pool.MakeUnique<TestCommand>(NegotiationStart::ID, "LETS", "NEGOTIATE");
    int64_t response1 = 0;
    coawait_and_get_response(
       [&] {
@@ -251,7 +167,7 @@ TEST_F(ManagerFixture, cmd_manager_forwards_command_and_responses_correctly)
 
 TEST_F(ManagerFixture, cmd_manager_forwards_responses_out_of_order)
 {
-   auto sentCmd1 = Make<TestCommand>(CloseConnection::ID);
+   auto sentCmd1 = pool.MakeUnique<TestCommand>(CloseConnection::ID);
    int64_t response1 = 0;
    coawait_and_get_response(
       [&] {
@@ -266,7 +182,7 @@ TEST_F(ManagerFixture, cmd_manager_forwards_responses_out_of_order)
    }
 
 
-   auto sentCmd2 = Make<TestCommand>(NegotiationStop::ID, "STOP", "NEGOTIATION");
+   auto sentCmd2 = pool.MakeUnique<TestCommand>(NegotiationStop::ID, "STOP", "NEGOTIATION");
    int64_t response2 = 0;
    coawait_and_get_response(
       [&] {
@@ -283,7 +199,7 @@ TEST_F(ManagerFixture, cmd_manager_forwards_responses_out_of_order)
    }
 
 
-   auto sentCmd3 = Make<TestCommand>(ShowToast::ID, "AWESOME TOAST");
+   auto sentCmd3 = pool.MakeUnique<TestCommand>(ShowToast::ID, "AWESOME TOAST");
    int64_t response3 = 0;
    coawait_and_get_response(
       [&] {
@@ -315,10 +231,10 @@ TEST_F(ManagerFixture, cmd_manager_forwards_responses_out_of_order)
 
 TEST_F(ManagerFixture, cmd_manager_responds_to_pending_cmds_when_dying)
 {
-   auto sentCmd1 = Make<TestCommand>(EnableBluetooth::ID);
+   auto sentCmd1 = pool.MakeUnique<TestCommand>(EnableBluetooth::ID);
    int64_t response1 = 0;
 
-   auto sentCmd2 = Make<TestCommand>(ShowRequest::ID);
+   auto sentCmd2 = pool.MakeUnique<TestCommand>(ShowRequest::ID);
    int64_t response2 = 0;
 
    auto sentCmd3 = pool.MakeUnique<TestCommand>(ShowToast::ID);
@@ -341,15 +257,15 @@ TEST_F(ManagerFixture, cmd_manager_responds_to_pending_cmds_when_dying)
    EXPECT_EQ(0, response2);
 
    manager.reset();
-   EXPECT_EQ(ResponseCode::INVALID_STATE(), response1);
-   EXPECT_EQ(ResponseCode::INVALID_STATE(), response2);
+   EXPECT_EQ(ICommand::INTEROP_FAILURE, response1);
+   EXPECT_EQ(ICommand::INTEROP_FAILURE, response2);
 }
 
 TEST_F(ManagerFixture, cmd_manager_returns_error_on_overflow_immediately)
 {
    std::vector<mem::pool_ptr<ICommand>> commands;
    for (int i = 0; i < (1 << 8); ++i)
-      commands.emplace_back(Make<TestCommand>(SendMessage::ID));
+      commands.emplace_back(pool.MakeUnique<TestCommand>(SendMessage::ID));
 
    for (auto i = 0; i < commands.size(); ++i) {
       coawait_and_get_response(
@@ -362,7 +278,7 @@ TEST_F(ManagerFixture, cmd_manager_returns_error_on_overflow_immediately)
    }
    EXPECT_TRUE(logger.NoWarningsOrErrors());
 
-   auto overflowCmd = Make<TestCommand>(SendMessage::ID);
+   auto overflowCmd = pool.MakeUnique<TestCommand>(SendMessage::ID);
    int64_t overflowResponse = 0;
    coawait_and_get_response(
       [&] {
@@ -372,7 +288,7 @@ TEST_F(ManagerFixture, cmd_manager_returns_error_on_overflow_immediately)
 
    EXPECT_FALSE(logger.NoWarningsOrErrors());
    EXPECT_EQ(commands.size(), uiInvoker->receivedCommands.size());
-   EXPECT_EQ(ResponseCode::INVALID_STATE(), overflowResponse);
+   EXPECT_EQ(ICommand::INTEROP_FAILURE, overflowResponse);
    manager.reset();
 }
 

@@ -1,13 +1,13 @@
 #include "jni/javainvoker.hpp"
 #include "jni/exec.hpp"
-#include "sign/commands.hpp"
+#include "sign/cmd.hpp"
 #include "sign/commandmanager.hpp"
 
 namespace jni {
 
 JavaInvoker::JavaInvoker(JNIEnv & env, jclass localRef, std::string_view methodName)
    : m_env(env)
-   , m_class(static_cast<jclass>(env.NewGlobalRef(localRef)))
+   , m_class(localRef)
 {
    m_method = m_env.GetStaticMethodID(m_class, methodName.data(), "(I[Ljava/lang/String;)V");
    if (!m_method) {
@@ -34,7 +34,7 @@ std::unique_ptr<cmd::IExternalInvoker> JavaInvoker::GetExternalInvoker()
          if (!javaInvoker)
             return false;
 
-         Exec([=, cmd = std::move(cmd)](auto) mutable {
+         Exec([=, cmd = std::move(cmd)]() mutable {
             javaInvoker->PassCommand(std::move(cmd), argId);
          });
          return true;

@@ -39,9 +39,7 @@ add_library(veridiecore
         fsm/stateplaying.cpp
         sign/commands.cpp
         sign/commandmanager.cpp
-        sign/commandstorage.cpp
         sign/events.cpp
-        utils/async.cpp
         utils/timer.cpp
         utils/worker.cpp
         )
@@ -52,10 +50,8 @@ target_link_libraries(veridiecore
 # veridie for android
 add_library(veridie
         SHARED
-        jni/cmdmanager.cpp
         jni/exec.cpp
         jni/javainvoker.cpp
-        jni/proxy.cpp
         )
 target_link_libraries(veridie
         veridielog
@@ -67,11 +63,9 @@ add_library(jni_only_veridie
         SHARED
         tests/fakecontroller.cpp
         core/exec.cpp
-        jni/cmdmanager.cpp
         jni/exec.cpp
         jni/javainvoker.cpp
-        jni/proxy.cpp
-        sign/commandstorage.cpp
+        sign/commandmanager.cpp
         utils/worker.cpp
         )
 target_link_libraries(jni_only_veridie
@@ -90,7 +84,6 @@ target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 # unit tests executable
 add_executable(tests
         tests/test_dice.cpp
-        tests/test_async.cpp
         tests/test_task.cpp
         tests/test_threading.cpp
         tests/test_cmd.cpp

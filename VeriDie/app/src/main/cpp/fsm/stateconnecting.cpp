@@ -3,7 +3,6 @@
 #include "bt/device.hpp"
 #include "fsm/states.hpp"
 #include "fsm/stateswitcher.hpp"
-#include "core/proxy.hpp"
 #include "dice/serializer.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
@@ -11,7 +10,6 @@
 #include "utils/timer.hpp"
 
 using namespace std::chrono_literals;
-using cmd::Make;
 
 namespace {
 
@@ -32,16 +30,16 @@ StateConnecting::StateConnecting(const Context & ctx)
    : m_ctx(ctx)
 {
    m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
-   KickOffDiscovery(MAX_DISCOVERY_RETRY_COUNT);
-   KickOffListening(MAX_LISTENING_RETRY_COUNT);
+   StartTask(KickOffDiscovery());
+   StartTask(KickOffListening());
 }
 
 StateConnecting::~StateConnecting()
 {
    if (m_discovering.value_or(false))
-      *m_ctx.proxy << Make<cmd::StopDiscovery>(DetachedCb<cmd::StopDiscoveryResponse>());
+      m_ctx.proxy.FireAndForget<cmd::StopDiscovery>();
    if (m_listening.value_or(false))
-      *m_ctx.proxy << Make<cmd::StopListening>(DetachedCb<cmd::StopListeningResponse>());
+      m_ctx.proxy.FireAndForget<cmd::StopListening>();
 }
 
 void StateConnecting::OnBluetoothOff()
@@ -52,7 +50,7 @@ void StateConnecting::OnBluetoothOff()
 void StateConnecting::OnDeviceConnected(const bt::Device & remote)
 {
    m_peers.insert(remote);
-   SendHelloTo(remote.mac, MAX_SEND_RETRY_COUNT);
+   StartTask(SendHelloTo(remote.mac));
 }
 
 void StateConnecting::OnDeviceDisconnected(const bt::Device & remote)
@@ -68,17 +66,21 @@ void StateConnecting::OnMessageReceived(const bt::Device & sender, const std::st
    if (m_localMac.has_value())
       return;
 
-   // Code below might throw, but it will be caught in Worker and we don't care about the call stack
-   auto decoded = m_ctx.serializer->Deserialize(message);
-   auto & hello = std::get<dice::Hello>(decoded);
-   m_localMac = std::move(hello.mac);
+   try {
+      auto decoded = m_ctx.serializer->Deserialize(message);
+      auto & hello = std::get<dice::Hello>(decoded);
+      m_localMac = std::move(hello.mac);
+   }
+   catch (const std::exception & e) {
+      m_ctx.logger->Write<LogPriority::ERROR>("StateConnecting", __func__, e.what());
+   }
 }
 
 void StateConnecting::OnSocketReadFailure(const bt::Device & from)
 {
    if (m_peers.count(from)) {
       m_peers.erase(from);
-      DisconnectDevice(from.mac);
+      StartTask(DisconnectDevice(from.mac));
    }
 }
 
@@ -87,149 +89,147 @@ void StateConnecting::OnConnectivityEstablished()
    if (m_retryStartHandle)
       return;
    m_retryStartHandle = AttemptNegotiationStart();
-   m_retryStartHandle.Run();
+   m_retryStartHandle.Run(Executor());
 }
 
 void StateConnecting::OnGameStopped()
 {
-   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   m_ctx.proxy.FireAndForget<cmd::ResetConnections>();
    SwitchToState<StateIdle>(m_ctx);
 }
 
-void StateConnecting::CheckStatus()
+void StateConnecting::DetectFatalFailure()
 {
    if (m_listening.has_value() && !*m_listening && m_discovering.has_value() && !*m_discovering) {
-      *m_ctx.proxy << Make<cmd::ShowAndExit>(DetachedCb<cmd::ShowAndExitResponse>(),
-                                             "Cannot proceed due to a fatal failure.");
+      m_ctx.proxy.FireAndForget<cmd::ShowAndExit>("Cannot proceed due to a fatal failure.");
       SwitchToState<std::monostate>(m_ctx);
    }
 }
 
-void StateConnecting::SendHelloTo(const std::string & mac, uint32_t retriesLeft)
+cr::TaskHandle<void> StateConnecting::SendHelloTo(std::string mac)
 {
-   if (retriesLeft == 0)
-      return;
-   if (m_peers.count(bt::Device{"", mac}) == 0)
-      return;
+   using Response = cmd::SendMessageResponse;
 
-   std::string hello = m_ctx.serializer->Serialize(dice::Hello{mac});
-   *m_ctx.proxy << Make<cmd::SendMessage>(MakeCb([=](cmd::SendMessageResponse result) {
-                                             result.Handle(
-                                                [&](cmd::ResponseCode::CONNECTION_NOT_FOUND) {
-                                                   OnDeviceDisconnected(bt::Device{"", mac});
-                                                },
-                                                [&](cmd::ResponseCode::SOCKET_ERROR) {
-                                                   m_peers.erase(bt::Device{"", mac});
-                                                   DisconnectDevice(mac);
-                                                },
-                                                [&](cmd::ResponseCode::INVALID_STATE) {
-                                                   SendHelloTo(mac, retriesLeft - 1);
-                                                },
-                                                [](cmd::ResponseCode::OK) { /*enjoy*/ });
-                                          }),
-                                          std::move(hello),
-                                          mac);
+   int retriesLeft = MAX_SEND_RETRY_COUNT;
+   const std::string hello = m_ctx.serializer->Serialize(dice::Hello{mac});
+   Response response;
+
+   do {
+      if (m_peers.count(bt::Device{"", mac}) == 0)
+         co_return;
+
+      response = co_await m_ctx.proxy.Command<cmd::SendMessage>(hello, mac);
+
+      if (response == Response::CONNECTION_NOT_FOUND)
+         OnDeviceDisconnected(bt::Device{"", mac});
+      else if (response == Response::SOCKET_ERROR) {
+         m_peers.erase(bt::Device{"", mac});
+         co_await StartNestedTask(DisconnectDevice(mac));
+      }
+
+   } while (--retriesLeft > 0 && response == Response::INVALID_STATE);
 }
 
-void StateConnecting::DisconnectDevice(const std::string & mac)
+cr::TaskHandle<void> StateConnecting::DisconnectDevice(std::string mac)
 {
-   *m_ctx.proxy << Make<cmd::CloseConnection>(
-      MakeCb([this, mac](cmd::CloseConnectionResponse result) {
-         result.Handle(
-            [&](cmd::ResponseCode::INVALID_STATE) {
-               DisconnectDevice(mac);
-            },
-            [&](auto) {});
-      }),
-      "",
-      mac);
+   using Response = cmd::CloseConnectionResponse;
+   Response response;
+
+   do {
+      response = co_await m_ctx.proxy.Command<cmd::CloseConnection>("", mac);
+   } while (response == Response::INVALID_STATE);
 }
 
 cr::TaskHandle<void> StateConnecting::AttemptNegotiationStart()
 {
-   for (unsigned retriesLeft = MAX_GAME_START_RETRY_COUNT; retriesLeft > 0; --retriesLeft) {
+   unsigned retriesLeft = MAX_GAME_START_RETRY_COUNT;
+
+   do {
       if (m_localMac.has_value()) {
          cmd::pool.Resize(m_peers.size());
          SwitchToState<StateNegotiating>(m_ctx, std::move(m_peers), *std::move(m_localMac));
          co_return;
       }
-      if (retriesLeft % 3 == 0) {
-         *m_ctx.proxy << Make<cmd::ShowToast>(DetachedCb<cmd::ShowToastResponse>(),
-                                              "Getting ready...",
-                                              3s);
-      }
+
+      if (retriesLeft % 3 == 0)
+         m_ctx.proxy.FireAndForget<cmd::ShowToast>("Getting ready...", 3s);
+
       co_await m_ctx.timer->WaitFor(1s);
-   }
 
-   *m_ctx.proxy << Make<cmd::ResetGame>(DetachedCb<cmd::ResetGameResponse>());
-   *m_ctx.proxy << Make<cmd::ResetConnections>(DetachedCb<cmd::ResetConnectionsResponse>());
+   } while (--retriesLeft > 0);
+
+   m_ctx.proxy.FireAndForget<cmd::ResetGame>();
+   m_ctx.proxy.FireAndForget<cmd::ResetConnections>();
    SwitchToState<StateIdle>(m_ctx);
-   co_return;
 }
 
-void StateConnecting::KickOffDiscovery(uint32_t retriesLeft)
+cr::TaskHandle<void> StateConnecting::KickOffDiscovery()
 {
-   const bool includePaired = true;
-   *m_ctx.proxy << Make<cmd::StartDiscovery>(
-      MakeCb([=](cmd::StartDiscoveryResponse result) {
-         result.Handle(
-            [this](cmd::ResponseCode::OK) {
-               m_discovering = true;
-            },
-            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
-               OnBluetoothOff();
-            },
-            [=](cmd::ResponseCode::INVALID_STATE) {
-               if (retriesLeft == 0) {
-                  m_discovering = false;
-                  CheckStatus();
-               } else {
-                  StartTask([=] () -> cr::TaskHandle<void> {
-                     co_await m_ctx.timer->WaitFor(1s);
-                     KickOffDiscovery(retriesLeft - 1);
-                  }());
-               }
-            },
-            [this](auto) {
-               m_discovering = false;
-               CheckStatus();
-            });
-      }),
-      APP_UUID,
-      APP_NAME,
-      includePaired);
+   using Response = cmd::StartDiscoveryResponse;
+
+   unsigned retriesLeft = MAX_DISCOVERY_RETRY_COUNT;
+   Response response;
+
+   do {
+      const bool includePaired = true;
+      response =
+         co_await m_ctx.proxy.Command<cmd::StartDiscovery>(APP_UUID, APP_NAME, includePaired);
+
+      switch (response) {
+      case Response::OK:
+         m_discovering = true;
+         break;
+      case Response::BLUETOOTH_OFF:
+         OnBluetoothOff();
+         break;
+      case Response::INVALID_STATE:
+         co_await m_ctx.timer->WaitFor(1s);
+         break;
+      default:
+         m_discovering = false;
+         break;
+      }
+
+   } while (retriesLeft-- > 0 && response == Response::INVALID_STATE);
+
+   if (response == Response::INVALID_STATE) {
+      m_discovering = false;
+      DetectFatalFailure();
+   }
 }
 
-void StateConnecting::KickOffListening(uint32_t retriesLeft)
+cr::TaskHandle<void> StateConnecting::KickOffListening()
 {
-   *m_ctx.proxy << Make<cmd::StartListening>(
-      MakeCb([=](cmd::StartListeningResponse result) {
-         result.Handle(
-            [this](cmd::ResponseCode::OK) {
-               m_listening = true;
-            },
-            [this](cmd::ResponseCode::BLUETOOTH_OFF) {
-               OnBluetoothOff();
-            },
-            [this](cmd::ResponseCode::USER_DECLINED) {
-               m_listening = false;
-               CheckStatus();
-            },
-            [=](auto) {
-               if (retriesLeft == 0) {
-                  m_listening = false;
-                  CheckStatus();
-               } else {
-                  StartTask([=] () -> cr::TaskHandle<void> {
-                     co_await m_ctx.timer->WaitFor(1s);
-                     KickOffListening(retriesLeft - 1);
-                  }());
-               }
-            });
-      }),
-      APP_UUID,
-      APP_NAME,
-      DISCOVERABILITY_DURATION);
+   using Response = cmd::StartListeningResponse;
+
+   unsigned retriesLeft = MAX_LISTENING_RETRY_COUNT;
+   Response response;
+
+   do {
+      response = co_await m_ctx.proxy.Command<cmd::StartListening>(APP_UUID,
+                                                                   APP_NAME,
+                                                                   DISCOVERABILITY_DURATION);
+
+      switch (response) {
+      case Response::OK:
+         m_listening = true;
+         co_return;
+      case Response::BLUETOOTH_OFF:
+         OnBluetoothOff();
+         co_return;
+      case Response::USER_DECLINED:
+         m_listening = false;
+         DetectFatalFailure();
+         co_return;
+      default:
+         co_await m_ctx.timer->WaitFor(1s);
+         break;
+      }
+
+   } while (retriesLeft-- > 0);
+
+   m_listening = false;
+   DetectFatalFailure();
 }
 
 } // namespace fsm

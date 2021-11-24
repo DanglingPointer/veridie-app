@@ -73,8 +73,7 @@ void FillCharArrays(T tuple,
 namespace cmd {
 
 template <typename TTraits>
-Base<TTraits>::Base(async::Callback<Response> && cb, ParamTuple params)
-   : m_cb(std::move(cb))
+Base<TTraits>::Base(ParamTuple params)
 {
    if constexpr (ARG_SIZE > 0) {
       WriteToBuffer(std::get<0>(params),
@@ -119,12 +118,6 @@ std::string_view Base<TTraits>::GetArgAt(size_t index) const noexcept
          assert(static_cast<size_t>(*buffer) <= m_shortArgs[index - 1].size());
          return std::string_view(buffer + 1, static_cast<size_t>(*buffer));
    }
-}
-
-template <typename TTraits>
-void Base<TTraits>::Respond(int64_t response)
-{
-   m_cb.InvokeOneShot(Response(response));
 }
 
 #define INSTANTIATE(name)                                        \

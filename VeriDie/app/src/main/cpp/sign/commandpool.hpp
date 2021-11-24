@@ -20,15 +20,10 @@ struct CommandPoolFor<List<Ts1...>, List<Ts2...>>
 
 } // namespace internal
 
-using CommandPool = typename internal::CommandPoolFor<UiDictionary, BtDictionary>::Type;
+using CommandPool =
+   typename internal::CommandPoolFor<internal::UiDictionary, internal::BtDictionary>::Type;
 
 inline CommandPool pool(COMMAND_MEMPOOL_INITIAL_BLOCK_COUNT);
-
-template <typename TCmd, typename... TArgs>
-inline mem::pool_ptr<ICommand> Make(TArgs &&... args)
-{
-   return pool.MakeUnique<TCmd>(std::forward<TArgs>(args)...);
-}
 
 } // namespace cmd
 

@@ -1,11 +1,9 @@
 #ifndef FSM_CONTEXT_HPP
 #define FSM_CONTEXT_HPP
 
+#include "core/commandadapter.hpp"
 #include <variant>
 
-namespace core {
-class Proxy;
-}
 namespace dice {
 class IEngine;
 class ISerializer;
@@ -32,7 +30,7 @@ struct Context
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
    async::Timer * const timer;
-   core::Proxy * const proxy;
+   core::CommandAdapter proxy;
 
    StateHolder * const state;
 };

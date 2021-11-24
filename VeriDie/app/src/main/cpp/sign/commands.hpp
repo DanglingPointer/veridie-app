@@ -1,51 +1,17 @@
 #ifndef SIGN_COMMANDS_HPP
 #define SIGN_COMMANDS_HPP
 
+#include "sign/cmd.hpp"
+
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
-#include <variant>
 #include "dice/cast.hpp"
-#include "utils/callback.hpp"
 
 namespace cmd {
-namespace internal {
-
-template <typename... Ts>
-struct CreateVariant
-{
-   template <typename T, typename... TArgs>
-   static std::variant<Ts...> Match(int64_t value, T /*first*/, TArgs... args)
-   {
-      if (value == T::value)
-         return T{};
-      return Match(value, args...);
-   }
-   static std::variant<Ts...> Match(int64_t /*value*/)
-   {
-      throw std::invalid_argument("Invalid command response");
-   }
-
-   static std::variant<Ts...> FromValue(int64_t value) { return Match(value, Ts{}...); }
-};
-
-} // namespace internal
-
-
-class ICommand
-{
-public:
-   virtual ~ICommand() = default;
-   virtual int32_t GetId() const = 0;
-   virtual std::string_view GetName() const = 0;
-   virtual size_t GetArgsCount() const = 0;
-   virtual std::string_view GetArgAt(size_t index) const = 0;
-   virtual void Respond(int64_t response) = 0;
-};
-
 
 template <typename TTraits>
 class Base : public ICommand
@@ -65,19 +31,17 @@ public:
 
 
    template <typename... Ts>
-   Base(async::Callback<Response> && cb, Ts &&... params)
-      : Base(std::move(cb), ParamTuple(std::forward<Ts>(params)...))
+   explicit Base(Ts &&... params)
+      : Base(ParamTuple(std::forward<Ts>(params)...))
    {}
 
-   Base(async::Callback<Response> && cb, ParamTuple params);
+   explicit Base(ParamTuple params);
    int32_t GetId() const noexcept override;
    std::string_view GetName() const noexcept override;
    size_t GetArgsCount() const noexcept override;
    std::string_view GetArgAt(size_t index) const noexcept override;
-   void Respond(int64_t response) override;
 
 private:
-   async::Callback<Response> m_cb;
    std::array<LongBuffer, (ARG_SIZE != 0)> m_longArgs{};
    std::array<ShortBuffer, (ARG_SIZE > 1) ? (ARG_SIZE - 1) : 0U> m_shortArgs{};
 };
@@ -86,6 +50,8 @@ private:
 template <int32_t Id, typename TResponse, typename... TParams>
 struct Traits
 {
+   static_assert(sizeof(TResponse) >= sizeof(int64_t));
+
    static constexpr int32_t ID = Id;
    using Command = Base<Traits<Id, TResponse, TParams...>>;
    using Response = TResponse;
@@ -113,62 +79,23 @@ struct ExtraLongTraits : Traits<Id, TResponse, TParams...>
 };
 
 
-// response codes must be in sync with interop/Command.java
-
-struct ResponseCode final
-{
-   template <int64_t V>
-   using Code = std::integral_constant<int64_t, V>;
-
-   using OK = Code<0>;
-   using INVALID_STATE = Code<0xff'ff'ff'ff'ff'ff'ff'ffLL>;
-   using BLUETOOTH_OFF = Code<2>;
-   using LISTEN_FAILED = Code<3>;
-   using CONNECTION_NOT_FOUND = Code<4>;
-   using NO_BT_ADAPTER = Code<5>;
-   using USER_DECLINED = Code<6>;
-   using SOCKET_ERROR = Code<7>;
-};
-
 // clang-format off
-
-template <typename... Cs>
-class ResponseCodeSubset
-{
-public:
-   ResponseCodeSubset(int64_t code)
-      : m_code(internal::CreateVariant<Cs...>::FromValue(code))
-   {}
-   template <typename... Fs>
-   void Handle(Fs... funcs)
-   {
-      struct Overload : Fs... { using Fs::operator()...; };
-      std::visit(Overload{funcs...}, m_code);
-   }
-   int64_t Value() const
-   {
-      return std::visit([](auto code) { return code(); }, m_code);
-   }
-
-private:
-   std::variant<Cs...> m_code;
-};
 
 // command IDs must be in sync with interop/Command.java
 // the largest parameter type must be first
 
+#define RESPONSE_CODE(name) name = ICommand::name
+
 #define COMMON_RESPONSES \
-   ResponseCode::OK, ResponseCode::INVALID_STATE
-
-#define COMMAND_ID(id) \
-   (id << 8)
+   RESPONSE_CODE(OK), RESPONSE_CODE(INVALID_STATE), RESPONSE_CODE(INTEROP_FAILURE)
 
 
-using StartListeningResponse = ResponseCodeSubset<
+enum class StartListeningResponse : int64_t {
    COMMON_RESPONSES,
-   ResponseCode::BLUETOOTH_OFF,
-   ResponseCode::USER_DECLINED,
-   ResponseCode::LISTEN_FAILED>;
+   RESPONSE_CODE(BLUETOOTH_OFF),
+   RESPONSE_CODE(USER_DECLINED),
+   RESPONSE_CODE(LISTEN_FAILED),
+};
 using StartListeningTraits = LongTraits<
    COMMAND_ID(100),
    StartListeningResponse,
@@ -176,10 +103,11 @@ using StartListeningTraits = LongTraits<
 using StartListening = Base<StartListeningTraits>;
 
 
-using StartDiscoveryResponse = ResponseCodeSubset<
+enum class StartDiscoveryResponse : int64_t {
    COMMON_RESPONSES,
-   ResponseCode::NO_BT_ADAPTER,
-   ResponseCode::BLUETOOTH_OFF>;
+   RESPONSE_CODE(NO_BT_ADAPTER),
+   RESPONSE_CODE(BLUETOOTH_OFF),
+};
 using StartDiscoveryTraits = LongTraits<
    COMMAND_ID(101),
    StartDiscoveryResponse,
@@ -187,25 +115,28 @@ using StartDiscoveryTraits = LongTraits<
 using StartDiscovery = Base<StartDiscoveryTraits>;
 
 
-using StopListeningResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class StopListeningResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using StopListeningTraits = Traits<
    COMMAND_ID(102),
    StopListeningResponse>;
 using StopListening = Base<StopListeningTraits>;
 
 
-using StopDiscoveryResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class StopDiscoveryResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using StopDiscoveryTraits = Traits<
    COMMAND_ID(103),
    StopDiscoveryResponse>;
 using StopDiscovery = Base<StopDiscoveryTraits>;
 
 
-using CloseConnectionResponse = ResponseCodeSubset<
+enum class CloseConnectionResponse : int64_t {
    COMMON_RESPONSES,
-   ResponseCode::CONNECTION_NOT_FOUND>;
+   RESPONSE_CODE(CONNECTION_NOT_FOUND),
+};
 using CloseConnectionTraits = Traits<
    COMMAND_ID(104),
    CloseConnectionResponse,
@@ -213,26 +144,29 @@ using CloseConnectionTraits = Traits<
 using CloseConnection = Base<CloseConnectionTraits>;
 
 
-using EnableBluetoothResponse = ResponseCodeSubset<
+enum class EnableBluetoothResponse : int64_t {
    COMMON_RESPONSES,
-   ResponseCode::NO_BT_ADAPTER,
-   ResponseCode::USER_DECLINED>;
+   RESPONSE_CODE(NO_BT_ADAPTER),
+   RESPONSE_CODE(USER_DECLINED),
+};
 using EnableBluetoothTraits = Traits<
    COMMAND_ID(105),
    EnableBluetoothResponse>;
 using EnableBluetooth = Base<EnableBluetoothTraits>;
 
 
-using NegotiationStartResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class NegotiationStartResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using NegotiationStartTraits = Traits<
    COMMAND_ID(106),
    NegotiationStartResponse>;
 using NegotiationStart = Base<NegotiationStartTraits>;
 
 
-using NegotiationStopResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class NegotiationStopResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using NegotiationStopTraits = Traits<
    COMMAND_ID(107),
    NegotiationStopResponse,
@@ -240,16 +174,16 @@ using NegotiationStopTraits = Traits<
 using NegotiationStop = Base<NegotiationStopTraits>;
 
 
-using SendMessageResponse = ResponseCodeSubset<
+enum class SendMessageResponse : int64_t {
    COMMON_RESPONSES,
-   ResponseCode::CONNECTION_NOT_FOUND,
-   ResponseCode::SOCKET_ERROR>;
+   RESPONSE_CODE(CONNECTION_NOT_FOUND),
+   RESPONSE_CODE(SOCKET_ERROR),
+};
 using SendMessageTraits = LongTraits<
    COMMAND_ID(108),
    SendMessageResponse,
    std::string_view/*message*/, std::string_view/*remote mac addr*/>;
 using SendMessage = Base<SendMessageTraits>;
-
 
 using SendLongMessageTraits = ExtraLongTraits<
    COMMAND_ID(108),
@@ -258,8 +192,9 @@ using SendLongMessageTraits = ExtraLongTraits<
 using SendLongMessage = Base<SendLongMessageTraits>;
 
 
-using ShowAndExitResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ShowAndExitResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ShowAndExitTraits = LongTraits<
    COMMAND_ID(109),
    ShowAndExitResponse,
@@ -267,8 +202,9 @@ using ShowAndExitTraits = LongTraits<
 using ShowAndExit = Base<ShowAndExitTraits>;
 
 
-using ShowToastResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ShowToastResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ShowToastTraits = Traits<
    COMMAND_ID(110),
    ShowToastResponse,
@@ -276,8 +212,9 @@ using ShowToastTraits = Traits<
 using ShowToast = Base<ShowToastTraits>;
 
 
-using ShowNotificationResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ShowNotificationResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ShowNotificationTraits = Traits<
    COMMAND_ID(111),
    ShowNotificationResponse,
@@ -285,8 +222,9 @@ using ShowNotificationTraits = Traits<
 using ShowNotification = Base<ShowNotificationTraits>;
 
 
-using ShowRequestResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ShowRequestResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ShowRequestTraits = Traits<
    COMMAND_ID(112),
    ShowRequestResponse,
@@ -294,14 +232,14 @@ using ShowRequestTraits = Traits<
 using ShowRequest = Base<ShowRequestTraits>;
 
 
-using ShowResponseResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ShowResponseResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ShowResponseTraits = LongTraits<
    COMMAND_ID(113),
    ShowResponseResponse,
    dice::Cast/*numbers*/, std::string_view/*type*/, int32_t/*success count, -1=not set*/, std::string_view/*name*/>;
 using ShowResponse = Base<ShowResponseTraits>;
-
 
 using ShowLongResponseTraits = ExtraLongTraits<
    COMMAND_ID(113),
@@ -310,16 +248,18 @@ using ShowLongResponseTraits = ExtraLongTraits<
 using ShowLongResponse = Base<ShowLongResponseTraits>;
 
 
-using ResetGameResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ResetGameResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ResetGameTraits = Traits<
    COMMAND_ID(114),
    ResetGameResponse>;
 using ResetGame = Base<ResetGameTraits>;
 
 
-using ResetConnectionsResponse = ResponseCodeSubset<
-   COMMON_RESPONSES>;
+enum class ResetConnectionsResponse : int64_t {
+   COMMON_RESPONSES,
+};
 using ResetConnectionsTraits = Traits<
    COMMAND_ID(115),
    ResetConnectionsResponse>;
@@ -327,7 +267,10 @@ using ResetConnections = Base<ResetConnectionsTraits>;
 
 
 #undef COMMON_RESPONSES
+#undef RESPONSE_CODE
 
+
+namespace internal {
 
 template <typename... T> struct List {};
 
@@ -353,6 +296,37 @@ using UiDictionary = List<
    ShowLongResponse,
    ResetGame>;
 
+// clang-format on
+
+template <typename L, typename T>
+struct Contains;
+
+template <typename T>
+struct Contains<List<>, T>
+{
+   static constexpr bool value = false;
+};
+
+template <typename T, typename... Ts>
+struct Contains<List<T, Ts...>, T>
+{
+   static constexpr bool value = true;
+};
+
+template <typename T, typename U, typename... Ts>
+struct Contains<List<U, Ts...>, T>
+{
+   static constexpr bool value = Contains<List<Ts...>, T>::value;
+};
+
+} // namespace internal
+
+
+template <typename T>
+concept BtCommand = internal::Contains<internal::BtDictionary, T>::value;
+
+template <typename T>
+concept UiCommand = internal::Contains<internal::UiDictionary, T>::value;
 
 } // namespace cmd
 

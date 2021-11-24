@@ -20,13 +20,29 @@ void LogCommand(const mem::pool_ptr<cmd::ICommand> & cmd)
 cr::TaskHandle<int64_t> CommandAdapter::ForwardUiCommand(mem::pool_ptr<cmd::ICommand> && cmd)
 {
    LogCommand(cmd);
-   co_return co_await m_manager.IssueUiCommand(std::move(cmd));
+   const int64_t response = co_await m_manager.IssueUiCommand(std::move(cmd));
+   // TODO: log response
+   co_return response;
 }
 
 cr::TaskHandle<int64_t> CommandAdapter::ForwardBtCommand(mem::pool_ptr<cmd::ICommand> && cmd)
 {
    LogCommand(cmd);
-   co_return co_await m_manager.IssueBtCommand(std::move(cmd));
+   const int64_t response = co_await m_manager.IssueBtCommand(std::move(cmd));
+   // TODO: log response
+   co_return response;
+}
+
+void CommandAdapter::DetachedUiCommand(mem::pool_ptr<cmd::ICommand> && cmd)
+{
+   LogCommand(cmd);
+   m_manager.IssueUiCommand(std::move(cmd));
+}
+
+void CommandAdapter::DetachedBtCommand(mem::pool_ptr<cmd::ICommand> && cmd)
+{
+   LogCommand(cmd);
+   m_manager.IssueBtCommand(std::move(cmd));
 }
 
 } // namespace core

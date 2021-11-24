@@ -1,12 +1,14 @@
+#undef NDEBUG
+#include <cassert>
 #include <vector>
 #include <sstream>
 
 #include "core/controller.hpp"
 #include "utils/logger.hpp"
-#include "sign/commands.hpp"
+#include "utils/task.hpp"
+#include "sign/cmd.hpp"
+#include "sign/commandmanager.hpp"
 #include "sign/commandpool.hpp"
-#include "core/proxy.hpp"
-#include "utils/canceller.hpp"
 
 namespace dice {
 std::unique_ptr<IEngine> CreateUniformEngine()
@@ -34,36 +36,29 @@ struct TestCommand : public cmd::ICommand
    TestCommand(int32_t id, std::vector<std::string> args)
       : id(id)
       , args(std::move(args))
-      , responded(false)
    {}
-   ~TestCommand() { ASSERT(responded); }
    int32_t GetId() const override { return id; }
    std::string_view GetName() const override { return "TestCommand"; }
    size_t GetArgsCount() const override { return args.size(); }
    std::string_view GetArgAt(size_t index) const override { return args[index]; }
-   void Respond(int64_t response) override
-   {
-      responded = true;
-      ASSERT(response == 0);
-   }
 
    int32_t id;
    std::vector<std::string> args;
-   bool responded;
 };
 
 class EchoController
    : public core::IController
-   , private async::Canceller<>
 {
 public:
    EchoController(ILogger & logger)
       : m_logger(logger)
-      , m_proxy(nullptr)
+      , m_cmdManager(nullptr)
    {}
-   void Start(std::function<std::unique_ptr<core::Proxy>(ILogger &)> proxyBuilder) override
+   void Start(std::unique_ptr<cmd::IExternalInvoker> uiInvoker,
+              std::unique_ptr<cmd::IExternalInvoker> btInvoker) override
    {
-      m_proxy = proxyBuilder(m_logger);
+      m_cmdManager =
+         std::make_unique<cmd::Manager>(m_logger, std::move(uiInvoker), std::move(btInvoker));
    }
    void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
@@ -74,12 +69,22 @@ public:
                                          eventId,
                                          "Args:",
                                          ss.str());
-      m_proxy->ForwardCommandToUi(cmd::Make<TestCommand>((eventId << 8), args));
+      SendCommmandAndVerifyResponse(cmd::pool.MakeUnique<TestCommand>((eventId << 8), args));
+   }
+   void OnCommandResponse(int32_t cmdId, int64_t response) override
+   {
+      ASSERT(m_cmdManager);
+      m_cmdManager->SubmitResponse(cmdId, response);
    }
 
 private:
+   cr::DetachedHandle SendCommmandAndVerifyResponse(mem::pool_ptr<TestCommand> cmd)
+   {
+      const int64_t response = co_await m_cmdManager->IssueUiCommand(std::move(cmd));
+      ASSERT(response == cmd::ICommand::OK);
+   }
    ILogger & m_logger;
-   std::unique_ptr<core::Proxy> m_proxy;
+   std::unique_ptr<cmd::Manager> m_cmdManager;
 };
 
 } // namespace

@@ -5,9 +5,9 @@
 #include "core/controller.hpp"
 #include "utils/logger.hpp"
 #include "utils/timer.hpp"
-#include "core/proxy.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
+#include "sign/commandmanager.hpp"
 #include "sign/events.hpp"
 #include "fsm/states.hpp"
 
@@ -29,7 +29,7 @@ public:
               std::unique_ptr<async::Timer> timer,
               std::unique_ptr<dice::ISerializer> serializer)
       : m_logger(logger)
-      , m_proxy(nullptr)
+      , m_cmdManager(nullptr)
       , m_generator(std::move(engine))
       , m_timer(std::move(timer))
       , m_serializer(std::move(serializer))
@@ -37,16 +37,18 @@ public:
    {}
 
 private:
-   void Start(std::function<std::unique_ptr<core::Proxy>(ILogger &)> proxyBuilder) override
+   void Start(std::unique_ptr<cmd::IExternalInvoker> uiInvoker,
+              std::unique_ptr<cmd::IExternalInvoker> btInvoker) override
    {
-      if (m_proxy)
+      if (m_cmdManager)
          return;
-      m_proxy = proxyBuilder(m_logger);
+      m_cmdManager =
+         std::make_unique<cmd::Manager>(m_logger, std::move(uiInvoker), std::move(btInvoker));
       m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger,
                                                    m_generator.get(),
                                                    m_serializer.get(),
                                                    m_timer.get(),
-                                                   m_proxy.get(),
+                                                   *m_cmdManager,
                                                    &m_state});
    }
    void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
@@ -70,9 +72,17 @@ private:
          m_logger.Write<LogPriority::ERROR>("Could not parse event args");
       }
    }
+   void OnCommandResponse(int32_t cmdId, int64_t response) override
+   {
+      if (!m_cmdManager) [[unlikely]] {
+         //Log::Error ... //TODO
+         return;
+      }
+      m_cmdManager->SubmitResponse(cmdId, response);
+   }
 
    ILogger & m_logger;
-   std::unique_ptr<core::Proxy> m_proxy;
+   std::unique_ptr<cmd::Manager> m_cmdManager;
    std::unique_ptr<dice::IEngine> m_generator;
    std::unique_ptr<async::Timer> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;

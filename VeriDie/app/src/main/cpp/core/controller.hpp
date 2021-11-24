@@ -17,15 +17,20 @@ namespace async {
 class Timer;
 }
 
+namespace cmd {
+class IExternalInvoker;
+}
+
 namespace core {
-class Proxy;
 
 class IController
 {
 public:
    virtual ~IController() = default;
-   virtual void Start(std::function<std::unique_ptr<core::Proxy>(ILogger &)> proxyBuilder) = 0;
+   virtual void Start(std::unique_ptr<cmd::IExternalInvoker> uiInvoker,
+                      std::unique_ptr<cmd::IExternalInvoker> btInvoker) = 0;
    virtual void OnEvent(int32_t eventId, const std::vector<std::string> & args) = 0;
+   virtual void OnCommandResponse(int32_t cmdId, int64_t response) = 0;
 };
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,

@@ -8,23 +8,13 @@
 namespace jni {
 class ICmdManager;
 
-void InternalExec(std::function<void(ICmdManager *)> task);
+void InternalExec(std::function<void()> task);
 
 template <typename F>
 void Exec(F && f)
 {
    InternalExec(AlwaysCopyable(std::move(f)));
 }
-
-struct Scheduler
-{
-   bool await_ready() const noexcept { return false; }
-   void await_suspend(stdcr::coroutine_handle<> h);
-   ICmdManager * await_resume() const noexcept;
-
-private:
-   ICmdManager * m_mgr = nullptr;
-};
 
 } // namespace jni
 

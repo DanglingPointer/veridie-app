@@ -18,9 +18,6 @@ struct Offer;
 struct Request;
 struct Response;
 }
-namespace core {
-struct Timeout;
-}
 
 namespace fsm {
 
@@ -33,11 +30,10 @@ public:
    void OnNewGame();
 
 private:
-   void RequestBluetoothOn();
+   [[nodiscard]] cr::TaskHandle<void> RequestBluetoothOn();
 
    Context m_ctx;
-
-   CallbackId m_enableBtCb;
+   cr::TaskHandle<void> m_enableBtTask;
 
    bool m_newGamePending;
    bool m_bluetoothOn;
@@ -57,12 +53,12 @@ public:
    void OnSocketReadFailure(const bt::Device & from);
 
 private:
-   void CheckStatus();
-   void SendHelloTo(const std::string & mac, uint32_t retriesLeft);
-   void DisconnectDevice(const std::string & mac);
-   cr::TaskHandle<void> AttemptNegotiationStart();
-   void KickOffDiscovery(uint32_t retriesLeft);
-   void KickOffListening(uint32_t retriesLeft);
+   void DetectFatalFailure();
+   [[nodiscard]] cr::TaskHandle<void> SendHelloTo(std::string mac);
+   [[nodiscard]] cr::TaskHandle<void> DisconnectDevice(std::string mac);
+   [[nodiscard]] cr::TaskHandle<void> AttemptNegotiationStart();
+   [[nodiscard]] cr::TaskHandle<void> KickOffDiscovery();
+   [[nodiscard]] cr::TaskHandle<void> KickOffListening();
 
    Context m_ctx;
 
@@ -87,9 +83,11 @@ public:
    void OnSocketReadFailure(const bt::Device & from);
 
 private:
-   cr::TaskHandle<void> UpdateAndBroadcastOffer();
+   [[nodiscard]] cr::TaskHandle<void> StartNegotiation();
+   [[nodiscard]] cr::TaskHandle<void> UpdateAndBroadcastOffer();
+   [[nodiscard]] cr::TaskHandle<void> SendOffer(std::string offer, bt::Device receiver);
    const std::string & GetLocalOfferMac();
-   void DisconnectDevice(const std::string & mac);
+   [[nodiscard]] cr::TaskHandle<void> DisconnectDevice(std::string mac);
 
    Context m_ctx;
    std::string m_localMac;
@@ -116,12 +114,13 @@ public:
 private:
    class RemotePeerManager;
 
-   [[maybe_unused]] StateNegotiating * StartNegotiation();
-   void ShowRequest(const dice::Request & request, const std::string & from);
-   void ShowResponse(const dice::Response & response, const std::string & from);
+   void StartNegotiation();
+   StateNegotiating & StartImmediateNegotiation();
+   [[nodiscard]] cr::TaskHandle<void> ShowRequest(const dice::Request & request, const std::string & from);
+   [[nodiscard]] cr::TaskHandle<void> ShowResponse(const dice::Response & response, const std::string & from);
 
    Context m_ctx;
-   std::string m_localMac;
+   const std::string m_localMac;
    bool m_localGenerator;
 
    cr::TaskHandle<async::Timeout> m_ignoreOffers;

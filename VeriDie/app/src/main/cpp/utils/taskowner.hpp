@@ -25,11 +25,31 @@ public:
       m_tasks.back().Run(m_executor);
    }
 
+   [[nodiscard]] auto StartNestedTask(TaskHandle<void, E> && task)
+   {
+      struct SuspenderStarter
+      {
+         TaskOwner<E> & owner;
+         TaskHandle<void, E> task;
+
+         bool await_ready() noexcept { return false; }
+         bool await_suspend(stdcr::coroutine_handle<>)
+         {
+            owner.StartTask(std::move(task));
+            return false;
+         }
+         void await_resume() noexcept {}
+      };
+      return SuspenderStarter{*this, std::move(task)};
+   }
+
    void RethrowExceptions()
    {
       for (auto & task : m_tasks)
          task.EnsureNoException();
    }
+
+   E Executor() const { return m_executor; }
 
 private:
    E m_executor;

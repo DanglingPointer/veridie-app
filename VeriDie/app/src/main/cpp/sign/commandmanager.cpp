@@ -1,5 +1,5 @@
 #include "sign/commandmanager.hpp"
-#include "sign/commands.hpp"
+#include "sign/cmd.hpp"
 #include "utils/logger.hpp"
 
 #undef NDEBUG
@@ -13,7 +13,7 @@ constexpr int32_t INVALID_CMD_ID = 0;
 struct Manager::CommandData
 {
    stdcr::coroutine_handle<> callback = nullptr;
-   int64_t response = ResponseCode::INVALID_STATE();
+   int64_t response = ICommand::INTEROP_FAILURE;
 };
 
 Manager::FutureResponse::FutureResponse(Manager & mgr, int32_t id) noexcept
@@ -36,7 +36,7 @@ int64_t Manager::FutureResponse::await_resume() const
 {
    const auto it = m_mgr.m_pendingCmds.find(m_id);
    if (it == std::end(m_mgr.m_pendingCmds))
-      return cmd::ResponseCode::INVALID_STATE();
+      return ICommand::INTEROP_FAILURE;
 
    const int64_t response = it->second.response;
    m_mgr.m_pendingCmds.erase(it);
