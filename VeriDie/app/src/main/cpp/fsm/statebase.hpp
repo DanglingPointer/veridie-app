@@ -31,6 +31,7 @@ public:
    void OnCastRequest(dice::Request && /*localRequest*/){}
    void OnGameStopped(){}
    void OnSocketReadFailure(const bt::Device & /*transmitter*/){}
+   using cr::TaskOwner<>::RethrowExceptions;
 };
 
 } // namespace fsm

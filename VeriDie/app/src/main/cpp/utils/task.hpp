@@ -99,6 +99,7 @@ struct TaskHandle
 
    explicit operator bool() const noexcept;
    auto Run(E executor = {});
+   void EnsureNoException();
    void Swap(TaskHandle & other) noexcept;
 
 private:
@@ -113,7 +114,7 @@ struct DetachedPromise
    DetachedHandle get_return_object() const noexcept { return {}; }
    stdcr::suspend_never initial_suspend() const noexcept { return {}; }
    stdcr::suspend_never final_suspend() const noexcept { return {}; }
-   void unhandled_exception() const noexcept { std::abort(); }
+   void unhandled_exception() const { throw; }
    void return_void() noexcept {}
    template <Awaiter A>
    decltype(auto) await_transform(A && a) { return std::forward<A>(a); }
@@ -284,6 +285,19 @@ auto TaskHandle<T, E>::Run(E executor)
       }
    };
    return Awaiter{m_handle};
+}
+
+template <TaskResult T, Executor E>
+void TaskHandle<T, E>::EnsureNoException()
+{
+   if (!m_handle || !m_handle.done())
+      return;
+
+   if (const auto * exptr = std::get_if<std::exception_ptr>(&m_handle.promise().value)) {
+      std::exception_ptr copy = *exptr;
+      m_handle.promise().value.template emplace<std::monostate>();
+      std::rethrow_exception(copy);
+   }
 }
 
 template <TaskResult T, Executor E>

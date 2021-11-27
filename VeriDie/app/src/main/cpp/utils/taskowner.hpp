@@ -17,11 +17,18 @@ public:
 
    void StartTask(TaskHandle<void, E> && task)
    {
+      RethrowExceptions();
       std::erase_if(m_tasks, [](const TaskHandle<void, E> & t) {
          return !t;
       });
       m_tasks.template emplace_back(std::move(task));
       m_tasks.back().Run(m_executor);
+   }
+
+   void RethrowExceptions()
+   {
+      for (auto & task : m_tasks)
+         task.EnsureNoException();
    }
 
 private:
