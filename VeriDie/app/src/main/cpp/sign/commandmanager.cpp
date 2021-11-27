@@ -28,7 +28,7 @@ bool Manager::FutureResponse::await_ready() const noexcept
 
 void Manager::FutureResponse::await_suspend(stdcr::coroutine_handle<> h) const
 {
-   assert(m_mgr.m_pendingCmds.count(m_id) == 0);
+   assert(m_mgr.m_pendingCmds.count(m_id) != 0);
    m_mgr.m_pendingCmds[m_id].callback = h;
 }
 
@@ -56,9 +56,12 @@ Manager::Manager(ILogger & logger,
 
 Manager::~Manager()
 {
-   for (auto it = m_pendingCmds.begin(); it != std::end(m_pendingCmds); it = m_pendingCmds.begin())
-      if (auto & [_, data] = *it; data.callback)
-         data.callback();
+   for (auto it = m_pendingCmds.begin(); it != std::end(m_pendingCmds); it = m_pendingCmds.begin()) {
+      if (it->second.callback)
+         it->second.callback();
+      else
+         m_pendingCmds.erase(it);
+   }
 }
 
 Manager::FutureResponse Manager::IssueUiCommand(mem::pool_ptr<ICommand> && cmd)
@@ -88,6 +91,7 @@ Manager::FutureResponse Manager::IssueCommand(mem::pool_ptr<ICommand> && cmd,
       return FutureResponse(*this, INVALID_CMD_ID);
    }
 
+   m_pendingCmds[id] = {};
    return FutureResponse(*this, id);
 }
 
@@ -95,13 +99,14 @@ void Manager::SubmitResponse(int32_t cmdId, int64_t response)
 {
    const auto it = m_pendingCmds.find(cmdId);
    if (it == std::end(m_pendingCmds)) {
-      m_log.Write<LogPriority::WARN>("CommandManager received an orphaned response, ID =", cmdId);
+      m_log.Write<LogPriority::WARN>(
+         "cmd::Manager received response to a non-existing command, ID =",
+         cmdId);
       return;
    }
    if (!it->second.callback) {
       m_pendingCmds.erase(it);
-      m_log.Write<LogPriority::WARN>("CommandManager received response to a detached command, ID =",
-                                     cmdId);
+      m_log.Write<LogPriority::INFO>("cmd::Manager received an orphaned response, ID =", cmdId);
       return;
    }
    it->second.response = response;

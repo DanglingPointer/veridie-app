@@ -182,7 +182,7 @@ struct MockExternalInvoker : IExternalInvoker
    bool Invoke(mem::pool_ptr<cmd::ICommand> && data, int32_t id) override
    {
       receivedCommands.emplace_back(std::move(data), id);
-      return true;
+      return !fail;
    }
 
    struct Invocation
@@ -196,6 +196,7 @@ struct MockExternalInvoker : IExternalInvoker
       int32_t id;
    };
    std::vector<Invocation> receivedCommands;
+   bool fail = false;
 };
 
 class ManagerFixture : public ::testing::Test
@@ -320,6 +321,8 @@ TEST_F(ManagerFixture, cmd_manager_responds_to_pending_cmds_when_dying)
    auto sentCmd2 = Make<TestCommand>(ShowRequest::ID);
    int64_t response2 = 0;
 
+   auto sentCmd3 = pool.MakeUnique<TestCommand>(ShowToast::ID);
+
    coawait_and_get_response(
       [&] {
          return manager->IssueBtCommand(std::move(sentCmd1));
@@ -331,6 +334,8 @@ TEST_F(ManagerFixture, cmd_manager_responds_to_pending_cmds_when_dying)
          return manager->IssueUiCommand(std::move(sentCmd2));
       },
       &response2);
+
+   manager->IssueUiCommand(std::move(sentCmd3));
 
    EXPECT_EQ(0, response1);
    EXPECT_EQ(0, response2);
@@ -369,6 +374,61 @@ TEST_F(ManagerFixture, cmd_manager_returns_error_on_overflow_immediately)
    EXPECT_EQ(commands.size(), uiInvoker->receivedCommands.size());
    EXPECT_EQ(ResponseCode::INVALID_STATE(), overflowResponse);
    manager.reset();
+}
+
+TEST_F(ManagerFixture, cmd_manager_increments_id_for_non_awaited_commands)
+{
+   auto sentCmd1 = pool.MakeUnique<TestCommand>(EnableBluetooth::ID);
+   auto sentCmd2 = pool.MakeUnique<TestCommand>(EnableBluetooth::ID);
+   int64_t response2 = 0;
+
+   manager->IssueUiCommand(std::move(sentCmd1));
+   EXPECT_EQ(1, uiInvoker->receivedCommands.size());
+   EXPECT_EQ(EnableBluetooth::ID, uiInvoker->receivedCommands.back().id);
+
+   coawait_and_get_response(
+         [&] {
+            return manager->IssueUiCommand(std::move(sentCmd2));
+         },
+         &response2);
+
+   EXPECT_EQ(2, uiInvoker->receivedCommands.size());
+   EXPECT_EQ(EnableBluetooth::ID + 1, uiInvoker->receivedCommands.back().id);
+
+   manager->SubmitResponse(EnableBluetooth::ID, 41);
+   manager->SubmitResponse(EnableBluetooth::ID + 1, 42);
+   EXPECT_EQ(42, response2);
+}
+
+TEST_F(ManagerFixture, cmd_manager_doesnt_increment_id_on_invoker_failure)
+{
+   auto sentCmd1 = pool.MakeUnique<TestCommand>(EnableBluetooth::ID);
+   int64_t response1 = 0;
+   auto sentCmd2 = pool.MakeUnique<TestCommand>(EnableBluetooth::ID);
+   int64_t response2 = 0;
+
+   uiInvoker->fail = true;
+   coawait_and_get_response(
+         [&] {
+            return manager->IssueUiCommand(std::move(sentCmd1));
+         },
+         &response1);
+   EXPECT_EQ(1, uiInvoker->receivedCommands.size());
+   EXPECT_EQ(EnableBluetooth::ID, uiInvoker->receivedCommands.back().id);
+   EXPECT_EQ(cmd::ICommand::INTEROP_FAILURE, response1);
+
+   uiInvoker->fail = false;
+   coawait_and_get_response(
+         [&] {
+            return manager->IssueUiCommand(std::move(sentCmd2));
+         },
+         &response2);
+
+   EXPECT_EQ(2, uiInvoker->receivedCommands.size());
+   EXPECT_EQ(EnableBluetooth::ID, uiInvoker->receivedCommands.back().id);
+
+   manager->SubmitResponse(EnableBluetooth::ID, 42);
+   EXPECT_EQ(42, response2);
 }
 
 } // namespace
