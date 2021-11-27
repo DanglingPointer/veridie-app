@@ -115,12 +115,10 @@ cr::DetachedHandle BridgeReady(JNIEnv * env, jclass localRef)
 
    Context * ctx = co_await JniWorkerScheduler{};
 
-   if (!ctx->uiInvoker)
-      ctx->uiInvoker = std::make_shared<jni::JavaInvoker>(*ctx->jenv, globalRef1, "receiveUiCommand");
+   ctx->uiInvoker = std::make_shared<jni::JavaInvoker>(*ctx->jenv, globalRef1, "receiveUiCommand");
    auto uii = ctx->uiInvoker->GetExternalInvoker();
 
-   if (!ctx->btInvoker)
-      ctx->btInvoker = std::make_shared<jni::JavaInvoker>(*ctx->jenv, globalRef2, "receiveBtCommand");
+   ctx->btInvoker = std::make_shared<jni::JavaInvoker>(*ctx->jenv, globalRef2, "receiveBtCommand");
    auto bti = ctx->btInvoker->GetExternalInvoker();
 
    core::IController * ctrl = co_await core::Scheduler{};
