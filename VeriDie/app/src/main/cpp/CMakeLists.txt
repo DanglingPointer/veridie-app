@@ -30,7 +30,6 @@ add_library(veridiecore
         STATIC
         core/commandadapter.cpp
         core/controller.cpp
-        core/exec.cpp
         dice/engine.cpp
         dice/serializer.cpp
         fsm/stateconnecting.cpp
@@ -41,7 +40,6 @@ add_library(veridiecore
         sign/commandmanager.cpp
         sign/events.cpp
         utils/timer.cpp
-        utils/worker.cpp
         )
 target_link_libraries(veridiecore
         veridielog)
@@ -50,8 +48,10 @@ target_link_libraries(veridiecore
 # veridie for android
 add_library(veridie
         SHARED
+        core/exec.cpp
         jni/exec.cpp
         jni/javainvoker.cpp
+        utils/worker.cpp
         )
 target_link_libraries(veridie
         veridielog
@@ -83,6 +83,7 @@ target_include_directories(gtest PUBLIC ${GOOGLETEST_ROOT}/include)
 
 # unit tests executable
 add_executable(tests
+        utils/worker.cpp
         tests/test_dice.cpp
         tests/test_task.cpp
         tests/test_threading.cpp
