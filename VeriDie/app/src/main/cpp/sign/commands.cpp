@@ -56,7 +56,7 @@ void WriteToBuffer(const dice::Cast & cast, char * from, char * to)
          }
       },
       cast);
-   *from = static_cast<unsigned char>(it - from);
+   *from = static_cast<unsigned char>(it - from - 1);
 }
 
 template <typename T, size_t Length, size_t Size, size_t... Is>
