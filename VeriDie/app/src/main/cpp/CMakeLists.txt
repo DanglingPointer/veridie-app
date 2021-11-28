@@ -30,6 +30,7 @@ add_library(veridiecore
         STATIC
         core/commandadapter.cpp
         core/controller.cpp
+        core/log.cpp
         dice/engine.cpp
         dice/serializer.cpp
         fsm/stateconnecting.cpp
@@ -63,6 +64,7 @@ add_library(jni_only_veridie
         SHARED
         tests/fakecontroller.cpp
         core/exec.cpp
+        core/log.cpp
         jni/exec.cpp
         jni/javainvoker.cpp
         sign/commandmanager.cpp
@@ -89,6 +91,7 @@ add_executable(tests
         tests/test_threading.cpp
         tests/test_cmd.cpp
         tests/test_controller.cpp
+        tests/test_log.cpp
         tests/test_mempool.cpp)
 target_link_libraries(tests
         gtest
