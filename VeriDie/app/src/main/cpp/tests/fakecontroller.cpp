@@ -4,7 +4,7 @@
 #include <sstream>
 
 #include "core/controller.hpp"
-#include "utils/logger.hpp"
+#include "core/log.hpp"
 #include "utils/task.hpp"
 #include "sign/cmd.hpp"
 #include "sign/commandmanager.hpp"
@@ -24,6 +24,8 @@ std::unique_ptr<dice::ISerializer> CreateXmlSerializer()
 } // namespace dice
 
 namespace {
+
+constexpr auto TAG = "EchoController";
 
 #define ASSERT(cond)  \
    if (!(cond)) {     \
@@ -46,34 +48,33 @@ struct TestCommand : public cmd::ICommand
    std::vector<std::string> args;
 };
 
-class EchoController
-   : public core::IController
+class EchoController : public core::IController
 {
 public:
-   EchoController(ILogger & logger)
-      : m_logger(logger)
-      , m_cmdManager(nullptr)
+   EchoController()
+      : m_cmdManager(nullptr)
    {}
    void Start(std::unique_ptr<cmd::IExternalInvoker> uiInvoker,
               std::unique_ptr<cmd::IExternalInvoker> btInvoker) override
    {
-      m_cmdManager =
-         std::make_unique<cmd::Manager>(m_logger, std::move(uiInvoker), std::move(btInvoker));
+      m_cmdManager = std::make_unique<cmd::Manager>(std::move(uiInvoker), std::move(btInvoker));
    }
    void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
       std::ostringstream ss;
       for (const auto & s : args)
          ss << "[" << s << "] ";
-      m_logger.Write<LogPriority::DEBUG>("EchoController received event Id:",
-                                         eventId,
-                                         "Args:",
-                                         ss.str());
+      Log::Debug(TAG, "Received event Id: {} Args: {}", eventId, ss.str());
       SendCommmandAndVerifyResponse(cmd::pool.MakeUnique<TestCommand>((eventId << 8), args));
+      // m_cmdManager->IssueUiCommand(cmd::pool.MakeUnique<TestCommand>((eventId << 8), args));
    }
    void OnCommandResponse(int32_t cmdId, int64_t response) override
    {
       ASSERT(m_cmdManager);
+      Log::Debug(TAG,
+                 "Received command response Command: {} Response: {}",
+                 cmdId,
+                 cmd::ToString(static_cast<cmd::ICommand::ResponseCode>(response)));
       m_cmdManager->SubmitResponse(cmdId, response);
    }
 
@@ -83,7 +84,6 @@ private:
       const int64_t response = co_await m_cmdManager->IssueUiCommand(std::move(cmd));
       ASSERT(response == cmd::ICommand::OK);
    }
-   ILogger & m_logger;
    std::unique_ptr<cmd::Manager> m_cmdManager;
 };
 
@@ -93,9 +93,8 @@ namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> /*engine*/,
                                               std::unique_ptr<async::Timer> /*timer*/,
-                                              std::unique_ptr<dice::ISerializer> /*serializer*/,
-                                              ILogger & logger)
+                                              std::unique_ptr<dice::ISerializer> /*serializer*/)
 {
-   return std::make_unique<EchoController>(logger);
+   return std::make_unique<EchoController>();
 }
 } // namespace core

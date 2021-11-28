@@ -1,4 +1,5 @@
 #include "core/commandadapter.hpp"
+#include "core/log.hpp"
 #include "sign/commandmanager.hpp"
 
 #include <sstream>
@@ -6,13 +7,22 @@
 namespace core {
 namespace {
 
+constexpr auto TAG = "Command";
+
 void LogCommand(const mem::pool_ptr<cmd::ICommand> & cmd)
 {
    std::ostringstream ss;
-   ss << ">>>>> " << cmd->GetName();
    for (size_t i = 0; i < cmd->GetArgsCount(); ++i)
       ss << " [" << cmd->GetArgAt(i) << "]";
-   // Log::Info("%s", ss.str().c_str()); // TODO
+   Log::Info(TAG, ">>>>> {}{}", cmd->GetName(), ss.str());
+}
+
+void LogResponse(std::string_view cmdName, int64_t response)
+{
+   Log::Info(TAG,
+             "<<<<< {}Response [{}]",
+             cmdName,
+             cmd::ToString(static_cast<cmd::ICommand::ResponseCode>(response)));
 }
 
 } // namespace
@@ -20,16 +30,18 @@ void LogCommand(const mem::pool_ptr<cmd::ICommand> & cmd)
 cr::TaskHandle<int64_t> CommandAdapter::ForwardUiCommand(mem::pool_ptr<cmd::ICommand> && cmd)
 {
    LogCommand(cmd);
+   const std::string_view name = cmd->GetName();
    const int64_t response = co_await m_manager.IssueUiCommand(std::move(cmd));
-   // TODO: log response
+   LogResponse(name, response);
    co_return response;
 }
 
 cr::TaskHandle<int64_t> CommandAdapter::ForwardBtCommand(mem::pool_ptr<cmd::ICommand> && cmd)
 {
    LogCommand(cmd);
+   const std::string_view name = cmd->GetName();
    const int64_t response = co_await m_manager.IssueBtCommand(std::move(cmd));
-   // TODO: log response
+   LogResponse(name, response);
    co_return response;
 }
 

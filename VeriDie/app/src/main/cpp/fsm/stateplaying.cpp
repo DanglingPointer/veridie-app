@@ -2,9 +2,9 @@
 #include <vector>
 
 #include "bt/device.hpp"
+#include "core/log.hpp"
 #include "fsm/states.hpp"
 #include "fsm/stateswitcher.hpp"
-#include "utils/logger.hpp"
 #include "utils/timer.hpp"
 #include "dice/serializer.hpp"
 #include "dice/engine.hpp"
@@ -14,6 +14,7 @@
 using namespace std::chrono_literals;
 namespace {
 
+constexpr auto TAG = "FSM";
 constexpr uint32_t RETRY_COUNT = 5U;
 constexpr uint32_t REQUEST_ATTEMPTS = 3U;
 constexpr uint32_t ROUNDS_PER_GENERATOR = 10U;
@@ -169,7 +170,7 @@ StatePlaying::StatePlaying(const Context & ctx,
    , m_ignoreOffers(m_ctx.timer->WaitFor(IGNORE_OFFERS_DURATION))
    , m_responseCount(0U)
 {
-   m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+   Log::Info(TAG, "New state: {}", __func__);
    m_ignoreOffers.Run(Executor());
 
    for (const auto & peer : peers) {
@@ -244,7 +245,7 @@ void StatePlaying::OnMessageReceived(const bt::Device & sender, const std::strin
       }
    }
    catch (const std::exception & e) {
-      m_ctx.logger->Write<LogPriority::ERROR>("StatePlaying", __func__, e.what());
+      Log::Error(TAG, "StateConnecting::{}(): {}", __func__, e.what());
    }
 }
 

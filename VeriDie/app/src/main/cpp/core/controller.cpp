@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "core/controller.hpp"
-#include "utils/logger.hpp"
+#include "core/log.hpp"
 #include "utils/timer.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
@@ -24,12 +24,10 @@ EventHandlerMap CreateEventHandlers(event::List<Events...>)
 class Controller : public core::IController
 {
 public:
-   Controller(ILogger & logger,
-              std::unique_ptr<dice::IEngine> engine,
+   Controller(std::unique_ptr<dice::IEngine> engine,
               std::unique_ptr<async::Timer> timer,
               std::unique_ptr<dice::ISerializer> serializer)
-      : m_logger(logger)
-      , m_cmdManager(nullptr)
+      : m_cmdManager(nullptr)
       , m_generator(std::move(engine))
       , m_timer(std::move(timer))
       , m_serializer(std::move(serializer))
@@ -42,10 +40,8 @@ private:
    {
       if (m_cmdManager)
          return;
-      m_cmdManager =
-         std::make_unique<cmd::Manager>(m_logger, std::move(uiInvoker), std::move(btInvoker));
-      m_state.emplace<fsm::StateIdle>(fsm::Context{&m_logger,
-                                                   m_generator.get(),
+      m_cmdManager = std::make_unique<cmd::Manager>(std::move(uiInvoker), std::move(btInvoker));
+      m_state.emplace<fsm::StateIdle>(fsm::Context{m_generator.get(),
                                                    m_serializer.get(),
                                                    m_timer.get(),
                                                    *m_cmdManager,
@@ -53,35 +49,35 @@ private:
    }
    void OnEvent(int32_t eventId, const std::vector<std::string> & args) override
    {
+      static constexpr auto TAG = "Event";
+
       auto it = m_eventHandlers.find(eventId);
-      if (it == std::cend(m_eventHandlers)) {
-         m_logger.Write<LogPriority::FATAL>("Event handler not found, id=", eventId);
+      if (it == std::cend(m_eventHandlers)) [[unlikely]] {
+         Log::Error(TAG, "Event handler not found, id={}", eventId);
          return;
       }
       std::string_view name = it->second.first;
       event::Handler handler = it->second.second;
 
       std::ostringstream ss;
-      ss << "<<<<< " << name;
       for (const auto & s : args)
          ss << " [" << s << "]";
-      m_logger.Write(LogPriority::INFO, ss.str());
+      Log::Info(TAG, "<<<<< {}{}", name, ss.str());
 
       bool success = (*handler)(m_state, args);
-      if (!success) {
-         m_logger.Write<LogPriority::ERROR>("Could not parse event args");
+      if (!success) [[unlikely]] {
+         Log::Error(TAG, "Could not parse event args");
       }
    }
    void OnCommandResponse(int32_t cmdId, int64_t response) override
    {
       if (!m_cmdManager) [[unlikely]] {
-         //Log::Error ... //TODO
+         Log::Error("Command", "{}: no cmd manager", __func__);
          return;
       }
       m_cmdManager->SubmitResponse(cmdId, response);
    }
 
-   ILogger & m_logger;
    std::unique_ptr<cmd::Manager> m_cmdManager;
    std::unique_ptr<dice::IEngine> m_generator;
    std::unique_ptr<async::Timer> m_timer;
@@ -97,13 +93,9 @@ namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
                                               std::unique_ptr<async::Timer> timer,
-                                              std::unique_ptr<dice::ISerializer> serializer,
-                                              ILogger & logger)
+                                              std::unique_ptr<dice::ISerializer> serializer)
 {
-   return std::make_unique<Controller>(logger,
-                                       std::move(engine),
-                                       std::move(timer),
-                                       std::move(serializer));
+   return std::make_unique<Controller>(std::move(engine), std::move(timer), std::move(serializer));
 }
 
 } // namespace core

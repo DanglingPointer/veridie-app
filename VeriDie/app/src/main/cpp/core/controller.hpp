@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-class ILogger;
-
 namespace dice {
 class IEngine;
 class ISerializer;
@@ -35,8 +33,7 @@ public:
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
                                               std::unique_ptr<async::Timer> timer,
-                                              std::unique_ptr<dice::ISerializer> serializer,
-                                              ILogger & logger);
+                                              std::unique_ptr<dice::ISerializer> serializer);
 
 } // namespace core
 

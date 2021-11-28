@@ -1,21 +1,25 @@
 #include <chrono>
 
+#include "core/log.hpp"
 #include "sign/commandpool.hpp"
 #include "fsm/states.hpp"
 #include "fsm/stateswitcher.hpp"
-#include "utils/logger.hpp"
 #include "utils/timer.hpp"
 #include "sign/commands.hpp"
 
 namespace fsm {
 using namespace std::chrono_literals;
 
+namespace {
+constexpr auto TAG = "FSM";
+}
+
 StateIdle::StateIdle(const Context & ctx, bool startNewGame)
    : m_ctx(ctx)
    , m_newGamePending(false)
    , m_bluetoothOn(false)
 {
-   m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+   Log::Info(TAG, "New state: {}", __func__);
    m_enableBtTask = RequestBluetoothOn();
    m_enableBtTask.Run(Executor());
    cmd::pool.ShrinkToFit();

@@ -1,3 +1,4 @@
+#include <android/log.h>
 #include <cassert>
 #include <string>
 #include <memory>
@@ -7,9 +8,9 @@
 #include "jni/javainvoker.hpp"
 #include "core/exec.hpp"
 #include "core/controller.hpp"
+#include "core/log.hpp"
 #include "sign/commandmanager.hpp"
 #include "utils/task.hpp"
-#include "utils/logger.hpp"
 #include "utils/worker.hpp"
 #include "bt/device.hpp"
 
@@ -17,9 +18,31 @@ using namespace std::chrono_literals;
 
 namespace {
 
+constexpr auto TAG = "JNI";
+
+void LogDebug(const char * tag, const char * text)
+{
+   __android_log_write(ANDROID_LOG_DEBUG, tag, text);
+}
+void LogInfo(const char * tag, const char * text)
+{
+   __android_log_write(ANDROID_LOG_INFO, tag, text);
+}
+void LogWarning(const char * tag, const char * text)
+{
+   __android_log_write(ANDROID_LOG_WARN, tag, text);
+}
+void LogError(const char * tag, const char * text)
+{
+   __android_log_write(ANDROID_LOG_ERROR, tag, text);
+}
+[[noreturn]] void LogFatal(const char * tag, const char * text)
+{
+   __android_log_assert(nullptr, tag, "%s", text);
+}
+
 struct Context
 {
-   ILogger & logger;
    JavaVM * jvm;
    JNIEnv * jenv;
    std::shared_ptr<jni::JavaInvoker> uiInvoker;
@@ -29,16 +52,15 @@ struct Context
 void ScheduleOnJniWorker(std::function<void(Context &)> && task,
                          std::chrono::milliseconds delay = 0ms)
 {
-   static auto onException = [](std::string_view /*worker*/, std::string_view /*exception*/) {
-      std::abort(); // TODO
+   static auto onException = [](std::string_view worker, std::string_view exception) {
+      Log::Error(TAG, "Worker {} caught an exception: {}", worker, exception);
    };
    static async::Worker s_worker(async::Worker::Config{
       .name = "JNI_WORKER",
       .capacity = std::numeric_limits<size_t>::max(),
       .exceptionHandler = onException,
    });
-   static auto s_logger = CreateLogger("JNI_WORKER");
-   static Context s_ctx{*s_logger, nullptr, nullptr, nullptr, nullptr};
+   static Context s_ctx{nullptr, nullptr, nullptr, nullptr};
 
    s_worker.Schedule(delay, [task = std::move(task)] {
       task(s_ctx);
@@ -55,16 +77,23 @@ std::string GetString(JNIEnv * env, jstring jstr)
    return ret;
 }
 
-std::string ErrorToString(jint error)
+std::string_view ErrorToString(jint error)
 {
    switch (error) {
-      case JNI_ERR: return "Generic error";
-      case JNI_EDETACHED: return "Thread detached from the VM";
-      case JNI_EVERSION: return "JNI version error";
-      case JNI_ENOMEM: return "Out of memory";
-      case JNI_EEXIST: return "VM already created";
-      case JNI_EINVAL: return "InvalidArgument";
-      default: return "Unknown error";
+   case JNI_ERR:
+      return "Generic error";
+   case JNI_EDETACHED:
+      return "Thread detached from the VM";
+   case JNI_EVERSION:
+      return "JNI version error";
+   case JNI_ENOMEM:
+      return "Out of memory";
+   case JNI_EEXIST:
+      return "VM already created";
+   case JNI_EINVAL:
+      return "InvalidArgument";
+   default:
+      return "Unknown error";
    }
 }
 
@@ -90,11 +119,17 @@ struct JniWorkerScheduler
 cr::DetachedHandle OnLoad(JavaVM * vm)
 {
    Context * ctx = co_await JniWorkerScheduler{};
+
+   Log::s_debugHandler = LogDebug;
+   Log::s_infoHandler = LogInfo;
+   Log::s_warningHandler = LogWarning;
+   Log::s_errorHandler = LogError;
+   Log::s_fatalHandler = LogFatal;
+
    ctx->jvm = vm;
    auto res = ctx->jvm->AttachCurrentThread(&ctx->jenv, nullptr);
    if (res != JNI_OK) {
-      ctx->logger.Write<LogPriority::FATAL>("Failed to attach jni thread:", ErrorToString(res));
-      std::abort();
+      Log::Fatal(TAG, "Failed to attach jni thread: {}", ErrorToString(res));
    }
 }
 

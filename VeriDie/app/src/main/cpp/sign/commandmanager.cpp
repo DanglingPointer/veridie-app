@@ -1,6 +1,7 @@
 #include "sign/commandmanager.hpp"
+
+#include "core/log.hpp"
 #include "sign/cmd.hpp"
-#include "utils/logger.hpp"
 
 #undef NDEBUG
 #include <cassert>
@@ -8,7 +9,8 @@
 namespace cmd {
 namespace {
 constexpr int32_t INVALID_CMD_ID = 0;
-}
+constexpr auto TAG = "Command";
+} // namespace
 
 struct Manager::CommandData
 {
@@ -43,11 +45,9 @@ int64_t Manager::FutureResponse::await_resume() const
    return response;
 }
 
-Manager::Manager(ILogger & logger,
-                 std::unique_ptr<IExternalInvoker> uiInvoker,
+Manager::Manager(std::unique_ptr<IExternalInvoker> uiInvoker,
                  std::unique_ptr<IExternalInvoker> btInvoker)
-   : m_log(logger)
-   , m_uiInvoker(std::move(uiInvoker))
+   : m_uiInvoker(std::move(uiInvoker))
    , m_btInvoker(std::move(btInvoker))
 {
    assert(m_uiInvoker);
@@ -56,7 +56,8 @@ Manager::Manager(ILogger & logger,
 
 Manager::~Manager()
 {
-   for (auto it = m_pendingCmds.begin(); it != std::end(m_pendingCmds); it = m_pendingCmds.begin()) {
+   for (auto it = m_pendingCmds.begin(); it != std::end(m_pendingCmds);
+        it = m_pendingCmds.begin()) {
       if (it->second.callback)
          it->second.callback();
       else
@@ -82,12 +83,12 @@ Manager::FutureResponse Manager::IssueCommand(mem::pool_ptr<ICommand> && cmd,
       ++id;
 
    if ((id - cmd->GetId()) >= COMMAND_ID(1)) {
-      m_log.Write<LogPriority::ERROR>("Command storage is full for ", cmd->GetName());
+      Log::Error(TAG, "Command storage is full for {}", cmd->GetName());
       return FutureResponse(*this, INVALID_CMD_ID);
    }
 
    if (!invoker.Invoke(std::move(cmd), id)) {
-      m_log.Write<LogPriority::ERROR>("External Invoker failed");
+      Log::Error(TAG, "External Invoker failed");
       return FutureResponse(*this, INVALID_CMD_ID);
    }
 
@@ -99,19 +100,16 @@ void Manager::SubmitResponse(int32_t cmdId, int64_t response)
 {
    const auto it = m_pendingCmds.find(cmdId);
    if (it == std::end(m_pendingCmds)) {
-      m_log.Write<LogPriority::WARN>(
-         "cmd::Manager received response to a non-existing command, ID =",
-         cmdId);
+      Log::Warning(TAG, "cmd::Manager received response to a non-existing command, ID = {}", cmdId);
       return;
    }
    if (!it->second.callback) {
       m_pendingCmds.erase(it);
-      m_log.Write<LogPriority::INFO>("cmd::Manager received an orphaned response, ID =", cmdId);
+      Log::Info(TAG, "cmd::Manager received an orphaned response, ID = {}", cmdId);
       return;
    }
    it->second.response = response;
    it->second.callback();
 }
-
 
 } // namespace cmd

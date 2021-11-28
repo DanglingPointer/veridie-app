@@ -1,10 +1,10 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
+#include "core/log.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
 #include "utils/timer.hpp"
 #include "utils/worker.hpp"
-#include "utils/logger.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -16,8 +16,8 @@ namespace {
 
 void ScheduleOnMainWorker(std::function<void()> && task, std::chrono::milliseconds delay = 0ms)
 {
-   static auto onException = [](std::string_view /*worker*/, std::string_view /*exception*/) {
-      std::abort(); // TODO
+   static auto onException = [](std::string_view worker, std::string_view exception) {
+      Log::Error("MAIN", "Worker {} caught an exception: {}", worker, exception);
    };
    static async::Worker s_worker(async::Worker::Config{
       .name = "MAIN_WORKER",
@@ -29,11 +29,9 @@ void ScheduleOnMainWorker(std::function<void()> && task, std::chrono::millisecon
 
 IController & GetController()
 {
-   static auto s_logger = CreateLogger("MAIN_WORKER");
    static auto s_ctrl = core::CreateController(dice::CreateUniformEngine(),
                                                std::make_unique<async::Timer>(ScheduleOnMainWorker),
-                                               dice::CreateXmlSerializer(),
-                                               *s_logger);
+                                               dice::CreateXmlSerializer());
    return *s_ctrl;
 }
 

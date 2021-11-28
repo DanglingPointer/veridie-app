@@ -12,8 +12,6 @@ namespace async {
 class Timer;
 }
 
-class ILogger;
-
 namespace fsm {
 
 class StateIdle;
@@ -26,7 +24,6 @@ using StateHolder =
 
 struct Context
 {
-   ILogger * const logger;
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
    async::Timer * const timer;

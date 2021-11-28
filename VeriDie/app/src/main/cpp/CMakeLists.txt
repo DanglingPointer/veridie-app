@@ -16,15 +16,6 @@ find_library(log-lib
         log)
 
 
-# logging
-add_library(veridielog
-        STATIC
-        utils/logger.cpp
-        )
-target_link_libraries(veridielog
-        ${log-lib})
-
-
 # cross-platform main logic
 add_library(veridiecore
         STATIC
@@ -42,8 +33,6 @@ add_library(veridiecore
         sign/events.cpp
         utils/timer.cpp
         )
-target_link_libraries(veridiecore
-        veridielog)
 
 
 # veridie for android
@@ -55,7 +44,7 @@ add_library(veridie
         utils/worker.cpp
         )
 target_link_libraries(veridie
-        veridielog
+        ${log-lib}
         veridiecore)
 
 
@@ -71,7 +60,7 @@ add_library(jni_only_veridie
         utils/worker.cpp
         )
 target_link_libraries(jni_only_veridie
-        veridielog)
+        ${log-lib})
 
 
 # google test static lib

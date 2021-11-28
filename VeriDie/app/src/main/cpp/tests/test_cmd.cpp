@@ -9,8 +9,7 @@
 namespace {
 using namespace cmd;
 
-class CmdFixture
-   : public ::testing::Test
+class CmdFixture : public ::testing::Test
 {
 protected:
    CmdFixture() = default;
@@ -19,7 +18,7 @@ protected:
 };
 
 
-//TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
+// TEST_F(CmdFixture, response_code_subset_maps_values_correctly)
 //{
 //   StopListeningResponse r1(ResponseCode::OK::value);
 //   r1.Handle(
@@ -50,10 +49,7 @@ TEST_F(CmdFixture, common_base_stores_arguments_correctly)
 
    const std::string player1 = "Player 1";
 
-   ShowResponse cmd(cast,
-                    "D100",
-                    2,
-                    player1);
+   ShowResponse cmd(cast, "D100", 2, player1);
 
    EXPECT_EQ(ShowResponse::ID, cmd.GetId());
    EXPECT_STREQ("ShowResponse", cmd.GetName().data());
@@ -64,7 +60,7 @@ TEST_F(CmdFixture, common_base_stores_arguments_correctly)
    EXPECT_STREQ("Player 1", cmd.GetArgAt(3).data());
 }
 
-//TEST_F(CmdFixture, invalid_response_throws_exception)
+// TEST_F(CmdFixture, invalid_response_throws_exception)
 //{
 //   NegotiationStart cmd(MakeCb([&](NegotiationStartResponse r) {
 //      ADD_FAILURE() << "Responded to: " << r.Value();
@@ -125,8 +121,7 @@ public:
       auto btMockInvoker = std::make_unique<MockExternalInvoker>();
       btInvoker = btMockInvoker.get();
 
-      manager =
-         std::make_unique<Manager>(logger, std::move(uiMockInvoker), std::move(btMockInvoker));
+      manager = std::make_unique<Manager>(std::move(uiMockInvoker), std::move(btMockInvoker));
    }
 
    FakeLogger logger;
@@ -303,10 +298,10 @@ TEST_F(ManagerFixture, cmd_manager_increments_id_for_non_awaited_commands)
    EXPECT_EQ(EnableBluetooth::ID, uiInvoker->receivedCommands.back().id);
 
    coawait_and_get_response(
-         [&] {
-            return manager->IssueUiCommand(std::move(sentCmd2));
-         },
-         &response2);
+      [&] {
+         return manager->IssueUiCommand(std::move(sentCmd2));
+      },
+      &response2);
 
    EXPECT_EQ(2, uiInvoker->receivedCommands.size());
    EXPECT_EQ(EnableBluetooth::ID + 1, uiInvoker->receivedCommands.back().id);
@@ -325,20 +320,20 @@ TEST_F(ManagerFixture, cmd_manager_doesnt_increment_id_on_invoker_failure)
 
    uiInvoker->fail = true;
    coawait_and_get_response(
-         [&] {
-            return manager->IssueUiCommand(std::move(sentCmd1));
-         },
-         &response1);
+      [&] {
+         return manager->IssueUiCommand(std::move(sentCmd1));
+      },
+      &response1);
    EXPECT_EQ(1, uiInvoker->receivedCommands.size());
    EXPECT_EQ(EnableBluetooth::ID, uiInvoker->receivedCommands.back().id);
    EXPECT_EQ(cmd::ICommand::INTEROP_FAILURE, response1);
 
    uiInvoker->fail = false;
    coawait_and_get_response(
-         [&] {
-            return manager->IssueUiCommand(std::move(sentCmd2));
-         },
-         &response2);
+      [&] {
+         return manager->IssueUiCommand(std::move(sentCmd2));
+      },
+      &response2);
 
    EXPECT_EQ(2, uiInvoker->receivedCommands.size());
    EXPECT_EQ(EnableBluetooth::ID, uiInvoker->receivedCommands.back().id);

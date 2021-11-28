@@ -8,8 +8,6 @@
 #include <memory>
 #include <unordered_map>
 
-class ILogger;
-
 namespace cmd {
 class ICommand;
 
@@ -35,8 +33,7 @@ public:
       const int32_t m_id;
    };
 
-   Manager(ILogger & logger,
-           std::unique_ptr<IExternalInvoker> uiInvoker,
+   Manager(std::unique_ptr<IExternalInvoker> uiInvoker,
            std::unique_ptr<IExternalInvoker> btInvoker);
    ~Manager();
 
@@ -48,7 +45,6 @@ public:
 private:
    FutureResponse IssueCommand(mem::pool_ptr<ICommand> && cmd, IExternalInvoker & invoker);
 
-   ILogger & m_log;
    const std::unique_ptr<IExternalInvoker> m_uiInvoker;
    const std::unique_ptr<IExternalInvoker> m_btInvoker;
 

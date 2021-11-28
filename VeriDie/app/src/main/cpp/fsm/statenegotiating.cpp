@@ -2,16 +2,20 @@
 #include <iterator>
 
 #include "bt/device.hpp"
+#include "core/log.hpp"
 #include "dice/serializer.hpp"
 #include "fsm/states.hpp"
 #include "fsm/stateswitcher.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
-#include "utils/logger.hpp"
 #include "utils/timer.hpp"
 
 namespace fsm {
 using namespace std::chrono_literals;
+
+namespace {
+constexpr auto TAG = "FSM";
+}
 
 uint32_t g_negotiationRound = 0U;
 
@@ -22,7 +26,7 @@ StateNegotiating::StateNegotiating(const fsm::Context & ctx,
    , m_localMac(std::move(localMac))
    , m_peers(std::move(peers))
 {
-   m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+   Log::Info(TAG, "New state: {}", __func__);
    std::transform(std::cbegin(m_peers),
                   std::cend(m_peers),
                   std::inserter(m_offers, m_offers.end()),
@@ -56,7 +60,7 @@ void StateNegotiating::OnMessageReceived(const bt::Device & sender, const std::s
       m_offers[sender.mac] = std::move(offer);
    }
    catch (const std::exception & e) {
-      m_ctx.logger->Write<LogPriority::ERROR>("StateNegotiating", __func__, e.what());
+      Log::Error(TAG, "StateNegotiating::{}(): {}", __func__, e.what());
    }
 }
 
@@ -94,7 +98,7 @@ cr::TaskHandle<void> StateNegotiating::StartNegotiation()
       break;
    case Response::INTEROP_FAILURE:
    case Response::INVALID_STATE:
-      m_ctx.logger->Write<LogPriority::FATAL>("Cannot start negotiation in invalid state");
+      Log::Error(TAG, "{}: Cannot start negotiation in invalid state", __func__);
       break;
    }
 }

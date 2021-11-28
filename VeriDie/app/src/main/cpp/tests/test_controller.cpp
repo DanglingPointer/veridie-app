@@ -186,8 +186,7 @@ protected:
       generator = new StubGenerator;
       auto ctrl = core::CreateController(std::unique_ptr<dice::IEngine>(generator),
                                          std::make_unique<async::Timer>(std::ref(m_timer)),
-                                         dice::CreateXmlSerializer(),
-                                         logger);
+                                         dice::CreateXmlSerializer());
       ctrl->Start(m_proxy.GetUiInvoker(), m_proxy.GetBtInvoker());
       return ctrl;
    }
@@ -204,7 +203,7 @@ protected:
 TEST_F(IdlingFixture, state_idle_bluetooth_turned_on_successfully)
 {
    auto ctrl = CreateController();
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
 
    logger.Clear();
    auto [c, id] = proxy->PopNextCommand();
@@ -221,7 +220,7 @@ TEST_F(IdlingFixture, state_idle_bluetooth_turned_on_successfully)
    // new game requested
    ctrl->OnEvent(event::NewGameRequested::ID, {});
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateConnecting", logger.GetLastStateLine());
 }
 
 TEST_F(IdlingFixture, state_idle_bluetooth_fatal_failure)
@@ -235,11 +234,11 @@ TEST_F(IdlingFixture, state_idle_bluetooth_fatal_failure)
       EXPECT_EQ(cmd::EnableBluetooth::ID, c->GetId());
 
       ctrl->OnCommandResponse(id, cmd::ICommand::USER_DECLINED);
-      EXPECT_TRUE(logger.Empty());
       EXPECT_TRUE(proxy->NoCommands());
    }
 
    // no retries
+   logger.Clear();
    timer->FastForwardTime(2s);
    EXPECT_TRUE(proxy->NoCommands());
    EXPECT_TRUE(logger.Empty());
@@ -273,7 +272,7 @@ TEST_F(IdlingFixture, state_idle_bluetooth_no_adapter)
    }
 
    timer->FastForwardTime();
-   EXPECT_TRUE(logger.Empty());
+   EXPECT_TRUE(logger.GetLastStateLine().empty());
 }
 
 TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
@@ -287,7 +286,6 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
 
       ctrl->OnCommandResponse(id, cmd::ICommand::INVALID_STATE);
       EXPECT_TRUE(proxy->NoCommands());
-      EXPECT_TRUE(logger.Empty());
    }
 
    // check retry
@@ -311,6 +309,7 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
    }
 
    // no retries
+   logger.Clear();
    timer->FastForwardTime(2s);
    EXPECT_TRUE(proxy->NoCommands());
    EXPECT_TRUE(logger.Empty());
@@ -322,7 +321,7 @@ TEST_F(IdlingFixture, state_idle_retries_to_enable_bluetooth)
 TEST_F(IdlingFixture, state_idle_retry_after_bluetooth_off_and_user_declined)
 {
    auto ctrl = CreateController();
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
    logger.Clear();
    {
       auto [enableBt, id] = proxy->PopNextCommand();
@@ -354,7 +353,7 @@ TEST_F(IdlingFixture, state_idle_retry_after_bluetooth_off_and_user_declined)
       ctrl->OnCommandResponse(id, cmd::ICommand::OK);
    }
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateConnecting", logger.GetLastStateLine());
 }
 
 class ConnectingFixture : public IdlingFixture
@@ -367,7 +366,7 @@ protected:
       ctrl->OnCommandResponse(id, cmd::ICommand::OK);
       ctrl->OnEvent(event::NewGameRequested::ID, {});
       timer->FastForwardTime();
-      EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
+      EXPECT_EQ("New state: StateConnecting", logger.GetLastStateLine());
       EXPECT_TRUE(logger.NoWarningsOrErrors());
       logger.Clear();
    }
@@ -487,14 +486,14 @@ TEST_F(ConnectingFixture, fatal_failure_when_both_discovery_and_listening_failed
    ASSERT_TRUE(cmdListening);
    EXPECT_EQ(cmd::StartListening::ID, cmdListening->GetId());
 
-   logger.Clear();
    ctrl->OnCommandResponse(discId, cmd::ICommand::NO_BT_ADAPTER);
    ctrl->OnCommandResponse(listId, cmd::ICommand::USER_DECLINED);
+   logger.Clear();
 
    auto [fatalFailureText, _] = proxy->PopNextCommand();
    ASSERT_TRUE(fatalFailureText);
    EXPECT_EQ(cmd::ShowAndExit::ID, fatalFailureText->GetId());
-   EXPECT_TRUE(logger.Empty());
+   EXPECT_TRUE(logger.GetLastStateLine().empty());
 }
 
 TEST_F(ConnectingFixture, no_fatal_failure_when_only_listening_failed)
@@ -538,7 +537,7 @@ TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
    ctrl->OnCommandResponse(discId, cmd::ICommand::BLUETOOTH_OFF);
    ctrl->OnCommandResponse(listId, cmd::ICommand::BLUETOOTH_OFF);
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
    EXPECT_TRUE(cmd::pool.GetBlockCount() <= prevBlockCount);
    auto [enableBt, id] = proxy->PopNextCommand();
    ASSERT_TRUE(enableBt);
@@ -546,7 +545,7 @@ TEST_F(ConnectingFixture, goes_to_idle_and_back_if_bluetooth_is_off)
    EXPECT_TRUE(proxy->NoCommands());
    ctrl->OnCommandResponse(id, cmd::ICommand::OK);
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateConnecting ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateConnecting", logger.GetLastStateLine());
 }
 
 TEST_F(ConnectingFixture, sends_hello_to_connected_device)
@@ -636,7 +635,7 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    EXPECT_EQ(cmd::ShowToast::ID, toast->GetId());
    EXPECT_EQ(2U, toast->GetArgsCount());
    EXPECT_STREQ("3", toast->GetArgAt(1).data());
-   EXPECT_NE("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_NE("New state: StateNegotiating", logger.GetLastStateLine());
    logger.Clear();
 
    timer->FastForwardTime(1s);
@@ -649,7 +648,7 @@ TEST_F(ConnectingFixture, does_not_start_negotiation_until_received_own_mac)
    logger.Clear();
 
    timer->FastForwardTime(1s);
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
 
    auto stopDiscovery = proxy->PopNextCommand().c;
    ASSERT_TRUE(stopDiscovery);
@@ -681,7 +680,7 @@ TEST_F(ConnectingFixture, goes_to_idle_on_game_stop)
    ASSERT_TRUE(stopListening);
    EXPECT_EQ(cmd::StopListening::ID, stopListening->GetId());
 
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
 }
 
 TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
@@ -726,7 +725,7 @@ TEST_F(ConnectingFixture, does_not_negotiate_with_disconnected)
    // game start
    ctrl->OnEvent(event::ConnectivityEstablished::ID, {});
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
 
    auto stopDiscovery = proxy->PopNextCommand().c;
    ASSERT_TRUE(stopDiscovery);
@@ -810,7 +809,7 @@ protected:
       }
       ctrl->OnEvent(event::ConnectivityEstablished::ID, {}); // start
       timer->FastForwardTime();
-      EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+      EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
 
       auto stopDiscovery = proxy->PopNextCommand().c;
       EXPECT_TRUE(stopDiscovery);
@@ -917,7 +916,7 @@ TEST_F(NegotiatingFixture4, increases_round_appropriately)
    EXPECT_EQ(cmd::NegotiationStop::ID, negotiationStop->GetId());
    EXPECT_EQ(1U, negotiationStop->GetArgsCount());
    EXPECT_STREQ("Charlie Chaplin 1", negotiationStop->GetArgAt(0).data());
-   EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
+   EXPECT_EQ("New state: StatePlaying", logger.GetLastStateLine());
    ctrl->OnCommandResponse(stopId, cmd::ICommand::OK);
    EXPECT_TRUE(proxy->NoCommands());
 }
@@ -978,7 +977,7 @@ TEST_F(NegotiatingFixture2, handles_disconnects_and_disagreements_on_nominees_ma
    EXPECT_EQ(cmd::NegotiationStop::ID, negotiationStop->GetId());
    EXPECT_EQ(1U, negotiationStop->GetArgsCount());
    EXPECT_STREQ("You", negotiationStop->GetArgAt(0).data());
-   EXPECT_EQ("New state: StatePlaying ", logger.GetLastLine());
+   EXPECT_EQ("New state: StatePlaying", logger.GetLastStateLine());
    ctrl->OnCommandResponse(id, cmd::ICommand::OK);
    EXPECT_TRUE(proxy->NoCommands());
 }
@@ -1002,7 +1001,7 @@ TEST_F(NegotiatingFixture3, goes_to_idle_on_game_stopped)
    EXPECT_EQ(0U, resetBt->GetArgsCount());
    ctrl->OnCommandResponse(id, cmd::ICommand::OK);
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
 }
 
 template <size_t PEERS_COUNT, uint32_t ROUND>
@@ -1038,7 +1037,7 @@ protected:
       EXPECT_EQ(cmd::NegotiationStop::ID, negotiationStop->GetId());
       EXPECT_EQ(1U, negotiationStop->GetArgsCount());
       EXPECT_STREQ(nomineeName.c_str(), negotiationStop->GetArgAt(0).data());
-      EXPECT_EQ("New state: StatePlaying ", Base::logger.GetLastLine());
+      EXPECT_EQ("New state: StatePlaying", Base::logger.GetLastStateLine());
       Base::RespondOK(stopId);
       Base::logger.Clear();
       EXPECT_TRUE(Base::proxy->NoCommands());
@@ -1262,7 +1261,7 @@ TEST_F(P2R8, local_generator_responds_to_remote_and_local_requests)
    timer->FastForwardTime(8s);
    EXPECT_TRUE(proxy->NoCommands());
    ctrl->OnEvent(event::MessageReceived::ID, {offer, Peers()[1].mac, ""});
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
 
    auto [negotiationStart, negStartId] = proxy->PopNextCommand();
    ASSERT_TRUE(negotiationStart);
@@ -1436,7 +1435,7 @@ TEST_F(P2R13, remote_generator_is_respected)
 
    // starting negotiation
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
    auto [negotiationStart, negStartId] = proxy->PopNextCommand();
    ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(cmd::NegotiationStart::ID, negotiationStart->GetId());
@@ -1503,7 +1502,7 @@ TEST_F(P2R15, renegotiates_when_generator_doesnt_answer_requests)
 
    // no success => goes to Negotiation
    timer->FastForwardTime(1s);
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
    auto [negotiationStart, negStartId] = proxy->PopNextCommand();
    ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(cmd::NegotiationStart::ID, negotiationStart->GetId());
@@ -1547,7 +1546,7 @@ TEST_F(P2R17, disconnects_peers_that_are_in_error_state_at_the_end)
    EXPECT_EQ(2U, disconnect->GetArgsCount());
    EXPECT_STREQ(Peers()[1].mac.c_str(), disconnect->GetArgAt(1).data());
 
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
    auto [negotiationStart, negStartId] = proxy->PopNextCommand();
    ASSERT_TRUE(negotiationStart);
    EXPECT_EQ(cmd::NegotiationStart::ID, negotiationStart->GetId());
@@ -1592,7 +1591,7 @@ TEST_F(P2R20, resets_and_goes_to_idle_on_game_stop)
    }
 
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
    EXPECT_TRUE(cmd::pool.GetBlockCount() <= prevBlockCount);
    auto [btOn, id] = proxy->PopNextCommand();
    ASSERT_TRUE(btOn);
@@ -1616,7 +1615,7 @@ TEST_F(P2R21, goes_to_idle_from_mid_game_negotiation_if_game_stopped)
    EXPECT_EQ(cmd::NegotiationStart::ID, negotiationStart->GetId());
    RespondOK(negStartId);
 
-   EXPECT_EQ("New state: StateNegotiating ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateNegotiating", logger.GetLastStateLine());
    for (size_t i = 0; i < Peers().size(); ++i) {
       auto [offer, id] = proxy->PopNextCommand();
       ASSERT_TRUE(offer);
@@ -1632,7 +1631,7 @@ TEST_F(P2R21, goes_to_idle_from_mid_game_negotiation_if_game_stopped)
    EXPECT_EQ(0U, resetBt->GetArgsCount());
 
    timer->FastForwardTime();
-   EXPECT_EQ("New state: StateIdle ", logger.GetLastLine());
+   EXPECT_EQ("New state: StateIdle", logger.GetLastStateLine());
 }
 
 // round 23

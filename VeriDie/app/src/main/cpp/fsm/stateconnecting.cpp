@@ -1,18 +1,19 @@
 #include <chrono>
 
 #include "bt/device.hpp"
+#include "core/log.hpp"
 #include "fsm/states.hpp"
 #include "fsm/stateswitcher.hpp"
 #include "dice/serializer.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
-#include "utils/logger.hpp"
 #include "utils/timer.hpp"
 
 using namespace std::chrono_literals;
 
 namespace {
 
+constexpr auto TAG = "FSM";
 constexpr auto APP_UUID = "76445157-4f39-42e9-a62e-877390cbb4bb";
 constexpr auto APP_NAME = "VeriDie";
 constexpr uint32_t MAX_SEND_RETRY_COUNT = 10U;
@@ -29,7 +30,7 @@ namespace fsm {
 StateConnecting::StateConnecting(const Context & ctx)
    : m_ctx(ctx)
 {
-   m_ctx.logger->Write<LogPriority::INFO>("New state:", __func__);
+   Log::Info(TAG, "New state: {}", __func__);
    StartTask(KickOffDiscovery());
    StartTask(KickOffListening());
 }
@@ -72,7 +73,7 @@ void StateConnecting::OnMessageReceived(const bt::Device & sender, const std::st
       m_localMac = std::move(hello.mac);
    }
    catch (const std::exception & e) {
-      m_ctx.logger->Write<LogPriority::ERROR>("StateConnecting", __func__, e.what());
+      Log::Error(TAG, "StateConnecting::{}(): {}", __func__, e.what());
    }
 }
 

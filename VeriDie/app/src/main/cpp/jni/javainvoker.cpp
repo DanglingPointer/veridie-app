@@ -1,9 +1,14 @@
 #include "jni/javainvoker.hpp"
+
+#include "core/log.hpp"
 #include "jni/exec.hpp"
 #include "sign/cmd.hpp"
 #include "sign/commandmanager.hpp"
 
 namespace jni {
+namespace {
+constexpr auto TAG = "JNI";
+}
 
 JavaInvoker::JavaInvoker(JNIEnv & env, jclass localRef, std::string_view methodName)
    : m_env(env)
@@ -11,8 +16,7 @@ JavaInvoker::JavaInvoker(JNIEnv & env, jclass localRef, std::string_view methodN
 {
    m_method = m_env.GetStaticMethodID(m_class, methodName.data(), "(I[Ljava/lang/String;)V");
    if (!m_method) {
-      // Log::Fatal("JavaInvoker could not obtain %s method id", methodName.data()); // TODO
-      std::abort();
+      Log::Fatal(TAG, "JavaInvoker could not obtain {} method id", methodName);
    }
 }
 
@@ -62,7 +66,7 @@ void JavaInvoker::PassCommand(mem::pool_ptr<cmd::ICommand> && cmd, int32_t argId
    m_env.CallStaticVoidMethod(m_class, m_method, argId, argsArray);
 
    if (m_env.ExceptionCheck() == JNI_TRUE) {
-      // Log::Warning("JavaInvoker caught an exception!"); // TODO
+      Log::Warning(TAG, "JavaInvoker caught an exception!");
       m_env.ExceptionDescribe();
       m_env.ExceptionClear();
    }

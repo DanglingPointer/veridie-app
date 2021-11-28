@@ -3,7 +3,6 @@
 
 #include <functional>
 #include "utils/alwayscopyable.hpp"
-#include "utils/coroutine.hpp"
 
 namespace jni {
 class ICmdManager;

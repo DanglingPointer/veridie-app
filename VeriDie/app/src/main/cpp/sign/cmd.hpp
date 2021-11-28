@@ -32,6 +32,23 @@ public:
    virtual std::string_view GetArgAt(size_t index) const = 0;
 };
 
+inline std::string_view ToString(ICommand::ResponseCode code)
+{
+#define CASE(name) case ICommand::name: return #name
+   switch (code) {
+   CASE(OK);
+   CASE(INVALID_STATE);
+   CASE(INTEROP_FAILURE);
+   CASE(BLUETOOTH_OFF);
+   CASE(LISTEN_FAILED);
+   CASE(CONNECTION_NOT_FOUND);
+   CASE(NO_BT_ADAPTER);
+   CASE(USER_DECLINED);
+   CASE(SOCKET_ERROR);
+   }
+#undef CASE
+}
+
 } // namespace cmd
 
 #endif
