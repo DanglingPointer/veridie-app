@@ -16,6 +16,12 @@ void StdLog(FILE * file, char what, const char * tag, const char * text)
    fprintf(file, "%s %c/%s: %s\n", std::data(timeBuf), what, tag, text);
 }
 
+size_t ParsePlaceholder(std::string_view from)
+{
+   static constexpr std::string_view placeholder = "{}";
+   return from.starts_with(placeholder) ? placeholder.size() : 0;
+}
+
 } // namespace
 
 
@@ -105,4 +111,38 @@ void Log::Fatal(const char * tag, const char * text)
    else
       StdLog(stderr, 'F', tag, text);
    std::abort();
+}
+
+size_t Log::WriteBuffer(const ArgBuffer & src, std::span<char> dest)
+{
+   const std::string_view formattedArg = src.View();
+   const size_t lengthToCopy = std::min(formattedArg.size(), dest.size());
+   std::memcpy(dest.data(), formattedArg.data(), lengthToCopy);
+   return lengthToCopy;
+}
+
+std::array<char, Log::MAX_LINE_LENGTH + 1> Log::FormatArgs(std::span<const ArgBuffer> args,
+                                                           std::string_view fmt)
+{
+   std::array<char, MAX_LINE_LENGTH + 1> retBuf;
+   std::span<char> logLine{retBuf.begin(), MAX_LINE_LENGTH};
+
+   size_t srcPos = 0;
+   size_t destPos = 0;
+   size_t nextArgInd = 0;
+
+   while (srcPos < fmt.size() && destPos < logLine.size()) {
+      const size_t placeholderLength = ParsePlaceholder(fmt.substr(srcPos));
+      if (placeholderLength > 0) {
+         if (nextArgInd >= args.size())
+            throw std::out_of_range(__PRETTY_FUNCTION__);
+         const size_t written = WriteBuffer(args[nextArgInd++], logLine.subspan(destPos));
+         srcPos += placeholderLength;
+         destPos += written;
+      } else {
+         logLine[destPos++] = fmt[srcPos++];
+      }
+   }
+   retBuf[destPos] = '\0';
+   return retBuf;
 }

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <charconv>
 #include <concepts>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -33,32 +34,37 @@ struct Log final
    template <typename... Ts> requires internal::NonEmpty<Ts...>
    static void Debug(const char * tag, std::string_view fmt, Ts &&... args)
    {
-      auto formattedArgs = FormatArgs(fmt, std::forward<Ts>(args)...);
-      Debug(tag, std::data(formattedArgs));
+      std::array bufs{ArgBuffer::From(std::forward<Ts>(args))...};
+      auto formatted = FormatArgs(bufs, fmt);
+      Debug(tag, std::data(formatted));
    }
    template <typename... Ts> requires internal::NonEmpty<Ts...>
    static void Info(const char * tag, std::string_view fmt, Ts &&... args)
    {
-      auto formattedArgs = FormatArgs(fmt, std::forward<Ts>(args)...);
-      Info(tag, std::data(formattedArgs));
+      std::array bufs{ArgBuffer::From(std::forward<Ts>(args))...};
+      auto formatted = FormatArgs(bufs, fmt);
+      Info(tag, std::data(formatted));
    }
    template <typename... Ts> requires internal::NonEmpty<Ts...>
    static void Warning(const char * tag, std::string_view fmt, Ts &&... args)
    {
-      auto formattedArgs = FormatArgs(fmt, std::forward<Ts>(args)...);
-      Warning(tag, std::data(formattedArgs));
+      std::array bufs{ArgBuffer::From(std::forward<Ts>(args))...};
+      auto formatted = FormatArgs(bufs, fmt);
+      Warning(tag, std::data(formatted));
    }
    template <typename... Ts> requires internal::NonEmpty<Ts...>
    static void Error(const char * tag, std::string_view fmt, Ts &&... args)
    {
-      auto formattedArgs = FormatArgs(fmt, std::forward<Ts>(args)...);
-      Error(tag, std::data(formattedArgs));
+      std::array bufs{ArgBuffer::From(std::forward<Ts>(args))...};
+      auto formatted = FormatArgs(bufs, fmt);
+      Error(tag, std::data(formatted));
    }
    template <typename... Ts> requires internal::NonEmpty<Ts...>
    [[noreturn]] static void Fatal(const char * tag, std::string_view fmt, Ts &&... args)
    {
-      auto formattedArgs = FormatArgs(fmt, std::forward<Ts>(args)...);
-      Fatal(tag, std::data(formattedArgs));
+      std::array bufs{ArgBuffer::From(std::forward<Ts>(args))...};
+      auto formatted = FormatArgs(bufs, fmt);
+      Fatal(tag, std::data(formatted));
    }
    // clang-format on
 
@@ -85,9 +91,8 @@ private:
       {
          ArgBuffer buffer;
          std::memset(std::data(buffer.m_storage), 0, std::size(buffer.m_storage));
-         auto [last, _] =
+         const auto [last, _] =
             std::to_chars(std::begin(buffer.m_storage), std::end(buffer.m_storage), arg);
-         assert(last <= std::end(buffer.m_storage));
          buffer.m_iface = {std::data(buffer.m_storage),
                            static_cast<size_t>(std::distance(std::begin(buffer.m_storage), last))};
          return buffer;
@@ -103,39 +108,9 @@ private:
       std::string_view m_iface;
    };
 
-   template <typename... Ts>
-   static auto FormatArgs(std::string_view fmt, Ts &&... args)
-   {
-      std::array<char, MAX_LINE_LENGTH + 1> retBuf;
-      std::array<ArgBuffer, sizeof...(args)> argBufs{ArgBuffer::From(std::forward<Ts>(args))...};
-
-      char * dest = std::begin(retBuf);
-      char * const destEnd = std::prev(std::end(retBuf));
-
-      const char * src = std::cbegin(fmt);
-      const char * const srcEnd = std::cend(fmt);
-
-      size_t nextArgInd = 0;
-
-      while (dest != destEnd && src != srcEnd) {
-         const auto srcSpaceLeft = std::distance(src, srcEnd);
-         const auto destSpaceLeft = std::distance(dest, destEnd);
-
-         if (srcSpaceLeft >= 2 && *src == '{' && *std::next(src) == '}') {
-            assert(nextArgInd < argBufs.size());
-            const std::string_view formattedArg = argBufs[nextArgInd++].View();
-            const auto lengthToCopy = std::min<size_t>(destSpaceLeft, formattedArg.size());
-
-            std::memcpy(dest, formattedArg.data(), lengthToCopy);
-            dest += lengthToCopy;
-            src += 2;
-         } else {
-            *dest++ = *src++;
-         }
-      }
-      *dest = '\0';
-      return retBuf;
-   }
+   static std::array<char, MAX_LINE_LENGTH + 1> FormatArgs(std::span<const ArgBuffer> args,
+                                                           std::string_view fmt);
+   static size_t WriteBuffer(const ArgBuffer & src, std::span<char> dest);
 };
 
 #endif
