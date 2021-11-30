@@ -41,7 +41,7 @@ BraceWrapping:
 BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Custom
 BreakBeforeInheritanceComma: true
-BreakBeforeTernaryOperators: false
+BreakBeforeTernaryOperators: true
 BreakConstructorInitializersBeforeComma: true
 BreakAfterJavaFieldAnnotations: true
 BreakStringLiterals: true
