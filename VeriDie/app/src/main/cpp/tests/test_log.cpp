@@ -106,6 +106,16 @@ TEST_F(LogFixture, logging_integral_types)
    EXPECT_STREQ("space is ' ', tilde is '~'", lines.back().text.c_str());
 }
 
+TEST_F(LogFixture, logging_pointer_type)
+{
+   auto * ptr = reinterpret_cast<int *>(0x123);
+   Log::Info("tag", "Pointers like {} are logged in hex", ptr);
+   ASSERT_FALSE(lines.empty());
+   EXPECT_EQ(Level::INFO, lines.back().lvl);
+   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   EXPECT_STREQ("Pointers like 0x123 are logged in hex", lines.back().text.c_str());
+}
+
 TEST_F(LogFixture, logging_string_types)
 {
    // clang-format off
@@ -170,6 +180,43 @@ TEST_F(LogFixture, logging_no_args_texts)
    //   ASSERT_FALSE(lines.empty());
    //   EXPECT_EQ(Level::ERROR, lines.back().lvl);
    //   EXPECT_STREQ("tag", lines.back().tag.c_str());
+}
+
+struct Dimensions
+{
+   int width = 0;
+   int height = 0;
+};
+
+std::span<char> WriteAsText(const Dimensions & dims, std::span<char> dest)
+{
+   return fmt::Format(dest, "{}x{}", dims.width, dims.height);
+}
+
+TEST_F(LogFixture, logging_custom_formattable_type)
+{
+   const Dimensions dims{1920, 1080};
+   Log::Info("tag", "The dimensions are {}p", dims);
+   ASSERT_FALSE(lines.empty());
+   EXPECT_EQ(Level::INFO, lines.back().lvl);
+   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   EXPECT_STREQ("The dimensions are 1920x1080p", lines.back().text.c_str());
+}
+
+TEST_F(LogFixture, logging_too_few_or_too_many_args)
+{
+   Log::Info("tag", "The superfluous {} will be at the end", "argument", 42);
+   ASSERT_FALSE(lines.empty());
+   EXPECT_EQ(Level::INFO, lines.back().lvl);
+   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   EXPECT_STREQ("The superfluous argument will be at the end42", lines.back().text.c_str());
+
+   lines.clear();
+   Log::Info("tag", "Too few {} will not {} an exception", "arguments");
+   ASSERT_FALSE(lines.empty());
+   EXPECT_EQ(Level::INFO, lines.back().lvl);
+   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   EXPECT_STREQ("Too few arguments will not ", lines.back().text.c_str());
 }
 
 } // namespace
