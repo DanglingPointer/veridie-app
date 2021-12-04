@@ -175,11 +175,14 @@ TEST_F(LogFixture, logging_no_args_texts)
    EXPECT_STREQ("tag", lines.back().tag.c_str());
    EXPECT_STREQ("This  will ignore {} because there are no args", lines.back().text.c_str());
 
-   //   lines.clear();
-   //   Log::Error("tag", "This {} most {} probably crash", "will");
-   //   ASSERT_FALSE(lines.empty());
-   //   EXPECT_EQ(Level::ERROR, lines.back().lvl);
-   //   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   lines.clear();
+   std::array<char, 1024> buffer{};
+   fmt::Format(buffer, "This will {} ignore because there are args", "not");
+   Log::Warning("tag", buffer.data());
+   ASSERT_FALSE(lines.empty());
+   EXPECT_EQ(Level::WARNING, lines.back().lvl);
+   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   EXPECT_STREQ("This will not ignore because there are args", lines.back().text.c_str());
 }
 
 struct Dimensions
@@ -217,6 +220,13 @@ TEST_F(LogFixture, logging_too_few_or_too_many_args)
    EXPECT_EQ(Level::INFO, lines.back().lvl);
    EXPECT_STREQ("tag", lines.back().tag.c_str());
    EXPECT_STREQ("Too few arguments will not ", lines.back().text.c_str());
+
+   lines.clear();
+   Log::Error("tag", "This {} never {} crash", std::string("will"));
+   ASSERT_FALSE(lines.empty());
+   EXPECT_EQ(Level::ERROR, lines.back().lvl);
+   EXPECT_STREQ("tag", lines.back().tag.c_str());
+   EXPECT_STREQ("This will never ", lines.back().text.c_str());
 }
 
 } // namespace
