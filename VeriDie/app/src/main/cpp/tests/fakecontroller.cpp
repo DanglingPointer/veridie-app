@@ -92,7 +92,7 @@ private:
 namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> /*engine*/,
-                                              std::unique_ptr<async::Timer> /*timer*/,
+                                              std::unique_ptr<core::Timer> /*timer*/,
                                               std::unique_ptr<dice::ISerializer> /*serializer*/)
 {
    return std::make_unique<EchoController>();

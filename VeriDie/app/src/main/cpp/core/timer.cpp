@@ -1,11 +1,11 @@
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 
 #include <algorithm>
 #include <cassert>
 
 using namespace std::chrono_literals;
 
-namespace async {
+namespace core {
 
 struct Timer::FutureTimeout
 {

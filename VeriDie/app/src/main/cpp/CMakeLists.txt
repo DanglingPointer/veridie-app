@@ -22,6 +22,7 @@ add_library(veridiecore
         core/commandadapter.cpp
         core/controller.cpp
         core/log.cpp
+        core/timer.cpp
         dice/engine.cpp
         dice/serializer.cpp
         fsm/stateconnecting.cpp
@@ -31,7 +32,6 @@ add_library(veridiecore
         sign/commands.cpp
         sign/commandmanager.cpp
         sign/events.cpp
-        utils/timer.cpp
         )
 
 

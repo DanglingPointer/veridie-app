@@ -7,7 +7,7 @@
 #include "dice/serializer.hpp"
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 
 using namespace std::chrono_literals;
 

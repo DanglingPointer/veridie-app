@@ -8,7 +8,7 @@
 
 #include "fsm/context.hpp"
 #include "fsm/statebase.hpp"
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 
 namespace bt {
 struct Device;
@@ -123,7 +123,7 @@ private:
    const std::string m_localMac;
    bool m_localGenerator;
 
-   cr::TaskHandle<async::Timeout> m_ignoreOffers;
+   cr::TaskHandle<core::Timeout> m_ignoreOffers;
    std::unique_ptr<dice::Request> m_pendingRequest;
 
    std::unordered_map<std::string, RemotePeerManager> m_managers;

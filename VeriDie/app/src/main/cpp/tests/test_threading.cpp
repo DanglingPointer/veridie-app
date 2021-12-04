@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "utils/task.hpp"
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 #include "utils/worker.hpp"
 
 #include <atomic>
@@ -10,7 +10,7 @@
 namespace {
 using namespace std::chrono_literals;
 using async::Worker;
-using async::Timer;
+using core::Timer;
 
 TEST(TimerTest, timer_schedules_delayed_task_correctly)
 {

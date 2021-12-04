@@ -8,7 +8,7 @@ namespace dice {
 class IEngine;
 class ISerializer;
 }
-namespace async {
+namespace core {
 class Timer;
 }
 
@@ -26,7 +26,7 @@ struct Context
 {
    dice::IEngine * const generator;
    dice::ISerializer * const serializer;
-   async::Timer * const timer;
+   core::Timer * const timer;
    core::CommandAdapter proxy;
 
    StateHolder * const state;

@@ -5,7 +5,7 @@
 #include "core/log.hpp"
 #include "fsm/states.hpp"
 #include "fsm/stateswitcher.hpp"
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 #include "dice/serializer.hpp"
 #include "dice/engine.hpp"
 #include "sign/commands.hpp"
@@ -60,7 +60,7 @@ class StatePlaying::RemotePeerManager : private cr::TaskOwner<>
 public:
    RemotePeerManager(const bt::Device & remote,
                      core::CommandAdapter & proxy,
-                     async::Timer & timer,
+                     core::Timer & timer,
                      bool isGenerator,
                      std::function<void()> renegotiate)
       : m_remote(remote)
@@ -150,7 +150,7 @@ private:
 
    bt::Device m_remote;
    core::CommandAdapter & m_proxy;
-   async::Timer & m_timer;
+   core::Timer & m_timer;
    std::function<void()> m_renegotiate;
    const bool m_isGenerator;
 

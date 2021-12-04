@@ -12,7 +12,7 @@
 #include "sign/commands.hpp"
 #include "sign/commandpool.hpp"
 #include "sign/events.hpp"
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
 
@@ -185,7 +185,7 @@ protected:
       timer = &m_timer;
       generator = new StubGenerator;
       auto ctrl = core::CreateController(std::unique_ptr<dice::IEngine>(generator),
-                                         std::make_unique<async::Timer>(std::ref(m_timer)),
+                                         std::make_unique<core::Timer>(std::ref(m_timer)),
                                          dice::CreateXmlSerializer());
       ctrl->Start(m_proxy.GetUiInvoker(), m_proxy.GetBtInvoker());
       return ctrl;

@@ -4,7 +4,7 @@
 
 #include "core/controller.hpp"
 #include "core/log.hpp"
-#include "utils/timer.hpp"
+#include "core/timer.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
 #include "sign/commandmanager.hpp"
@@ -25,7 +25,7 @@ class Controller : public core::IController
 {
 public:
    Controller(std::unique_ptr<dice::IEngine> engine,
-              std::unique_ptr<async::Timer> timer,
+              std::unique_ptr<core::Timer> timer,
               std::unique_ptr<dice::ISerializer> serializer)
       : m_cmdManager(nullptr)
       , m_generator(std::move(engine))
@@ -80,7 +80,7 @@ private:
 
    std::unique_ptr<cmd::Manager> m_cmdManager;
    std::unique_ptr<dice::IEngine> m_generator;
-   std::unique_ptr<async::Timer> m_timer;
+   std::unique_ptr<core::Timer> m_timer;
    std::unique_ptr<dice::ISerializer> m_serializer;
 
    EventHandlerMap m_eventHandlers;
@@ -92,7 +92,7 @@ private:
 namespace core {
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
-                                              std::unique_ptr<async::Timer> timer,
+                                              std::unique_ptr<core::Timer> timer,
                                               std::unique_ptr<dice::ISerializer> serializer)
 {
    return std::make_unique<Controller>(std::move(engine), std::move(timer), std::move(serializer));

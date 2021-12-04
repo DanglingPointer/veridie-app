@@ -1,9 +1,9 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "core/log.hpp"
+#include "core/timer.hpp"
 #include "dice/engine.hpp"
 #include "dice/serializer.hpp"
-#include "utils/timer.hpp"
 #include "utils/worker.hpp"
 
 #include <cassert>
@@ -30,7 +30,7 @@ void ScheduleOnMainWorker(std::function<void()> && task, std::chrono::millisecon
 IController & GetController()
 {
    static auto s_ctrl = core::CreateController(dice::CreateUniformEngine(),
-                                               std::make_unique<async::Timer>(ScheduleOnMainWorker),
+                                               std::make_unique<core::Timer>(ScheduleOnMainWorker),
                                                dice::CreateXmlSerializer());
    return *s_ctrl;
 }

@@ -11,15 +11,12 @@ class IEngine;
 class ISerializer;
 } // namespace dice
 
-namespace async {
-class Timer;
-}
-
 namespace cmd {
 class IExternalInvoker;
 }
 
 namespace core {
+class Timer;
 
 class IController
 {
@@ -32,7 +29,7 @@ public:
 };
 
 std::unique_ptr<IController> CreateController(std::unique_ptr<dice::IEngine> engine,
-                                              std::unique_ptr<async::Timer> timer,
+                                              std::unique_ptr<core::Timer> timer,
                                               std::unique_ptr<dice::ISerializer> serializer);
 
 } // namespace core

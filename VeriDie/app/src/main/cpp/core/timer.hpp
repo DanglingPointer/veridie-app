@@ -6,7 +6,7 @@
 #include <chrono>
 #include <functional>
 
-namespace async {
+namespace core {
 
 struct Timeout
 {};
