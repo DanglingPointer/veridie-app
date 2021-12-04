@@ -32,6 +32,7 @@ add_library(veridiecore
         sign/commands.cpp
         sign/commandmanager.cpp
         sign/events.cpp
+        utils/format.cpp
         )
 
 
@@ -57,6 +58,7 @@ add_library(jni_only_veridie
         jni/exec.cpp
         jni/javainvoker.cpp
         sign/commandmanager.cpp
+        utils/format.cpp
         utils/worker.cpp
         )
 target_link_libraries(jni_only_veridie
