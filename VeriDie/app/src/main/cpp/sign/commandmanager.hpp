@@ -1,6 +1,7 @@
 #ifndef SIGN_COMMANDMANAGER_HPP
 #define SIGN_COMMANDMANAGER_HPP
 
+#include "sign/cmd.hpp"
 #include "utils/coroutine.hpp"
 #include "utils/poolptr.hpp"
 
@@ -48,7 +49,11 @@ private:
    const std::unique_ptr<IExternalInvoker> m_uiInvoker;
    const std::unique_ptr<IExternalInvoker> m_btInvoker;
 
-   struct CommandData;
+   struct CommandData
+   {
+      stdcr::coroutine_handle<> callback = nullptr;
+      int64_t response = ICommand::INTEROP_FAILURE;
+   };
    std::unordered_map<int32_t, CommandData> m_pendingCmds;
 };
 

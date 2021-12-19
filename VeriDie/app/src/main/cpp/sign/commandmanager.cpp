@@ -1,7 +1,5 @@
 #include "sign/commandmanager.hpp"
-
 #include "core/log.hpp"
-#include "sign/cmd.hpp"
 
 #undef NDEBUG
 #include <cassert>
@@ -12,11 +10,6 @@ constexpr int32_t INVALID_CMD_ID = 0;
 constexpr auto TAG = "Command";
 } // namespace
 
-struct Manager::CommandData
-{
-   stdcr::coroutine_handle<> callback = nullptr;
-   int64_t response = ICommand::INTEROP_FAILURE;
-};
 
 Manager::FutureResponse::FutureResponse(Manager & mgr, int32_t id) noexcept
    : m_mgr(mgr)
