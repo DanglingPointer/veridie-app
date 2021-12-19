@@ -47,6 +47,7 @@ inline std::string_view ToString(ICommand::ResponseCode code)
    CASE(SOCKET_ERROR);
    }
 #undef CASE
+   return "Unknown";
 }
 
 } // namespace cmd
