@@ -2,6 +2,7 @@
 #define SIGN_COMMANDMANAGER_HPP
 
 #include "sign/cmd.hpp"
+#include "sign/externalinvoker.hpp"
 #include "utils/coroutine.hpp"
 #include "utils/poolptr.hpp"
 
@@ -11,13 +12,6 @@
 
 namespace cmd {
 class ICommand;
-
-class IExternalInvoker
-{
-public:
-   virtual ~IExternalInvoker() = default;
-   virtual bool Invoke(mem::pool_ptr<ICommand> && data, int32_t id) = 0;
-};
 
 class Manager
 {

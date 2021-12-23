@@ -3,7 +3,7 @@
 #include "core/log.hpp"
 #include "jni/exec.hpp"
 #include "sign/cmd.hpp"
-#include "sign/commandmanager.hpp"
+#include "sign/externalinvoker.hpp"
 
 namespace jni {
 namespace {

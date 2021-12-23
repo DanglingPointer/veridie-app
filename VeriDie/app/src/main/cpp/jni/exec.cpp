@@ -9,7 +9,7 @@
 #include "core/exec.hpp"
 #include "core/controller.hpp"
 #include "core/log.hpp"
-#include "sign/commandmanager.hpp"
+#include "sign/externalinvoker.hpp"
 #include "utils/task.hpp"
 #include "utils/worker.hpp"
 #include "bt/device.hpp"
