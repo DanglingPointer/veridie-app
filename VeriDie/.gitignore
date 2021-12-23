@@ -77,7 +77,7 @@ captures/
 **/.idea/**/libraries
 
 # CMake
-cmake-build-debug/
+**/cmake-build-*
 **/.cxx/
 
 # Mongo Explorer plugin:
