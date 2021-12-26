@@ -1,0 +1,3 @@
+[submodule "VeriDie/app/src/main/native"]
+	path = VeriDie/app/src/main/native
+	url = git@github.com:DanglingPointer/veridie-native.git
